@@ -127,6 +127,30 @@ class MockDataService:
                 }
             })
         
+        # 创建test_user_001用户（用于认证测试）
+        if "test_user_001" not in self.users:
+            self.create_user({
+                "id": "test_user_001",
+                "phone": "13800138000",
+                "nickName": "测试11用户",
+                "avatarUrl": "https://picsum.photos/200/200?random=100",
+                "gender": 1,
+                "age": 30,
+                "occupation": "软件工程师",
+                "location": ["上海市", "上海市", "徐汇区"],
+                "bio": "这是一个测试账号，用于开发和测试微信小程序",
+                "education": "本科",
+                "interests": ["编程", "测试", "开发"],
+                "joinDate": 1628553600,
+                "email": "test@example.com",
+                "matchType": "dating",
+                "userRole": "user",
+                "preferences": {
+                    "ageRange": [25, 35],
+                    "distance": 20
+                }
+            })
+        
         # 如果没有房源卡片，创建一些默认的
         housing_cards = [card for card in self.cards.values() if card.get("matchType") == "housing"]
         if not housing_cards:
@@ -205,11 +229,21 @@ class MockDataService:
     
     def update_profile(self, user_id: str, profile_data: dict[str, Any]) -> Optional[dict[str, Any]]:
         """更新用户资料"""
+        print(f"DEBUG: MockDataService.update_profile called")
+        print(f"DEBUG: user_id={user_id}, profile_data={profile_data}")
+        
         user = self.get_user_by_id(user_id)
         if not user:
+            print(f"DEBUG: User {user_id} not found")
             return None  # Return None to indicate user not found
         
+        print(f"DEBUG: Before update: avatarUrl={user.get('avatarUrl', 'NOT_FOUND')}")
+        
+        # 更新字段
         user.update(profile_data)
+        
+        print(f"DEBUG: After update: avatarUrl={user.get('avatarUrl', 'NOT_FOUND')}")
+        print(f"DEBUG: Updated user data: {user}")
         
         # 将更新后的用户数据保存到本地文件
         self._save_user_data_to_file()

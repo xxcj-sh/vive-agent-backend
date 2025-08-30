@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
-from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field
 from app.utils.db_config import get_db
 from app.services import db_service
 from app.services.data_adapter import data_service
@@ -19,6 +19,43 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+def ensure_full_url(url: str, base_url: str = None) -> str:
+    """确保图片URL包含完整的HTTP前缀"""
+    if not url:
+        return url
+    
+    # 如果已经是完整的URL，直接返回
+    if url.startswith(('http://', 'https://')):
+        return url
+    
+    # 获取基础URL
+    if not base_url:
+        # 从环境变量获取，或使用默认值
+        import os
+        host = os.getenv('SERVER_HOST', '192.168.71.103')
+        port = os.getenv('SERVER_PORT', '8000')
+        base_url = f"http://{host}:{port}"
+    
+    # 确保URL以/开头
+    if not url.startswith('/'):
+        url = '/' + url
+    
+    return base_url + url
+
+def process_user_image_urls(user_data: Dict[str, Any]) -> Dict[str, Any]:
+    """处理用户数据中的图片URL，确保包含完整前缀"""
+    if not user_data:
+        return user_data
+    
+    # 需要处理的图片字段
+    image_fields = ['avatarUrl', 'avatar_url']
+    
+    for field in image_fields:
+        if field in user_data and user_data[field]:
+            user_data[field] = ensure_full_url(user_data[field])
+    
+    return user_data
+
 # 用户模型
 class UserBase(BaseModel):
     username: str
@@ -33,19 +70,34 @@ class UserUpdate(BaseModel):
     is_active: bool = None
 
 class ProfileUpdate(BaseModel):
-    nickName: str = None
-    avatarUrl: str = None
-    gender: int = None
-    age: int = None
-    occupation: str = None
-    location: list = None
-    bio: str = None
-    matchType: str = None
-    userRole: str = None
-    interests: list = None
-    preferences: dict = None
-    phone: str = None
-    education: str = None
+    # 支持驼峰命名
+    nickName: Optional[str] = None
+    avatarUrl: Optional[str] = None
+    matchType: Optional[str] = None
+    userRole: Optional[str] = None
+    
+    # 支持下划线命名（前端可能使用的格式）
+    nick_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    match_type: Optional[str] = None
+    user_role: Optional[str] = None
+    
+    # 其他字段
+    gender: Optional[int] = None
+    age: Optional[int] = None
+    occupation: Optional[str] = None
+    location: Optional[Any] = None  # 支持字符串或数组格式
+    bio: Optional[str] = None
+    interests: Optional[List[str]] = None  # 明确指定为字符串列表
+    preferences: Optional[Dict[str, Any]] = None
+    phone: Optional[str] = None
+    education: Optional[str] = None
+    
+    class Config:
+        # 允许额外字段，提高兼容性
+        extra = "ignore"
+        # 允许任意类型
+        arbitrary_types_allowed = True
 
 class User(UserBase):
     id: str
@@ -77,23 +129,73 @@ def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 
 @router.get("/me")
 def get_current_user_info(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """获取当前用户信息"""
-    return current_user
+    """获取当前用户基础信息"""
+    # 从数据服务获取最新的用户数据，而不是使用缓存的认证数据
+    user_id = current_user.get("id")
+    if user_id:
+        # 重新从数据服务获取最新用户数据
+        latest_user_data = data_service.get_user_by_id(user_id)
+        if latest_user_data:
+            # 处理图片URL，确保包含完整前缀
+            return process_user_image_urls(latest_user_data)
+    
+    # 如果获取失败，返回认证数据作为备选
+    return process_user_image_urls(current_user)
 
 @router.put("/me")
 def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any] = Depends(get_current_user)):
-    """更新当前用户信息"""
+    """更新当前用户基础信息"""
     user_id = current_user.get("id")
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
     
     # 转换为字典，排除未设置的字段
     update_dict = profile_data.dict(exclude_unset=True)
+    # 验证更新数据不为空
+    if not update_dict:
+        raise HTTPException(status_code=422, detail="No valid fields provided for update")
     
-    updated_user = data_service.update_profile(user_id, update_dict)
-    if not updated_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return updated_user
+    # 数据预处理
+    try:
+        # 字段名统一处理：将下划线命名转换为驼峰命名
+        field_mapping = {
+            'nick_name': 'nickName',
+            'avatar_url': 'avatarUrl', 
+            'match_type': 'matchType',
+            'user_role': 'userRole'
+        }
+        
+        # 应用字段映射
+        for old_field, new_field in field_mapping.items():
+            if old_field in update_dict:
+                # 如果同时存在两种命名，优先使用下划线命名的值
+                update_dict[new_field] = update_dict.pop(old_field)
+        
+        # 处理location字段：如果是字符串，转换为数组
+        if "location" in update_dict and isinstance(update_dict["location"], str):
+            location_str = update_dict["location"]
+            # 按空格分割，过滤空字符串
+            location_parts = [part.strip() for part in location_str.split() if part.strip()]
+            update_dict["location"] = location_parts
+        
+        # 更新用户基础资料
+        updated_user = data_service.update_profile(user_id, update_dict)
+        if not updated_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 处理图片URL，确保包含完整前缀
+        processed_user = process_user_image_urls(updated_user)
+        return processed_user
+        
+    except ValueError as ve:
+        print(f"ERROR: Validation error: {str(ve)}")
+        raise HTTPException(status_code=422, detail=f"Validation error: {str(ve)}")
+    except Exception as e:
+        print(f"ERROR: Failed to update user profile: {str(e)}")
+        print(f"ERROR: Exception type: {type(e).__name__}")
+        import traceback
+        print(f"ERROR: Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=422, detail=f"Failed to update profile: {str(e)}")
 
 @router.get("/me/stats")
 def get_current_user_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
@@ -118,7 +220,14 @@ def get_current_user_profiles(
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
     
-    return UserProfileService.get_user_all_profiles_response(db, user_id)
+    # 获取角色资料
+    profiles_response = UserProfileService.get_user_all_profiles_response(db, user_id)
+    
+    # 添加用户基础资料信息
+    profiles_response_dict = profiles_response.dict() if hasattr(profiles_response, 'dict') else profiles_response.__dict__
+    profiles_response_dict["user_basic_info"] = current_user
+    
+    return profiles_response_dict
 
 @router.get("/me/profiles/{scene_type}")
 def get_current_user_profiles_by_scene(
@@ -277,7 +386,7 @@ def get_user_profile_by_role(
         if profile_by_id:
             # 获取完整的用户资料信息
             full_profile = UserProfileService.get_user_profile_by_role(
-                db, profile_by_id.user_id, profile_by_id.scene_type, profile_by_id.role_type
+                db, str(profile_by_id.user_id), str(profile_by_id.scene_type), str(profile_by_id.role_type)
             )
             if full_profile:
                 # 返回找到的profile，说明实际的类型

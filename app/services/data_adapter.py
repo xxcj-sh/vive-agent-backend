@@ -16,7 +16,7 @@ class DataService:
         """初始化数据服务"""
         self.env = os.getenv("ENVIRONMENT", "development")
         # 在开发环境中也使用mock服务，除非明确设置为生产环境
-        self.use_mock = self.env in ["testing", "development"]
+        self.use_mock = self.env in ["testing"]
         
         # 使用全局模拟数据服务实例
         self.mock_service = mock_data_service
@@ -122,12 +122,16 @@ class DataService:
             return self.mock_service.update_profile(user_id, profile_data)
         else:
             try:
+                print(f"DEBUG: DataAdapter.update_profile called with user_id={user_id}, data={profile_data}")
+                
                 user = self._with_db(update_user, user_id, profile_data)
                 if user:
                     # 将数据库字段映射回前端字段
                     user_dict = user.__dict__.copy()
                     # 移除SQLAlchemy内部字段
                     user_dict.pop('_sa_instance_state', None)
+                    
+                    print(f"DEBUG: Raw user dict from DB: {user_dict}")
                     
                     # 字段映射：数据库字段名 -> 前端字段名
                     reverse_mapping = {
@@ -144,10 +148,13 @@ class DataService:
                         frontend_field = reverse_mapping.get(db_field, db_field)
                         mapped_dict[frontend_field] = value
                     
+                    print(f"DEBUG: Mapped result: {mapped_dict}")
                     return mapped_dict
                 return None
             except Exception as e:
-                print(f"更新用户资料时出错：{e}")
+                print(f"ERROR: 更新用户资料时出错：{e}")
+                import traceback
+                print(f"ERROR: Traceback: {traceback.format_exc()}")
                 return None
     
     # 卡片和匹配相关方法

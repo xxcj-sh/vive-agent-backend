@@ -22,10 +22,6 @@
 - `DELETE /users/me/profiles/{profile_id}` - 删除用户角色资料
 - `PATCH /users/me/profiles/{profile_id}/toggle` - 切换资料激活状态
 
-### 个人资料 (Profiles)
-- `GET /profiles/me` - 获取个人资料
-- `PUT /profiles/me` - 更新个人资料
-
 ### 匹配管理 (Matches)
 - `GET /matches/cards` - 获取匹配卡片
 - `POST /matches/actions` - 提交匹配操作

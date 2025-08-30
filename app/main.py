@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import user, match, profile, auth, membership, membership_orders, scenes, file, properties
+from app.routers import user, match, auth, membership, membership_orders, scenes, file, properties
 from app.routers.profile_by_id import router as profile_by_id_router
 from app.utils.db_init import init_db
 from app.config import settings
@@ -35,7 +35,7 @@ app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(user.router, prefix="/api/v1")
 app.include_router(match.router, prefix="/api/v1")
-app.include_router(profile.router, prefix="/api/v1")
+
 app.include_router(membership.router, prefix="/api/v1")
 app.include_router(membership_orders.router, prefix="/api/v1")
 app.include_router(scenes.router, prefix="/api/v1")

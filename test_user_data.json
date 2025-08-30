@@ -62,7 +62,11 @@
     "gender": 1,
     "age": 30,
     "occupation": "软件工程师",
-    "location": "上海市 上海市 徐汇区",
+    "location": [
+      "上海市",
+      "上海市",
+      "徐汇区"
+    ],
     "bio": "这是一个测试账号，用于开发和测试微信小程序",
     "education": "本科",
     "interests": [
