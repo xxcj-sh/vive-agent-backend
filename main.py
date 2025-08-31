@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import membership_orders
+from app.routers import membership_orders, match
 from app.database import engine
 from app.models.order import Base
 
@@ -14,6 +14,7 @@ app = FastAPI(
 
 # 注册路由
 app.include_router(membership_orders.router)
+app.include_router(match.router, prefix="/api/v1/matches", tags=["matches"])
 
 @app.get("/")
 async def root():

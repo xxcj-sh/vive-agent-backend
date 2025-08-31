@@ -35,14 +35,14 @@ app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(scenes.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
-app.include_router(match.router, prefix="/api/v1")
+app.include_router(match.router, prefix="/api/v1/matches")
 app.include_router(chat.router, prefix="/api/v1")
 
 app.include_router(membership.router, prefix="/api/v1")
 app.include_router(membership_orders.router, prefix="/api/v1")
 app.include_router(file.router, prefix="/api/v1/files")
 app.include_router(properties.router, prefix="/api/v1")
-app.include_router(profile_by_id_router, prefix="/api/v1")
+app.include_router(router=profile_by_id_router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
@@ -64,4 +64,4 @@ def api_info():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)ort=8000)
