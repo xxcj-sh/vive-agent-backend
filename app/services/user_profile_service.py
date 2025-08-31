@@ -125,7 +125,7 @@ class UserProfileService:
         
         if not db_profile:
             return None
-        
+        print("DEBUG update_data", update_data)
         update_dict = update_data.dict(exclude_unset=True)
         for field, value in update_dict.items():
             setattr(db_profile, field, value)

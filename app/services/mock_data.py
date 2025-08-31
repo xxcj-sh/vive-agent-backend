@@ -205,13 +205,10 @@ class MockDataService:
         }
         print(f"DEBUG: Creating user with ID: {user_id}")
         self.users[user_id] = user
-        print(f"DEBUG: Users after creation: {list(self.users.keys())}")
         return user
     
     def get_user_by_id(self, user_id: str) -> Optional[dict[str, Any]]:
         """根据ID获取用户"""
-        print(f"DEBUG: Looking for user_id: {user_id}")
-        print(f"DEBUG: Available users: {list(self.users.keys())}")
         result = self.users.get(user_id)
         print(f"DEBUG: Found user: {result is not None}")
         return result
