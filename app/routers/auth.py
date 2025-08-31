@@ -58,7 +58,7 @@ async def login(
             data={
                 "token": login_result["token"],
                 "expiresIn": login_result["expiresIn"],
-                "isNewUser": login_result.get("isNewUser", False),
+                "isNewUser": login_result.get("isNewUser", True),
                 "userInfo": login_result["userInfo"]
             }
         )
@@ -93,7 +93,7 @@ async def login_by_phone(
             data={
                 "token": login_result["token"],
                 "expiresIn": login_result["expiresIn"],
-                "isNewUser": login_result.get("isNewUser", False),
+                "isNewUser": login_result.get("isNewUser", True),
                 "userInfo": login_result["userInfo"]
             }
         )

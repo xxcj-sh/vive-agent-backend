@@ -274,10 +274,13 @@ def get_current_user_profile_by_role(
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
     
+    # 处理图片URL，确保包含完整前缀
+    processed_profile = process_user_image_urls(profile)
+    
     return {
         "code": 0,
         "message": "success",
-        "data": profile
+        "data": processed_profile
     }
 
 @router.post("/me/profiles", response_model=UserProfileSchema)

@@ -258,7 +258,7 @@ class AuthService:
                 create_user, get_user_by_phone, get_user = get_db_services()
                 db_user = get_user_by_phone(db, phone)
                 if db_user:
-                    is_new_user = False
+                    is_new_user = False if len(db_user.profiles) > 0 else True
                     user_dict = {
                         "id": db_user.id,
                         "phone": db_user.phone,

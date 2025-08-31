@@ -72,15 +72,13 @@ class UserProfileService:
         # 获取基础用户信息
         user = db.query(User).filter(User.id == user_id).first()
         
-        # 合并资料数据和基础用户信息
+        # 构建基础profile信息
         result = {
             "id": profile.id,
             "user_id": profile.user_id,
             "role_type": profile.role_type,
             "scene_type": profile.scene_type,
             "display_name": profile.display_name,
-            "avatar_url": profile.avatar_url,
-            "bio": profile.bio,
             "profile_data": profile.profile_data or {},
             "preferences": profile.preferences or {},
             "tags": profile.tags or [],
@@ -89,6 +87,18 @@ class UserProfileService:
             "created_at": profile.created_at,
             "updated_at": profile.updated_at,
         }
+        
+        # 处理avatar_url：优先使用profile的，如果为空则使用用户基础信息的
+        avatar_url = profile.avatar_url
+        if not avatar_url and user:
+            avatar_url = user.avatar_url or ""
+        result["avatar_url"] = avatar_url
+        
+        # 处理bio：优先使用profile的，如果为空则使用用户基础信息的
+        bio = profile.bio
+        if not bio and user:
+            bio = user.bio or ""
+        result["bio"] = bio
         
         # 添加基础用户信息
         if user:
@@ -103,7 +113,7 @@ class UserProfileService:
                 "phone": user.phone,
                 "education": user.education,
                 "interests": user.interests or [],
-                "user_bio": user.bio,  # 用户基础简介，区别于角色简介
+
             })
         
         return result
