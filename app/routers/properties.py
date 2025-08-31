@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Path, HTTPException
 from app.models.schemas import BaseResponse
 from app.services.auth import auth_service
-from app.services.mock_data import mock_data_service
+# 移除mock_data依赖
 from typing import Dict, Any
 
 router = APIRouter()
@@ -13,11 +13,28 @@ async def get_property_detail(
 ):
     """获取房源/卡片详情"""
     
-    # 从mock数据中查找卡片
-    card = mock_data_service.cards.get(card_id)
-    if not card:
-        # 检查用户卡片
-        card = mock_data_service.users.get(card_id)
+    # 直接从数据库查找用户信息
+    try:
+        from app.utils.db_config import SessionLocal
+        from app.services.db_service import get_user_by_id
+        
+        db = SessionLocal()
+        try:
+            user = get_user_by_id(db, card_id)
+            if user:
+                card = {
+                    "id": user.id,
+                    "nickName": user.nick_name,
+                    "avatarUrl": user.avatar_url,
+                    "gender": user.gender or 0,
+                    "phone": user.phone
+                }
+            else:
+                card = None
+        finally:
+            db.close()
+    except Exception:
+        card = None
     
     if not card:
         return BaseResponse(

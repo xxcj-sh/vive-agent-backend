@@ -130,6 +130,8 @@ def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 @router.get("/me")
 def get_current_user_info(current_user: Dict[str, Any] = Depends(get_current_user)):
     """获取当前用户基础信息"""
+    from app.models.schemas import BaseResponse
+    
     # 从数据服务获取最新的用户数据，而不是使用缓存的认证数据
     user_id = current_user.get("id")
     if user_id:
@@ -137,10 +139,15 @@ def get_current_user_info(current_user: Dict[str, Any] = Depends(get_current_use
         latest_user_data = data_service.get_user_by_id(user_id)
         if latest_user_data:
             # 处理图片URL，确保包含完整前缀
-            return process_user_image_urls(latest_user_data)
+            processed_data = process_user_image_urls(latest_user_data)
+            # 添加createdAt字段
+            if 'created_at' in processed_data:
+                processed_data['createdAt'] = processed_data['created_at']
+            return BaseResponse(code=0, message="success", data=processed_data)
     
     # 如果获取失败，返回认证数据作为备选
-    return process_user_image_urls(current_user)
+    processed_data = process_user_image_urls(current_user)
+    return BaseResponse(code=0, message="success", data=processed_data)
 
 @router.put("/me")
 def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any] = Depends(get_current_user)):
@@ -185,7 +192,8 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
         
         # 处理图片URL，确保包含完整前缀
         processed_user = process_user_image_urls(updated_user)
-        return processed_user
+        from app.models.schemas import BaseResponse
+        return BaseResponse(code=0, message="success", data=processed_user)
         
     except ValueError as ve:
         print(f"ERROR: Validation error: {str(ve)}")
@@ -407,12 +415,24 @@ def get_user_profile_by_role(
         "data": profile
     }
 
-@router.get("/{user_id}", response_model=User)
+@router.get("/{user_id}")
 def read_user(user_id: str, db: Session = Depends(get_db)):
+    from app.models.schemas import BaseResponse
     db_user = db_service.get_user(db, user_id=user_id)
     if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+        return BaseResponse(code=404, message="User not found", data={})
+    
+    return BaseResponse(
+        code=0,
+        message="success",
+        data={
+            "id": db_user.id,
+            "nickname": db_user.nick_name,
+            "avatarUrl": db_user.avatar_url,
+            "gender": db_user.gender or 0,
+            "phone": getattr(db_user, 'phone', None)
+        }
+    )
 
 @router.put("/{user_id}", response_model=User)
 def update_user(user_id: str, user: UserUpdate, db: Session = Depends(get_db)):

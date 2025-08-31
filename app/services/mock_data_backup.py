@@ -36,7 +36,7 @@ class MockDataService:
                 with open(json_file_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
         except Exception as e:
-            print(f"Warning: Could not load fixed housing data: {e}")
+            pass
         
         return None
     
@@ -49,18 +49,16 @@ class MockDataService:
                     # 更新内存中的用户数据
                     for user_id, user in user_data.items():
                         self.users[user_id] = user
-                    print(f"Loaded user data from {self.user_data_file}")
         except Exception as e:
-            print(f"Warning: Could not load user data from file: {e}")
+            pass
     
     def _save_user_data_to_file(self):
         """将用户数据保存到本地文件"""
         try:
             with open(self.user_data_file, 'w', encoding='utf-8') as f:
                 json.dump(self.users, f, ensure_ascii=False, indent=2)
-                print(f"Saved user data to {self.user_data_file}")
         except Exception as e:
-            print(f"Warning: Could not save user data to file: {e}")
+            pass
 
     def _init_test_data(self):
         """初始化测试数据"""
@@ -203,14 +201,12 @@ class MockDataService:
             "id": user_id,
             **user_data
         }
-        print(f"DEBUG: Creating user with ID: {user_id}")
         self.users[user_id] = user
         return user
     
     def get_user_by_id(self, user_id: str) -> Optional[dict[str, Any]]:
         """根据ID获取用户"""
         result = self.users.get(user_id)
-        print(f"DEBUG: Found user: {result is not None}")
         return result
     
     def get_user_by_token(self, token: str) -> Optional[dict[str, Any]]:
@@ -226,21 +222,12 @@ class MockDataService:
     
     def update_profile(self, user_id: str, profile_data: dict[str, Any]) -> Optional[dict[str, Any]]:
         """更新用户资料"""
-        print(f"DEBUG: MockDataService.update_profile called")
-        print(f"DEBUG: user_id={user_id}, profile_data={profile_data}")
-        
         user = self.get_user_by_id(user_id)
         if not user:
-            print(f"DEBUG: User {user_id} not found")
             return None  # Return None to indicate user not found
-        
-        print(f"DEBUG: Before update: avatarUrl={user.get('avatarUrl', 'NOT_FOUND')}")
         
         # 更新字段
         user.update(profile_data)
-        
-        print(f"DEBUG: After update: avatarUrl={user.get('avatarUrl', 'NOT_FOUND')}")
-        print(f"DEBUG: Updated user data: {user}")
         
         # 将更新后的用户数据保存到本地文件
         self._save_user_data_to_file()

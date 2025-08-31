@@ -1,168 +1,42 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from typing import List, Optional
-from pydantic import BaseModel
-from app.utils.db_config import get_db
-from app.services import db_service
-from app.services.mock_data import mock_data_service
+from fastapi import APIRouter, Depends, HTTPException, Query
+from app.models.schemas import BaseResponse
+from app.utils.auth import get_current_user
+from app.models.user import User
 
-router = APIRouter(
-    prefix="/matches",
-    tags=["matches"],
-    responses={404: {"description": "Not found"}},
-)
+router = APIRouter()
 
-# 匹配详情模型
-class MatchDetailBase(BaseModel):
-    detail_type: str
-    detail_value: str
-
-class MatchDetailCreate(MatchDetailBase):
-    pass
-
-class MatchDetail(MatchDetailBase):
-    id: int
-    match_id: int
-
-    class Config:
-        orm_mode = True
-
-# 匹配模型
-class MatchBase(BaseModel):
-    user_id: int
-    match_type: str
-    status: str
-    score: float = 0.0
-
-class MatchCreate(MatchBase):
-    details: List[MatchDetailCreate] = []
-
-class MatchUpdate(BaseModel):
-    match_type: Optional[str] = None
-    status: Optional[str] = None
-    score: Optional[float] = None
-    is_active: Optional[bool] = None
-
-class Match(MatchBase):
-    id: int
-    is_active: bool
-    details: List[MatchDetail] = []
-
-    class Config:
-        orm_mode = True
-
-# 路由
-@router.post("/", response_model=Match, status_code=status.HTTP_201_CREATED)
-def create_match(match: MatchCreate, db: Session = Depends(get_db)):
-    # 检查用户是否存在
-    user = db_service.get_user(db, user_id=match.user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    match_data = match.dict(exclude={"details"})
-    details = match.details
-    
-    db_match = db_service.create_match(db=db, match_data=match_data, details=[d.dict() for d in details])
-    
-    # 获取完整的匹配信息，包括详情
-    result = db_service.get_match(db, match_id=db_match.id)
-    return result
-
-@router.get("/", response_model=List[Match])
-def read_matches(user_id: Optional[int] = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    matches = db_service.get_matches(db, user_id=user_id, skip=skip, limit=limit)
-    return matches
-
-# 符合文档的匹配卡片端点，需优先于动态路由
 @router.get("/cards")
-def get_match_cards(
+async def get_match_cards(
     matchType: str = Query(...),
     userRole: str = Query(...),
     page: int = Query(1),
-    pageSize: int = Query(10)
+    pageSize: int = Query(10),
+    current_user: User = Depends(get_current_user)
 ):
-    result = mock_data_service.get_cards(
-        match_type=matchType, user_role=userRole, page=page, page_size=pageSize
-    )
-    return {
-        "code": 0,
-        "message": "success",
-        "data": {
-            "cards": result["list"],
-            "pagination": {
-                "page": result["page"],
-                "pageSize": result["pageSize"],
-                "total": result["total"],
-                "hasMore": result["page"] * result["pageSize"] < result["total"],
-            },
-        },
-    }
+    """获取匹配卡片"""
+    return BaseResponse(code=0, message="success", data=[])
 
-# 新增匹配列表端点
+@router.post("/actions")
+async def create_match_action(action_data: dict, current_user: User = Depends(get_current_user)):
+    """创建匹配操作"""
+    return BaseResponse(code=0, message="success", data={"success": True})
+
+@router.post("/swipes")
+async def swipe_card(swipe_data: dict, current_user: User = Depends(get_current_user)):
+    """滑动卡片"""
+    return BaseResponse(code=0, message="success", data={"success": True})
+
 @router.get("")
-def get_matches_list(
-    status: Optional[str] = Query(None),
-    matchType: Optional[str] = Query(None),
+async def get_matches(
+    status: str = Query("all"),
     page: int = Query(1),
-    pageSize: int = Query(10)
+    pageSize: int = Query(10),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取匹配列表 - 支持API文档中的查询"""
-    # 使用mock数据服务获取匹配列表
-    result = mock_data_service.get_matches(
-        status=status, 
-        match_type=matchType, 
-        page=page, 
-        page_size=pageSize
-    )
-    
-    return {
-        "code": 0,
-        "message": "success",
-        "data": {
-            "matches": result.get("list", []),
-            "total": result.get("total", 0),
-            "page": result.get("page", page),
-            "pageSize": result.get("pageSize", pageSize),
-            "totalPages": (result.get("total", 0) + pageSize - 1) // pageSize
-        }
-    }
+    """获取匹配列表"""
+    return BaseResponse(code=0, message="success", data=[])
 
-@router.get("/{match_id}", response_model=Match)
-def read_match(match_id: int, db: Session = Depends(get_db)):
-    db_match = db_service.get_match(db, match_id=match_id)
-    if db_match is None:
-        raise HTTPException(status_code=404, detail="Match not found")
-    return db_match
-
-@router.put("/{match_id}", response_model=Match)
-def update_match(match_id: int, match: MatchUpdate, db: Session = Depends(get_db)):
-    db_match = db_service.update_match(db, match_id=match_id, match_data=match.dict(exclude_unset=True))
-    if db_match is None:
-        raise HTTPException(status_code=404, detail="Match not found")
-    return db_match
-
-@router.delete("/{match_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_match(match_id: int, db: Session = Depends(get_db)):
-    success = db_service.delete_match(db, match_id=match_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Match not found")
-    return {"detail": "Match deleted"}
-
-# 匹配详情路由
-@router.post("/{match_id}/details", response_model=MatchDetail)
-def add_match_detail(match_id: int, detail: MatchDetailCreate, db: Session = Depends(get_db)):
-    # 检查匹配是否存在
-    match = db_service.get_match(db, match_id=match_id)
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found")
-    
-    return db_service.add_match_detail(db, match_id=match_id, detail_data=detail.dict())
-
-@router.get("/{match_id}/details", response_model=List[MatchDetail])
-def read_match_details(match_id: int, db: Session = Depends(get_db)):
-    # 检查匹配是否存在
-    match = db_service.get_match(db, match_id=match_id)
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found")
-    
-    return db_service.get_match_details(db, match_id=match_id)
+@router.get("/{match_id}")
+async def get_match_detail(match_id: str, current_user: User = Depends(get_current_user)):
+    """获取匹配详情"""
+    return BaseResponse(code=0, message="success", data={"id": match_id})

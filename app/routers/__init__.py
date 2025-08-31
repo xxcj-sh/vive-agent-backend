@@ -1,5 +1,5 @@
 from . import auth
-from . import user
+from . import users
 from . import match
 from . import chat
 

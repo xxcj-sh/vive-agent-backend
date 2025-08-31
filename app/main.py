@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import user, match, auth, membership, membership_orders, scenes, file, properties
+from app.routers import users, match, auth, membership, membership_orders, scenes, file, properties, chat
 from app.routers.profile_by_id import router as profile_by_id_router
 from app.utils.db_init import init_db
 from app.config import settings
@@ -33,12 +33,13 @@ app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 
 # 包含路由
 app.include_router(auth.router, prefix="/api/v1/auth")
-app.include_router(user.router, prefix="/api/v1")
+app.include_router(scenes.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
 app.include_router(match.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")
 
 app.include_router(membership.router, prefix="/api/v1")
 app.include_router(membership_orders.router, prefix="/api/v1")
-app.include_router(scenes.router, prefix="/api/v1")
 app.include_router(file.router, prefix="/api/v1/files")
 app.include_router(properties.router, prefix="/api/v1")
 app.include_router(profile_by_id_router, prefix="/api/v1")
@@ -46,6 +47,20 @@ app.include_router(profile_by_id_router, prefix="/api/v1")
 @app.get("/")
 def read_root():
     return {"message": "Welcome to VMatch API"}
+
+@app.get("/api/v1")
+def api_info():
+    return {
+        "version": "2.0.0",
+        "design": "RESTful",
+        "endpoints": {
+            "auth": "/api/v1/auth",
+            "users": "/api/v1/users",
+            "matches": "/api/v1/matches",
+            "messages": "/api/v1/messages",
+            "files": "/api/v1/files"
+        }
+    }
 
 if __name__ == "__main__":
     import uvicorn

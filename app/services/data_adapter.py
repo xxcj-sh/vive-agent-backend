@@ -1,6 +1,6 @@
 import os
 from typing import Any, Dict, List, Optional
-from app.services.mock_data import mock_data_service
+# 移除mock_data依赖，改用数据库
 from app.services.db_service import (
     create_user, get_user, get_user_by_email, get_users, update_user, delete_user,
     create_match, get_match, get_matches, update_match, delete_match,
@@ -19,7 +19,8 @@ class DataService:
         self.use_mock = self.env in ["testing"]
         
         # 使用全局模拟数据服务实例
-        self.mock_service = mock_data_service
+        # 移除mock_service依赖
+        pass
     
     def _get_db(self):
         """获取数据库会话生成器"""
@@ -77,7 +78,7 @@ class DataService:
                     return mapped_dict
                 return None
             except Exception as e:
-                print(f"获取用户时出错：{e}")
+
                 return None
     
     def get_user_by_token(self, token: str) -> Optional[Dict[str, Any]]:
@@ -113,7 +114,7 @@ class DataService:
                     return mapped_dict
                 return None
             except Exception as e:
-                print(f"根据token获取用户时出错：{e}")
+
                 return None
     
     def update_profile(self, user_id: str, profile_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -122,7 +123,7 @@ class DataService:
             return self.mock_service.update_profile(user_id, profile_data)
         else:
             try:
-                print(f"DEBUG: DataAdapter.update_profile called with user_id={user_id}, data={profile_data}")
+
                 
                 user = self._with_db(update_user, user_id, profile_data)
                 if user:
@@ -131,7 +132,7 @@ class DataService:
                     # 移除SQLAlchemy内部字段
                     user_dict.pop('_sa_instance_state', None)
                     
-                    print(f"DEBUG: Raw user dict from DB: {user_dict}")
+
                     
                     # 字段映射：数据库字段名 -> 前端字段名
                     reverse_mapping = {
@@ -148,13 +149,11 @@ class DataService:
                         frontend_field = reverse_mapping.get(db_field, db_field)
                         mapped_dict[frontend_field] = value
                     
-                    print(f"DEBUG: Mapped result: {mapped_dict}")
+
                     return mapped_dict
                 return None
             except Exception as e:
-                print(f"ERROR: 更新用户资料时出错：{e}")
-                import traceback
-                print(f"ERROR: Traceback: {traceback.format_exc()}")
+
                 return None
     
     # 卡片和匹配相关方法
@@ -257,7 +256,7 @@ class DataService:
                         "matchId": None
                     }
             except Exception as e:
-                print(f"创建匹配时出错：{e}")
+
                 return {
                     "isMatch": False,
                     "matchId": None
@@ -304,7 +303,7 @@ class DataService:
                     "pageSize": page_size
                 }
             except Exception as e:
-                print(f"获取匹配列表时出错：{e}")
+
                 return {
                     "total": 0,
                     "list": [],
@@ -345,7 +344,7 @@ class DataService:
                 match_dict["cardInfo"] = card_info
                 return match_dict
             except Exception as e:
-                print(f"获取匹配详情时出错：{e}")
+
                 return {}
     
     # 聊天相关方法 - 这些方法在数据库版本中需要额外实现

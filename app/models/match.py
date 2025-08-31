@@ -3,6 +3,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.utils.db_config import Base
 import enum
+import uuid
 
 # 枚举类定义
 class MatchType(str, enum.Enum):
@@ -87,7 +88,7 @@ class Region(str, enum.Enum):
 class Match(Base):
     __tablename__ = "matches"
 
-    id = Column(String, primary_key=True, index=True)  # 改为String类型支持字符串ID
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))  # 改为String类型支持字符串ID
     user_id = Column(String, ForeignKey("users.id"))  # 改为String类型匹配用户ID
     match_type = Column(String)
     status = Column(String)

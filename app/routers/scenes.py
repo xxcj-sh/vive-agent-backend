@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException
-from typing import Dict, List
-from app.models.schemas import BaseResponse, SceneConfig, SceneRole, SceneConfigResponse
+from typing import Dict, List, Any
+from app.models.schemas import BaseResponse
 
-router = APIRouter(prefix="/scenes", tags=["scenes"])
+# 创建不带依赖的路由器
+router = APIRouter(prefix="/scenes", tags=["scenes"], dependencies=[])
 
 # 场景配置数据
 SCENE_CONFIGS = [
@@ -113,7 +114,8 @@ SCENE_CONFIGS = [
     }
 ]
 
-@router.get("", response_model=BaseResponse)
+@router.get("/")
+@router.get("")
 async def get_scene_configs():
     """
     获取所有场景配置信息
@@ -139,7 +141,7 @@ async def get_scene_configs():
             "data": None
         }
 
-@router.get("/{scene_key}", response_model=BaseResponse)
+@router.get("/{scene_key}")
 async def get_scene_config(scene_key: str):
     """
     获取指定场景的配置信息
@@ -161,70 +163,6 @@ async def get_scene_config(scene_key: str):
         }
     except HTTPException:
         raise
-    except Exception as e:
-        return {
-            "code": 1500,
-            "message": f"服务器内部错误: {str(e)}",
-            "data": None
-        }
-
-@router.get("/{scene_key}/roles", response_model=BaseResponse)
-async def get_scene_roles(scene_key: str):
-    """
-    获取指定场景的角色配置
-    
-    参数:
-    - scene_key: 场景标识 (housing, activity, dating)
-    
-    返回指定场景的角色列表
-    """
-    config = None
-    for scene in SCENE_CONFIGS:
-        if scene["key"] == scene_key:
-            config = scene
-            break
-    
-    if config is None:
-        raise HTTPException(status_code=404, detail="场景不存在")
-    
-    try:
-        return {
-            "code": 0,
-            "message": "success",
-            "data": {"roles": config["roles"]}
-        }
-    except Exception as e:
-        return {
-            "code": 1500,
-            "message": f"服务器内部错误: {str(e)}",
-            "data": None
-        }
-
-@router.get("/{scene_key}/tags", response_model=BaseResponse)
-async def get_scene_tags(scene_key: str):
-    """
-    获取指定场景的标签列表
-    
-    参数:
-    - scene_key: 场景标识 (housing, activity, dating)
-    
-    返回指定场景的所有可用标签
-    """
-    config = None
-    for scene in SCENE_CONFIGS:
-        if scene["key"] == scene_key:
-            config = scene
-            break
-    
-    if config is None:
-        raise HTTPException(status_code=404, detail="场景不存在")
-    
-    try:
-        return {
-            "code": 0,
-            "message": "success",
-            "data": {"tags": config["tags"]}
-        }
     except Exception as e:
         return {
             "code": 1500,

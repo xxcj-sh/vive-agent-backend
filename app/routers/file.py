@@ -1,218 +1,78 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
-from app.models.schemas import FileUploadResponse, BaseResponse
-from app.services.auth import auth_service
-from app.services.mock_data import mock_data_service
-from typing import Dict, Any, Optional
-from app.config import settings
-import os
-import uuid
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from app.models.schemas import BaseResponse
+from app.utils.auth import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 
-@router.post("/upload", response_model=BaseResponse)
+@router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
     type: str = Form(...),
-    current_user: Dict[str, Any] = Depends(auth_service.get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
-    """
-    上传文件接口
+    """文件上传"""
+    import os
+    import uuid
+    from datetime import datetime
+    from pathlib import Path
     
-    支持的文件类型：
-    - 图片：JPEG, PNG, GIF, WebP (最大10MB)
-    - 视频：MP4, AVI, MOV, WMV, FLV, WebM, MKV, 3GP (最大500MB)
-    
-    参数：
-    - file: 要上传的文件
-    - type: 文件类型标识（可选，用于业务逻辑分类）
-    
-    返回：
-    - 成功：返回文件访问URL
-    - 失败：返回错误信息
-    """
-    # 验证文件类型 - 支持图片和视频
-    allowed_image_types = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"]
-    allowed_video_types = ["video/mp4", "video/avi", "video/mov", "video/wmv", "video/flv", "video/webm", "video/mkv", "video/3gp"]
-    
-    if not file.content_type:
-        return BaseResponse(
-            code=400,
-            message="无法识别文件类型",
-            data=None
-        )
-    
-    is_image = file.content_type in allowed_image_types
-    is_video = file.content_type in allowed_video_types
-    
-    if not is_image and not is_video:
-        return BaseResponse(
-            code=400,
-            message="请上传图片或视频文件。支持的图片格式：JPEG, PNG, GIF, WebP；支持的视频格式：MP4, AVI, MOV, WMV, FLV, WebM, MKV, 3GP",
-            data=None
-        )
-    
-    # 验证文件大小
-    file_size = 0
-    content = await file.read()
-    file_size = len(content)
-    
-    # 根据文件类型设置不同的大小限制
-    if is_image:
-        max_file_size = getattr(settings, 'MAX_IMAGE_SIZE', 10 * 1024 * 1024)  # 图片默认10MB
-        file_type_name = "图片"
-    else:  # is_video
-        max_file_size = getattr(settings, 'MAX_VIDEO_SIZE', 500 * 1024 * 1024)  # 视频默认500MB
-        file_type_name = "视频"
-    
-    if file_size > max_file_size:
-        return BaseResponse(
-            code=400,
-            message=f"{file_type_name}文件大小超过限制，最大允许 {max_file_size // (1024 * 1024)}MB",
-            data=None
-        )
-    
-    # 重置文件指针，因为我们已经读取了文件内容
-    await file.seek(0)
-    
-    # 保存文件到本地
     try:
-        # 获取用户ID，如果未登录则使用默认目录
-        user_id = current_user.get('id', 'anonymous') if current_user else 'anonymous'
+        # Debug logging
+        print(f"Upload request received - filename: {file.filename}, type: {type}")
+        print(f"Current user: {current_user}")
         
-        # 创建用户专属的上传目录
-        user_upload_dir = os.path.join(settings.UPLOAD_DIR, str(user_id))
-        os.makedirs(user_upload_dir, exist_ok=True)
+        # Configure upload directory
+        UPLOAD_DIR = Path("uploads")
+        UPLOAD_DIR.mkdir(exist_ok=True)
         
-        # 生成唯一文件名
-        filename = file.filename or "unknown"
-        file_ext = os.path.splitext(filename)[1].lower()
+        # Validate file
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
         
-        # 验证文件扩展名
-        allowed_image_exts = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
-        allowed_video_exts = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.3gp']
+        # Validate file type
+        ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx", ".txt"}
+        file_ext = Path(file.filename).suffix.lower()
         
-        if is_image and file_ext not in allowed_image_exts:
-            return BaseResponse(
-                code=400,
-                message=f"图片文件扩展名不支持，支持的扩展名：{', '.join(allowed_image_exts)}",
-                data=None
-            )
-        elif is_video and file_ext not in allowed_video_exts:
-            return BaseResponse(
-                code=400,
-                message=f"视频文件扩展名不支持，支持的扩展名：{', '.join(allowed_video_exts)}",
-                data=None
+        if file_ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
             )
         
-        # 如果没有扩展名，根据content_type添加默认扩展名
-        if not file_ext:
-            if is_image:
-                if 'jpeg' in file.content_type or 'jpg' in file.content_type:
-                    file_ext = '.jpg'
-                elif 'png' in file.content_type:
-                    file_ext = '.png'
-                elif 'gif' in file.content_type:
-                    file_ext = '.gif'
-                elif 'webp' in file.content_type:
-                    file_ext = '.webp'
-                else:
-                    file_ext = '.jpg'  # 默认
-            else:  # is_video
-                if 'mp4' in file.content_type:
-                    file_ext = '.mp4'
-                elif 'avi' in file.content_type:
-                    file_ext = '.avi'
-                elif 'mov' in file.content_type:
-                    file_ext = '.mov'
-                else:
-                    file_ext = '.mp4'  # 默认
+        # Generate unique filename
+        unique_filename = f"{uuid.uuid4()}{file_ext}"
         
-        file_name = f"{uuid.uuid4()}{file_ext}"
-        file_path = os.path.join(user_upload_dir, file_name)
+        # Create user-specific directory - handle different user ID formats
+        user_id = getattr(current_user, 'id', None) or getattr(current_user, 'user_id', None) or 'anonymous'
+        user_dir = UPLOAD_DIR / str(user_id)
+        user_dir.mkdir(exist_ok=True)
         
-        # 保存文件
-        with open(file_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
+        file_path = user_dir / unique_filename
         
-        # 返回文件URL（包含用户ID路径）
-        file_url = f"/uploads/{user_id}/{file_name}"
+        # Save file
+        import shutil
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Return file URL that can be accessed via the static files mount
+        file_url = f"/uploads/{user_id}/{unique_filename}"
+        
         return BaseResponse(
-            code=0,
-            message="success",
-            data=FileUploadResponse(url=file_url)
+            code=0, 
+            message="success", 
+            data={
+                "url": file_url,
+                "filename": unique_filename,
+                "original_filename": file.filename,
+                "upload_time": datetime.now().isoformat()
+            }
         )
+    
+    except HTTPException:
+        raise
     except Exception as e:
-        return BaseResponse(
-            code=500,
-            message=f"文件上传失败: {str(e)}",
-            data=None
-        )
-
-@router.delete("/delete", response_model=BaseResponse)
-async def delete_file(
-    file_url: str = Form(...),
-    current_user: Dict[str, Any] = Depends(auth_service.get_current_user)
-):
-    """删除文件接口"""
-    try:
-        # 在开发环境下，模拟文件删除
-        if settings.ENVIRONMENT == "development":
-            return BaseResponse(
-                code=0,
-                message="文件删除成功",
-                data=None
-            )
-        
-        # 从URL中提取用户ID和文件名
-        if file_url.startswith("/uploads/"):
-            # 移除 /uploads/ 前缀
-            path_parts = file_url.replace("/uploads/", "").split("/")
-            
-            if len(path_parts) >= 2:
-                # 新格式：/uploads/user_id/filename
-                url_user_id = path_parts[0]
-                file_name = "/".join(path_parts[1:])  # 支持多级路径
-                
-                # 验证用户权限：只能删除自己的文件
-                if current_user and str(current_user.get('user_id')) != url_user_id:
-                    return BaseResponse(
-                        code=403,
-                        message="无权限删除此文件",
-                        data=None
-                    )
-                
-                file_path = os.path.join(settings.UPLOAD_DIR, url_user_id, file_name)
-            else:
-                # 兼容旧格式：/uploads/filename（直接在根目录）
-                file_name = path_parts[0]
-                file_path = os.path.join(settings.UPLOAD_DIR, file_name)
-            
-            # 检查文件是否存在
-            if not os.path.exists(file_path):
-                return BaseResponse(
-                    code=404,
-                    message="文件不存在",
-                    data=None
-                )
-            
-            # 删除文件
-            os.remove(file_path)
-            return BaseResponse(
-                code=0,
-                message="文件删除成功",
-                data=None
-            )
-        else:
-            return BaseResponse(
-                code=400,
-                message="无效的文件URL",
-                data=None
-            )
-            
-    except Exception as e:
-        return BaseResponse(
-            code=500,
-            message=f"文件删除失败: {str(e)}",
-            data=None
-        )
+        print(f"Upload error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")

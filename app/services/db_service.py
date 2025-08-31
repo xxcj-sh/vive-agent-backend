@@ -5,17 +5,31 @@ from app.models.match import Match, MatchDetail
 
 # 用户相关操作
 def create_user(db: Session, user_data: Dict[str, Any]) -> User:
-    db_user = User(**user_data)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    """创建用户"""
+    try:
+        # 如果没有提供ID，生成一个UUID
+        if 'id' not in user_data:
+            import uuid
+            user_data['id'] = str(uuid.uuid4())
+        
+        db_user = User(**user_data)
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception as e:
+        db.rollback()
+        raise
 
 def get_user(db: Session, user_id: str) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return db.query(User).filter(User.email == email).first()
+
+def get_user_by_phone(db: Session, phone: str) -> Optional[User]:
+    """根据手机号获取用户"""
+    return db.query(User).filter(User.phone == phone).first()
 
 def get_users(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
     return db.query(User).offset(skip).limit(limit).all()
