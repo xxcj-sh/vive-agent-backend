@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.models.schemas import BaseResponse
 from app.utils.auth import get_current_user
 from app.models.user import User
+from app.models.enums import Gender
 from app.services.match_card_strategy import match_card_strategy
 
 router = APIRouter()
@@ -16,13 +17,15 @@ async def get_match_cards(
 ):
     """获取匹配卡片"""
     try:
+        print("current_user:", current_user)
         # 将 User 对象转换为字典格式
         current_user_dict = None
+        print("getattr(current_user, 'id'):", current_user['id'])
         if current_user:
             current_user_dict = {
-                "id": getattr(current_user, 'id', None),
-                "nickName": getattr(current_user, 'nick_name', None),
-                "age": getattr(current_user, 'age', None),
+                "id": current_user['id'],
+                "nickName": current_user['nickName'],
+                "gender": Gender(current_user.get('gender', 0)).name,
                 "interests": getattr(current_user, 'interests', []),
                 "location": getattr(current_user, 'location', []),
                 "preferences": getattr(current_user, 'preferences', {}),
