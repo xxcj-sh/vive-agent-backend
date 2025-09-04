@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.models.user import User
-from app.models.user_profile import UserProfile
+from app.models.user_profile_db import UserProfile
 from app.models.match_action import MatchAction, MatchResult, MatchActionType
 from app.services.match_service import MatchService
 from app.utils.db_config import Base
@@ -55,13 +55,22 @@ def create_test_users(db):
     db.commit()
     
     # 创建用户资料
+    from datetime import datetime
     profile1 = UserProfile(
         id="profile_001",
         user_id="test_user_001",
         role_type="housing_seeker",
         scene_type="housing",
         display_name="小李找房",
-        bio="寻找合适的合租房源"
+        bio="寻找合适的合租房源",
+        avatar_url=None,
+        profile_data=None,
+        preferences=None,
+        tags=None,
+        visibility="public",
+        is_active=1,
+        created_at=datetime.now(),
+        updated_at=None
     )
     
     profile2 = UserProfile(
@@ -70,7 +79,15 @@ def create_test_users(db):
         role_type="housing_provider", 
         scene_type="housing",
         display_name="小王出租",
-        bio="出租精装两居室"
+        bio="出租精装两居室",
+        avatar_url=None,
+        profile_data=None,
+        preferences=None,
+        tags=None,
+        visibility="public",
+        is_active=1,
+        created_at=datetime.now(),
+        updated_at=None
     )
     
     db.add(profile1)

@@ -349,51 +349,201 @@ curl -X GET http://localhost:8000/api/v1/users/me \
 - `activity_organizer`: 活动组织者
 - `activity_participant`: 活动参与者
 
-#### 获取用户所有角色资料
+#### 2.5.1 获取用户所有角色资料
 **GET** `/users/me/profiles`
+
+获取当前用户的所有角色资料，按场景分组显示。
+
+**请求头:**
+- `Authorization: Bearer {token}` (生产环境)
+- `X-Test-Mode: true` (测试环境)
+
+**响应格式:**
+```json
+{
+  "user_id": "string",
+  "total_count": "integer",
+  "active_count": "integer", 
+  "by_scene": [
+    {
+      "scene_type": "string",
+      "profiles": [UserProfile]
+    }
+  ],
+  "all_profiles": [UserProfile],
+  "user_basic_info": {UserBasicInfo}
+}
+```
+
+**UserProfile 数据结构:**
+```json
+{
+  "id": "string - 资料ID",
+  "user_id": "string - 用户ID", 
+  "role_type": "string - 角色类型",
+  "scene_type": "string - 场景类型",
+  "display_name": "string - 显示名称",
+  "avatar_url": "string - 头像URL",
+  "bio": "string - 个人简介",
+  "profile_data": "object - 角色特定数据",
+  "preferences": "object - 偏好设置",
+  "tags": "array - 标签列表",
+  "is_active": "integer - 激活状态(1-激活,0-停用)",
+  "visibility": "string - 可见性(public/private)",
+  "created_at": "datetime - 创建时间",
+  "updated_at": "datetime - 更新时间"
+}
+```
 
 **响应示例:**
 ```json
 {
-  "code": 0,
-  "message": "success",
-  "data": {
-    "user_id": "test_user_001",
-    "total_count": 5,
-    "active_count": 5,
-    "by_scene": [
-      {
-        "scene_type": "housing",
-        "profiles": [
-          {
-            "id": "profile_housing_seeker_001",
-            "user_id": "test_user_001",
-            "role_type": "housing_seeker",
-            "scene_type": "housing",
-            "display_name": "小李找房",
-            "avatar_url": "https://example.com/avatars/housing_seeker.jpg",
-            "bio": "刚毕业的程序员，寻找合适的合租房源",
-            "profile_data": {...},
-            "preferences": {...},
-            "tags": ["程序员", "安静", "整洁"],
-            "is_active": 1,
-            "visibility": "public",
-            "created_at": "2025-01-29T01:00:00",
-            "updated_at": "2025-01-29T01:00:00"
-          }
-        ]
-      }
-    ],
-    "all_profiles": [...]
+  "user_id": "test_user_001",
+  "total_count": 3,
+  "active_count": 2,
+  "by_scene": [
+    {
+      "scene_type": "housing",
+      "profiles": [
+        {
+          "id": "profile_housing_seeker_001",
+          "user_id": "test_user_001",
+          "role_type": "housing_seeker",
+          "scene_type": "housing",
+          "display_name": "小李找房",
+          "avatar_url": "https://example.com/avatars/housing_seeker.jpg",
+          "bio": "刚毕业的程序员，寻找合适的合租房源",
+          "profile_data": {
+            "budget_range": [2000, 3500],
+            "preferred_areas": ["朝阳区", "海淀区"],
+            "room_type": "single_room",
+            "move_in_date": "2024-02-01",
+            "lease_duration": "12_months",
+            "lifestyle": "quiet",
+            "work_schedule": "9_to_5",
+            "pets": false,
+            "smoking": false,
+            "occupation": "软件工程师",
+            "company_location": "中关村"
+          },
+          "preferences": {
+            "roommate_gender": "any",
+            "roommate_age_range": [22, 35],
+            "shared_facilities": ["kitchen", "living_room"],
+            "transportation": ["subway"],
+            "nearby_facilities": ["supermarket", "gym"]
+          },
+          "tags": ["程序员", "安静", "整洁"],
+          "is_active": 1,
+          "visibility": "public",
+          "created_at": "2025-01-29T01:00:00Z",
+          "updated_at": "2025-01-29T01:00:00Z"
+        }
+      ]
+    },
+    {
+      "scene_type": "activity", 
+      "profiles": [
+        {
+          "id": "profile_activity_organizer_001",
+          "user_id": "test_user_001",
+          "role_type": "activity_organizer",
+          "scene_type": "activity",
+          "display_name": "活动达人小李",
+          "avatar_url": "https://example.com/avatars/organizer.jpg",
+          "bio": "热爱组织户外活动，让大家一起享受生活",
+          "profile_data": {
+            "activity_cover": "https://example.com/activity_cover.jpg",
+            "activity_name": "周末户外徒步活动",
+            "activity_types": ["户外运动", "社交聚会"],
+            "activity_start_time": "2024-01-15T09:00:00Z",
+            "activity_city": "北京",
+            "activity_end_time": "2024-01-15T17:00:00Z",
+            "activity_location": "香山公园",
+            "activity_min_participants": 5,
+            "activity_max_participants": 20,
+            "activity_cost": "免费",
+            "activity_description": "一起享受户外徒步的乐趣，结识新朋友",
+            "organizing_experience": "3年活动组织经验",
+            "specialties": ["户外运动", "团队建设"],
+            "group_size_preference": "10-20人",
+            "frequency": "每周一次",
+            "locations": ["香山", "奥森公园", "颐和园"],
+            "past_activities": [
+              {
+                "name": "春季踏青活动",
+                "date": "2024-03-20",
+                "participants": 15
+              }
+            ],
+            "contact_info": {
+              "wechat": "organizer_li",
+              "phone": "13800138000"
+            }
+          },
+          "preferences": {
+            "participant_requirements": {
+              "age_range": [18, 45],
+              "fitness_level": "basic"
+            },
+            "activity_types": ["户外", "运动", "社交"],
+            "weather_dependency": "flexible"
+          },
+          "tags": ["户外", "社交", "健康", "领导力"],
+          "is_active": 1,
+          "visibility": "public",
+          "created_at": "2025-01-29T02:00:00Z",
+          "updated_at": "2025-01-29T02:00:00Z"
+        }
+      ]
+    }
+  ],
+  "all_profiles": [...],
+  "user_basic_info": {
+    "id": "test_user_001",
+    "nick_name": "小李",
+    "avatar_url": "https://example.com/avatar.jpg",
+    "age": 25,
+    "gender": 1,
+    "occupation": "软件工程师",
+    "location": ["北京", "朝阳区"],
+    "phone": "13800138000"
   }
 }
 ```
 
-#### 获取特定场景下的角色资料
+**测试示例:**
+```bash
+curl -X GET http://localhost:8000/api/v1/users/me/profiles \
+  -H "X-Test-Mode: true"
+```
+
+#### 2.5.2 获取特定场景下的角色资料
 **GET** `/users/me/profiles/{scene_type}`
 
+获取当前用户在指定场景下的所有角色资料。
+
+**请求头:**
+- `Authorization: Bearer {token}` (生产环境)
+- `X-Test-Mode: true` (测试环境)
+
 **路径参数:**
-- `scene_type`: 场景类型 (housing/dating/activity)
+- `scene_type` (string, required): 场景类型
+  - `housing` - 找房场景
+  - `dating` - 交友场景  
+  - `activity` - 活动场景
+
+**响应格式:**
+```json
+{
+  "code": 0,
+  "message": "success", 
+  "data": {
+    "scene_type": "string",
+    "profiles": [UserProfile]
+  }
+}
+```
 
 **响应示例:**
 ```json
@@ -405,31 +555,146 @@ curl -X GET http://localhost:8000/api/v1/users/me \
     "profiles": [
       {
         "id": "profile_housing_seeker_001",
+        "user_id": "test_user_001",
         "role_type": "housing_seeker",
+        "scene_type": "housing",
         "display_name": "小李找房",
         "avatar_url": "https://example.com/avatars/housing_seeker.jpg",
         "bio": "刚毕业的程序员，寻找合适的合租房源",
-        "profile_data": {...},
-        "preferences": {...},
+        "profile_data": {
+          "budget_range": [2000, 3500],
+          "preferred_areas": ["朝阳区", "海淀区"],
+          "room_type": "single_room",
+          "move_in_date": "2024-02-01",
+          "lease_duration": "12_months",
+          "lifestyle": "quiet",
+          "work_schedule": "9_to_5",
+          "pets": false,
+          "smoking": false,
+          "occupation": "软件工程师",
+          "company_location": "中关村"
+        },
+        "preferences": {
+          "roommate_gender": "any",
+          "roommate_age_range": [22, 35],
+          "shared_facilities": ["kitchen", "living_room"],
+          "transportation": ["subway"],
+          "nearby_facilities": ["supermarket", "gym"]
+        },
         "tags": ["程序员", "安静", "整洁"],
         "is_active": 1,
         "visibility": "public",
-        "created_at": "2025-01-29T01:00:00",
-        "updated_at": "2025-01-29T01:00:00"
+        "created_at": "2025-01-29T01:00:00Z",
+        "updated_at": "2025-01-29T01:00:00Z"
+      },
+      {
+        "id": "profile_housing_provider_001", 
+        "user_id": "test_user_001",
+        "role_type": "housing_provider",
+        "scene_type": "housing",
+        "display_name": "房东小李",
+        "avatar_url": "https://example.com/avatars/provider.jpg",
+        "bio": "有多套优质房源出租",
+        "profile_data": {
+          "properties": [
+            {
+              "id": "property_001",
+              "title": "精装两居室",
+              "rent": 4500,
+              "area": 80,
+              "location": "朝阳区三里屯",
+              "images": ["https://example.com/room1.jpg"]
+            }
+          ],
+          "landlord_type": "individual",
+          "response_time": "within_24_hours",
+          "viewing_available": true,
+          "lease_terms": ["押一付三", "包物业费"]
+        },
+        "preferences": {
+          "tenant_requirements": {
+            "stable_income": true,
+            "no_pets": false,
+            "no_smoking": true,
+            "quiet_lifestyle": true
+          },
+          "payment_methods": ["bank_transfer", "alipay"]
+        },
+        "tags": ["靠谱房东", "响应快", "房源优质"],
+        "is_active": 1,
+        "visibility": "public",
+        "created_at": "2025-01-29T01:30:00Z",
+        "updated_at": "2025-01-29T01:30:00Z"
       }
     ]
   }
 }
 ```
 
-#### 获取特定角色的资料
+**错误响应:**
+- `401 Unauthorized`: 用户未认证
+- `404 Not Found`: 指定场景下没有找到资料
+
+**测试示例:**
+```bash
+curl -X GET http://localhost:8000/api/v1/users/me/profiles/housing \
+  -H "X-Test-Mode: true"
+```
+
+#### 2.5.3 获取特定角色的资料
 **GET** `/users/me/profiles/{scene_type}/{role_type}`
 
-**路径参数:**
-- `scene_type`: 场景类型
-- `role_type`: 角色类型
+获取当前用户在指定场景和角色下的详细资料，包含用户基础信息。
 
-**响应示例:**
+**请求头:**
+- `Authorization: Bearer {token}` (生产环境)
+- `X-Test-Mode: true` (测试环境)
+
+**路径参数:**
+- `scene_type` (string, required): 场景类型
+  - `housing` - 找房场景
+  - `dating` - 交友场景
+  - `activity` - 活动场景
+- `role_type` (string, required): 角色类型
+  - 找房场景: `housing_seeker`, `housing_provider`
+  - 交友场景: `dating_seeker`
+  - 活动场景: `activity_organizer`, `activity_participant`
+
+**响应格式:**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": "string - 资料ID",
+    "user_id": "string - 用户ID",
+    "role_type": "string - 角色类型", 
+    "scene_type": "string - 场景类型",
+    "display_name": "string - 显示名称",
+    "avatar_url": "string - 头像URL",
+    "bio": "string - 个人简介",
+    "profile_data": "object - 角色特定数据",
+    "preferences": "object - 偏好设置",
+    "tags": "array - 标签列表",
+    "is_active": "integer - 激活状态",
+    "visibility": "string - 可见性",
+    "created_at": "datetime - 创建时间",
+    "updated_at": "datetime - 更新时间",
+    "username": "string - 用户名",
+    "email": "string - 邮箱",
+    "nick_name": "string - 昵称",
+    "age": "integer - 年龄",
+    "gender": "integer - 性别",
+    "occupation": "string - 职业",
+    "location": "array - 位置信息",
+    "phone": "string - 手机号",
+    "education": "string - 教育程度",
+    "interests": "array - 兴趣爱好"
+  }
+}
+```
+
+**找房者资料响应示例:**
 ```json
 {
   "code": 0,
@@ -440,144 +705,766 @@ curl -X GET http://localhost:8000/api/v1/users/me \
     "role_type": "housing_seeker",
     "scene_type": "housing",
     "display_name": "小李找房",
+    "avatar_url": "https://example.com/avatars/housing_seeker.jpg",
+    "bio": "刚毕业的程序员，寻找合适的合租房源",
     "profile_data": {
       "budget_range": [2000, 3500],
       "preferred_areas": ["朝阳区", "海淀区"],
       "room_type": "single_room",
-      "occupation": "软件工程师"
+      "move_in_date": "2024-02-01",
+      "lease_duration": "12_months",
+      "lifestyle": "quiet",
+      "work_schedule": "9_to_5",
+      "pets": false,
+      "smoking": false,
+      "occupation": "软件工程师",
+      "company_location": "中关村"
     },
     "preferences": {
       "roommate_gender": "any",
-      "shared_facilities": ["kitchen", "living_room"]
+      "roommate_age_range": [22, 35],
+      "shared_facilities": ["kitchen", "living_room"],
+      "transportation": ["subway"],
+      "nearby_facilities": ["supermarket", "gym"]
     },
     "tags": ["程序员", "安静", "整洁"],
     "is_active": 1,
     "visibility": "public",
-    "created_at": "2025-01-29T01:00:00",
-    "updated_at": "2025-01-29T01:00:00"
+    "created_at": "2025-01-29T01:00:00Z",
+    "updated_at": "2025-01-29T01:00:00Z",
+    "username": "test_user_001",
+    "email": "test@example.com",
+    "nick_name": "小李",
+    "age": 25,
+    "gender": 1,
+    "occupation": "软件工程师",
+    "location": ["北京", "朝阳区"],
+    "phone": "13800138000",
+    "education": "本科",
+    "interests": ["编程", "音乐", "旅行"]
   }
 }
 ```
 
-#### 创建用户角色资料
+**活动组织者资料响应示例:**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": "profile_activity_organizer_001",
+    "user_id": "test_user_001",
+    "role_type": "activity_organizer",
+    "scene_type": "activity",
+    "display_name": "活动达人小李",
+    "avatar_url": "https://example.com/avatars/organizer.jpg",
+    "bio": "热爱组织户外活动，让大家一起享受生活",
+    "profile_data": {
+      "activity_cover": "https://example.com/activity_cover.jpg",
+      "activity_name": "周末户外徒步活动",
+      "activity_types": ["户外运动", "社交聚会"],
+      "activity_start_time": "2024-01-15T09:00:00Z",
+      "activity_city": "北京",
+      "activity_end_time": "2024-01-15T17:00:00Z",
+      "activity_location": "香山公园",
+      "activity_min_participants": 5,
+      "activity_max_participants": 20,
+      "activity_cost": "免费",
+      "activity_description": "一起享受户外徒步的乐趣，结识新朋友",
+      "organizing_experience": "3年活动组织经验",
+      "specialties": ["户外运动", "团队建设"],
+      "group_size_preference": "10-20人",
+      "frequency": "每周一次",
+      "locations": ["香山", "奥森公园", "颐和园"],
+      "past_activities": [
+        {
+          "name": "春季踏青活动",
+          "date": "2024-03-20",
+          "participants": 15
+        }
+      ],
+      "contact_info": {
+        "wechat": "organizer_li",
+        "phone": "13800138000"
+      }
+    },
+    "preferences": {
+      "participant_requirements": {
+        "age_range": [18, 45],
+        "fitness_level": "basic"
+      },
+      "activity_types": ["户外", "运动", "社交"],
+      "weather_dependency": "flexible"
+    },
+    "tags": ["户外", "社交", "健康", "领导力"],
+    "is_active": 1,
+    "visibility": "public",
+    "created_at": "2025-01-29T02:00:00Z",
+    "updated_at": "2025-01-29T02:00:00Z",
+    "username": "test_user_001",
+    "email": "test@example.com",
+    "nick_name": "小李",
+    "age": 25,
+    "gender": 1,
+    "occupation": "软件工程师",
+    "location": ["北京", "朝阳区"],
+    "phone": "13800138000",
+    "education": "本科",
+    "interests": ["编程", "音乐", "旅行", "户外运动"]
+  }
+}
+```
+
+**错误响应:**
+- `401 Unauthorized`: 用户未认证
+- `404 Not Found`: 指定的角色资料不存在或未激活
+
+**测试示例:**
+```bash
+# 获取找房者资料
+curl -X GET http://localhost:8000/api/v1/users/me/profiles/housing/housing_seeker \
+  -H "X-Test-Mode: true"
+
+# 获取活动组织者资料  
+curl -X GET http://localhost:8000/api/v1/users/me/profiles/activity/activity_organizer \
+  -H "X-Test-Mode: true"
+```
+
+#### 2.5.4 创建用户角色资料
 **POST** `/users/me/profiles`
 
-**请求体:**
+为当前用户创建新的角色资料。每个用户在同一场景和角色组合下只能有一个资料。
+
+**请求头:**
+- `Authorization: Bearer {token}` (生产环境)
+- `X-Test-Mode: true` (测试环境)
+- `Content-Type: application/json`
+
+**请求体参数:**
+| 参数名 | 类型 | 必填 | 描述 |
+|--------|------|------|------|
+| role_type | string | 是 | 角色类型 |
+| scene_type | string | 是 | 场景类型 |
+| display_name | string | 是 | 显示名称 |
+| avatar_url | string | 否 | 头像URL |
+| bio | string | 否 | 个人简介 |
+| profile_data | object | 否 | 角色特定数据 |
+| preferences | object | 否 | 偏好设置 |
+| tags | array | 否 | 标签列表 |
+| visibility | string | 否 | 可见性，默认"public" |
+
+**角色类型说明:**
+- **找房场景 (housing):**
+  - `housing_seeker`: 找房者
+  - `housing_provider`: 房源提供者
+- **交友场景 (dating):**
+  - `dating_seeker`: 交友者
+- **活动场景 (activity):**
+  - `activity_organizer`: 活动组织者
+  - `activity_participant`: 活动参与者
+
+**找房者资料请求示例:**
 ```json
 {
   "role_type": "housing_seeker",
   "scene_type": "housing",
   "display_name": "小李找房",
   "avatar_url": "https://example.com/avatar.jpg",
-  "bio": "寻找合适的合租房源",
+  "bio": "刚毕业的程序员，寻找合适的合租房源",
   "profile_data": {
     "budget_range": [2000, 3500],
-    "preferred_areas": ["朝阳区"]
+    "preferred_areas": ["朝阳区", "海淀区"],
+    "room_type": "single_room",
+    "move_in_date": "2024-02-01",
+    "lease_duration": "12_months",
+    "lifestyle": "quiet",
+    "work_schedule": "9_to_5",
+    "pets": false,
+    "smoking": false,
+    "occupation": "软件工程师",
+    "company_location": "中关村"
   },
   "preferences": {
-    "roommate_gender": "any"
+    "roommate_gender": "any",
+    "roommate_age_range": [22, 35],
+    "shared_facilities": ["kitchen", "living_room"],
+    "transportation": ["subway"],
+    "nearby_facilities": ["supermarket", "gym"]
   },
-  "tags": ["程序员", "安静"],
+  "tags": ["程序员", "安静", "整洁"],
   "visibility": "public"
 }
 ```
 
-**响应示例:**
+**房源提供者资料请求示例:**
 ```json
 {
-  "code": 0,
-  "message": "success",
-  "data": {
-    "id": "profile_housing_seeker_002",
-    "user_id": "current_user_id",
+  "role_type": "housing_provider",
+  "scene_type": "housing",
+  "display_name": "房东小王",
+  "avatar_url": "https://example.com/avatar.jpg",
+  "bio": "有多套优质房源出租，诚信经营",
+  "profile_data": {
+    "properties": [
+      {
+        "id": "property_001",
+        "title": "精装两居室",
+        "rent": 4500,
+        "area": 80,
+        "location": "朝阳区三里屯",
+        "images": ["https://example.com/room1.jpg"]
+      }
+    ],
+    "landlord_type": "individual",
+    "response_time": "within_24_hours",
+    "viewing_available": true,
+    "lease_terms": ["押一付三", "包物业费"]
+  },
+  "preferences": {
+    "tenant_requirements": {
+      "stable_income": true,
+      "no_pets": false,
+      "no_smoking": true,
+      "quiet_lifestyle": true
+    },
+    "payment_methods": ["bank_transfer", "alipay"]
+  },
+  "tags": ["靠谱房东", "响应快", "房源优质"],
+  "visibility": "public"
+}
+```
+
+**活动组织者资料请求示例:**
+```json
+{
+  "role_type": "activity_organizer",
+  "scene_type": "activity",
+  "display_name": "活动达人小王",
+  "avatar_url": "https://example.com/avatar.jpg",
+  "bio": "热爱组织各种有趣的活动，让大家一起享受生活",
+  "profile_data": {
+    "activity_cover": "https://example.com/activity_cover.jpg",
+    "activity_name": "周末户外徒步活动",
+    "activity_types": ["户外运动", "社交聚会"],
+    "activity_start_time": "2024-01-15T09:00:00Z",
+    "activity_city": "北京",
+    "activity_end_time": "2024-01-15T17:00:00Z",
+    "activity_location": "香山公园",
+    "activity_min_participants": 5,
+    "activity_max_participants": 20,
+    "activity_cost": "免费",
+    "activity_description": "一起享受户外徒步的乐趣，结识新朋友",
+    "organizing_experience": "3年活动组织经验",
+    "specialties": ["户外运动", "团队建设"],
+    "group_size_preference": "10-20人",
+    "frequency": "每周一次",
+    "locations": ["香山", "奥森公园", "颐和园"],
+    "past_activities": [
+      {
+        "name": "春季踏青活动",
+        "date": "2024-03-20",
+        "participants": 15
+      }
+    ],
+    "contact_info": {
+      "wechat": "organizer_wang",
+      "phone": "13800138000"
+    }
+  },
+  "preferences": {
+    "participant_requirements": {
+      "age_range": [18, 45],
+      "fitness_level": "basic"
+    },
+    "activity_types": ["户外", "运动", "社交"],
+    "weather_dependency": "flexible"
+  },
+  "tags": ["户外", "社交", "健康", "领导力"],
+  "visibility": "public"
+}
+```
+
+**交友者资料请求示例:**
+```json
+{
+  "role_type": "dating_seeker",
+  "scene_type": "dating",
+  "display_name": "阳光小李",
+  "avatar_url": "https://example.com/avatar.jpg",
+  "bio": "热爱生活，寻找志同道合的伴侣",
+  "profile_data": {
+    "age": 25,
+    "height": 175,
+    "education": "本科",
+    "occupation": "软件工程师",
+    "income_range": "10k-20k",
+    "relationship_status": "single",
+    "looking_for": "serious_relationship",
+    "hobbies": ["音乐", "旅行", "摄影", "健身"],
+    "personality": ["开朗", "幽默", "责任心强"],
+    "lifestyle": {
+      "smoking": false,
+      "drinking": "occasionally",
+      "exercise": "regularly",
+      "diet": "balanced"
+    }
+  },
+  "preferences": {
+    "age_range": [22, 30],
+    "height_range": [160, 180],
+    "education_level": ["本科", "硕士"],
+    "personality_preferences": ["温柔", "善良", "有趣"],
+    "lifestyle_preferences": {
+      "smoking": false,
+      "drinking": "any",
+      "exercise": "preferred"
+    },
+    "relationship_goals": "long_term"
+  },
+  "tags": ["阳光", "上进", "有趣", "靠谱"],
+  "visibility": "public"
+}
+```
+
+**成功响应示例:**
+```json
+{
+  "id": "profile_housing_seeker_002",
+  "user_id": "current_user_id",
+  "role_type": "housing_seeker",
+  "scene_type": "housing",
+  "display_name": "小李找房",
+  "avatar_url": "https://example.com/avatar.jpg",
+  "bio": "刚毕业的程序员，寻找合适的合租房源",
+  "profile_data": {
+    "budget_range": [2000, 3500],
+    "preferred_areas": ["朝阳区", "海淀区"]
+  },
+  "preferences": {
+    "roommate_gender": "any",
+    "roommate_age_range": [22, 35]
+  },
+  "tags": ["程序员", "安静", "整洁"],
+  "is_active": 1,
+  "visibility": "public",
+  "created_at": "2025-01-29T01:00:00Z",
+  "updated_at": "2025-01-29T01:00:00Z"
+}
+```
+
+**错误响应:**
+- `400 Bad Request`: 该场景和角色的资料已存在
+- `401 Unauthorized`: 用户未认证
+- `422 Unprocessable Entity`: 请求参数验证失败
+
+**测试示例:**
+```bash
+# 创建找房者资料
+curl -X POST http://localhost:8000/api/v1/users/me/profiles \
+  -H "Content-Type: application/json" \
+  -H "X-Test-Mode: true" \
+  -d '{
     "role_type": "housing_seeker",
-    "scene_type": "housing",
+    "scene_type": "housing", 
     "display_name": "小李找房",
-    "avatar_url": "https://example.com/avatar.jpg",
     "bio": "寻找合适的合租房源",
     "profile_data": {
       "budget_range": [2000, 3500],
       "preferred_areas": ["朝阳区"]
     },
-    "preferences": {
-      "roommate_gender": "any"
+    "tags": ["程序员", "安静"]
+  }'
+
+# 创建活动组织者资料
+curl -X POST http://localhost:8000/api/v1/users/me/profiles \
+  -H "Content-Type: application/json" \
+  -H "X-Test-Mode: true" \
+  -d '{
+    "role_type": "activity_organizer",
+    "scene_type": "activity",
+    "display_name": "活动达人小王",
+    "bio": "热爱组织户外活动",
+    "profile_data": {
+      "activity_cover": "https://example.com/cover.jpg",
+      "activity_name": "周末徒步活动"
     },
-    "tags": ["程序员", "安静"],
-    "is_active": 1,
-    "visibility": "public",
-    "created_at": "2025-01-29T01:00:00",
-    "updated_at": "2025-01-29T01:00:00"
-  }
-}
+    "tags": ["户外", "社交"]
+  }'
 ```
 
-#### 更新用户角色资料
+#### 2.5.5 更新用户角色资料
 **PUT** `/users/me/profiles/{profile_id}`
 
-**路径参数:**
-- `profile_id`: 资料ID
+更新指定的用户角色资料。只有资料的所有者才能更新。
 
-**请求体:** (所有字段都是可选的)
+**请求头:**
+- `Authorization: Bearer {token}` (生产环境)
+- `X-Test-Mode: true` (测试环境)
+- `Content-Type: application/json`
+
+**路径参数:**
+- `profile_id` (string, required): 资料ID
+
+**请求体参数:** (所有字段都是可选的)
+| 参数名 | 类型 | 必填 | 描述 |
+|--------|------|------|------|
+| display_name | string | 否 | 显示名称 |
+| avatar_url | string | 否 | 头像URL |
+| bio | string | 否 | 个人简介 |
+| profile_data | object | 否 | 角色特定数据 |
+| preferences | object | 否 | 偏好设置 |
+| tags | array | 否 | 标签列表 |
+| visibility | string | 否 | 可见性(public/private) |
+| is_active | integer | 否 | 激活状态(1-激活,0-停用) |
+
+**请求体示例:**
 ```json
 {
   "display_name": "更新后的名称",
-  "bio": "更新后的简介",
-  "profile_data": {...},
-  "preferences": {...},
-  "tags": [...],
-  "visibility": "private"
+  "bio": "更新后的个人简介",
+  "profile_data": {
+    "budget_range": [3000, 4500],
+    "preferred_areas": ["朝阳区", "海淀区", "西城区"],
+    "room_type": "single_room",
+    "move_in_date": "2024-03-01"
+  },
+  "preferences": {
+    "roommate_gender": "female",
+    "roommate_age_range": [25, 35],
+    "shared_facilities": ["kitchen", "living_room", "balcony"]
+  },
+  "tags": ["程序员", "安静", "整洁", "爱干净"],
+  "visibility": "public"
 }
 ```
 
-**响应示例:**
+**部分更新示例:**
+```json
+{
+  "display_name": "小李找房(急)",
+  "profile_data": {
+    "budget_range": [2500, 4000],
+    "move_in_date": "2024-02-15"
+  },
+  "tags": ["程序员", "安静", "整洁", "急租"]
+}
+```
+
+**成功响应示例:**
 ```json
 {
   "code": 0,
   "message": "success",
   "data": {
     "id": "profile_housing_seeker_001",
+    "user_id": "test_user_001",
+    "role_type": "housing_seeker",
+    "scene_type": "housing",
     "display_name": "更新后的名称",
-    "bio": "更新后的简介",
-    "updated_at": "2025-01-29T02:00:00"
+    "avatar_url": "https://example.com/avatar.jpg",
+    "bio": "更新后的个人简介",
+    "profile_data": {
+      "budget_range": [3000, 4500],
+      "preferred_areas": ["朝阳区", "海淀区", "西城区"],
+      "room_type": "single_room",
+      "move_in_date": "2024-03-01",
+      "lease_duration": "12_months",
+      "lifestyle": "quiet",
+      "work_schedule": "9_to_5",
+      "pets": false,
+      "smoking": false,
+      "occupation": "软件工程师",
+      "company_location": "中关村"
+    },
+    "preferences": {
+      "roommate_gender": "female",
+      "roommate_age_range": [25, 35],
+      "shared_facilities": ["kitchen", "living_room", "balcony"],
+      "transportation": ["subway"],
+      "nearby_facilities": ["supermarket", "gym"]
+    },
+    "tags": ["程序员", "安静", "整洁", "爱干净"],
+    "is_active": 1,
+    "visibility": "public",
+    "created_at": "2025-01-29T01:00:00Z",
+    "updated_at": "2025-01-29T02:00:00Z"
   }
 }
 ```
 
-#### 删除用户角色资料
+**错误响应:**
+- `401 Unauthorized`: 用户未认证
+- `404 Not Found`: 资料不存在或不属于当前用户
+- `422 Unprocessable Entity`: 请求参数验证失败
+
+**测试示例:**
+```bash
+# 更新找房者资料
+curl -X PUT http://localhost:8000/api/v1/users/me/profiles/profile_housing_seeker_001 \
+  -H "Content-Type: application/json" \
+  -H "X-Test-Mode: true" \
+  -d '{
+    "display_name": "小李找房(急)",
+    "bio": "急需找房，预算可适当调整",
+    "profile_data": {
+      "budget_range": [2500, 4000],
+      "move_in_date": "2024-02-15"
+    },
+    "tags": ["程序员", "安静", "整洁", "急租"]
+  }'
+
+# 只更新部分字段
+curl -X PUT http://localhost:8000/api/v1/users/me/profiles/profile_activity_organizer_001 \
+  -H "Content-Type: application/json" \
+  -H "X-Test-Mode: true" \
+  -d '{
+    "display_name": "户外活动专家小王",
+    "tags": ["户外", "专业", "安全", "有趣"]
+  }'
+```
+
+#### 2.5.6 删除用户角色资料
 **DELETE** `/users/me/profiles/{profile_id}`
 
-**路径参数:**
-- `profile_id`: 资料ID
+永久删除指定的用户角色资料。只有资料的所有者才能删除。
 
-**响应示例:**
+**请求头:**
+- `Authorization: Bearer {token}` (生产环境)
+- `X-Test-Mode: true` (测试环境)
+
+**路径参数:**
+- `profile_id` (string, required): 资料ID
+
+**成功响应示例:**
 ```json
 {
   "code": 0,
-  "message": "success",
+  "message": "Profile deleted successfully",
   "data": {
     "deleted_profile_id": "profile_housing_seeker_001"
   }
 }
 ```
 
-#### 切换资料激活状态
+**错误响应:**
+- `401 Unauthorized`: 用户未认证
+- `404 Not Found`: 资料不存在或不属于当前用户
+
+**测试示例:**
+```bash
+curl -X DELETE http://localhost:8000/api/v1/users/me/profiles/profile_housing_seeker_001 \
+  -H "X-Test-Mode: true"
+```
+
+#### 2.5.7 切换资料激活状态
 **PATCH** `/users/me/profiles/{profile_id}/toggle`
 
+切换指定用户角色资料的激活状态。停用的资料不会在匹配中显示。
+
+**请求头:**
+- `Authorization: Bearer {token}` (生产环境)
+- `X-Test-Mode: true` (测试环境)
+
 **路径参数:**
-- `profile_id`: 资料ID
+- `profile_id` (string, required): 资料ID
 
 **查询参数:**
-- `is_active`: 激活状态 (1-激活, 0-停用)
+- `is_active` (integer, required): 激活状态
+  - `1` - 激活资料
+  - `0` - 停用资料
 
-**响应示例:**
+**成功响应示例:**
+```json
+{
+  "code": 0,
+  "message": "Profile status updated successfully",
+  "data": {
+    "id": "profile_housing_seeker_001",
+    "user_id": "test_user_001",
+    "role_type": "housing_seeker",
+    "scene_type": "housing",
+    "display_name": "小李找房",
+    "is_active": 1,
+    "updated_at": "2025-01-29T02:00:00Z"
+  }
+}
+```
+
+**错误响应:**
+- `401 Unauthorized`: 用户未认证
+- `404 Not Found`: 资料不存在或不属于当前用户
+- `422 Unprocessable Entity`: is_active参数无效
+
+**测试示例:**
+```bash
+# 激活资料
+curl -X PATCH "http://localhost:8000/api/v1/users/me/profiles/profile_housing_seeker_001/toggle?is_active=1" \
+  -H "X-Test-Mode: true"
+
+# 停用资料
+curl -X PATCH "http://localhost:8000/api/v1/users/me/profiles/profile_housing_seeker_001/toggle?is_active=0" \
+  -H "X-Test-Mode: true"
+```
+
+#### 2.5.8 获取其他用户的角色资料
+**GET** `/users/{user_id}/profiles/{scene_type}/{role_type}`
+
+获取指定用户在特定场景和角色下的公开资料信息。
+
+**路径参数:**
+- `user_id` (string, required): 用户ID或资料ID
+- `scene_type` (string, required): 场景类型
+- `role_type` (string, required): 角色类型
+
+**成功响应示例:**
 ```json
 {
   "code": 0,
   "message": "success",
   "data": {
     "id": "profile_housing_seeker_001",
+    "user_id": "other_user_001",
+    "role_type": "housing_seeker",
+    "scene_type": "housing",
+    "display_name": "小张找房",
+    "avatar_url": "https://example.com/avatars/other_user.jpg",
+    "bio": "在北京工作的设计师，寻找合租室友",
+    "profile_data": {
+      "budget_range": [3000, 4500],
+      "preferred_areas": ["朝阳区", "东城区"],
+      "room_type": "single_room",
+      "occupation": "UI设计师"
+    },
+    "preferences": {
+      "roommate_gender": "any",
+      "shared_facilities": ["kitchen", "living_room"]
+    },
+    "tags": ["设计师", "爱干净", "好相处"],
     "is_active": 1,
-    "updated_at": "2025-01-29T02:00:00"
+    "visibility": "public",
+    "created_at": "2025-01-29T01:00:00Z",
+    "updated_at": "2025-01-29T01:00:00Z"
+  }
+}
+```
+
+**错误响应:**
+- `404 Not Found`: 用户或资料不存在，或资料不公开
+
+**测试示例:**
+```bash
+curl -X GET http://localhost:8000/api/v1/users/other_user_001/profiles/housing/housing_seeker \
+  -H "X-Test-Mode: true"
+```
+
+### 2.6 角色资料数据结构说明
+
+#### 找房者 (housing_seeker) 数据结构
+
+**profile_data 字段:**
+```json
+{
+  "budget_range": [2000, 3500],           // 预算范围 [最低, 最高]
+  "preferred_areas": ["朝阳区", "海淀区"],  // 偏好区域列表
+  "room_type": "single_room",             // 房间类型: single_room, shared_room, entire_apartment
+  "move_in_date": "2024-02-01",          // 期望入住日期
+  "lease_duration": "12_months",          // 租期: 3_months, 6_months, 12_months, flexible
+  "lifestyle": "quiet",                   // 生活方式: quiet, social, flexible
+  "work_schedule": "9_to_5",             // 工作时间: 9_to_5, flexible, night_shift
+  "pets": false,                         // 是否有宠物
+  "smoking": false,                      // 是否吸烟
+  "occupation": "软件工程师",              // 职业
+  "company_location": "中关村"            // 公司位置
+}
+```
+
+**preferences 字段:**
+```json
+{
+  "roommate_gender": "any",                    // 室友性别偏好: male, female, any
+  "roommate_age_range": [22, 35],             // 室友年龄范围
+  "shared_facilities": ["kitchen", "living_room"], // 共享设施
+  "transportation": ["subway"],                // 交通方式偏好
+  "nearby_facilities": ["supermarket", "gym"] // 附近设施需求
+}
+```
+
+#### 房源提供者 (housing_provider) 数据结构
+
+**profile_data 字段:**
+```json
+{
+  "properties": [                        // 房源列表
+    {
+      "id": "property_001",
+      "title": "精装两居室",
+      "rent": 4500,
+      "area": 80,
+      "location": "朝阳区三里屯",
+      "images": ["https://example.com/room1.jpg"]
+    }
+  ],
+  "landlord_type": "individual",         // 房东类型: individual, agency
+  "response_time": "within_24_hours",    // 响应时间: within_1_hour, within_24_hours, flexible
+  "viewing_available": true,             // 是否可看房
+  "lease_terms": ["押一付三", "包物业费"]  // 租赁条款
+}
+```
+
+#### 活动组织者 (activity_organizer) 数据结构
+
+**profile_data 字段:**
+```json
+{
+  "activity_cover": "https://example.com/cover.jpg",    // 活动封面 (必填)
+  "activity_name": "周末户外徒步活动",                    // 活动名称 (必填)
+  "activity_types": ["户外运动", "社交聚会"],            // 活动类型列表
+  "activity_start_time": "2024-01-15T09:00:00Z",      // 活动开始时间
+  "activity_city": "北京",                             // 活动城市
+  "activity_end_time": "2024-01-15T17:00:00Z",        // 活动结束时间
+  "activity_location": "香山公园",                      // 活动地点
+  "activity_min_participants": 5,                     // 最少参与人数
+  "activity_max_participants": 20,                    // 最多参与人数
+  "activity_cost": "免费",                             // 活动费用
+  "activity_description": "一起享受户外徒步的乐趣",      // 活动描述
+  "organizing_experience": "3年活动组织经验",           // 组织经验
+  "specialties": ["户外运动", "团队建设"],              // 专长领域
+  "group_size_preference": "10-20人",                 // 偏好群体大小
+  "frequency": "每周一次",                             // 活动频率
+  "locations": ["香山", "奥森公园"],                    // 常用地点
+  "past_activities": [                                // 过往活动
+    {
+      "name": "春季踏青活动",
+      "date": "2024-03-20",
+      "participants": 15
+    }
+  ],
+  "contact_info": {                                   // 联系方式
+    "wechat": "organizer_wang",
+    "phone": "13800138000"
+  }
+}
+```
+
+#### 交友者 (dating_seeker) 数据结构
+
+**profile_data 字段:**
+```json
+{
+  "age": 25,                                    // 年龄
+  "height": 175,                               // 身高(cm)
+  "education": "本科",                          // 教育程度
+  "occupation": "软件工程师",                    // 职业
+  "income_range": "10k-20k",                   // 收入范围
+  "relationship_status": "single",             // 感情状态
+  "looking_for": "serious_relationship",       // 寻找类型
+  "hobbies": ["音乐", "旅行", "摄影"],          // 兴趣爱好
+  "personality": ["开朗", "幽默", "责任心强"],   // 性格特点
+  "lifestyle": {                               // 生活方式
+    "smoking": false,
+    "drinking": "occasionally",
+    "exercise": "regularly",
+    "diet": "balanced"
   }
 }
 ```

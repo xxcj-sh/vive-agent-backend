@@ -94,14 +94,14 @@ class MatchService:
             # 根据不同的匹配类型，从不同的表中查询目标用户ID
             if match_type == "housing":
                 # 对于房源匹配，从用户资料表中查询
-                from app.models.user_profile import UserProfile
+                from app.models.user_profile_db import UserProfile
                 profile = self.db.query(UserProfile).filter(UserProfile.id == card_id).first()
                 if profile and hasattr(profile, 'user_id'):
                     return str(profile.user_id)
             
             elif match_type in ["dating", "activity"]:
                 # 对于交友和活动匹配，从用户资料表中查询
-                from app.models.user_profile import UserProfile
+                from app.models.user_profile_db import UserProfile
                 profile = self.db.query(UserProfile).filter(UserProfile.id == card_id).first()
                 if profile and hasattr(profile, 'user_id'):
                     return str(profile.user_id)

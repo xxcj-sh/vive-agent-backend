@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from typing import List, Optional, Dict, Any
-from app.models.user_profile import UserProfile
+from app.models.user_profile_db import UserProfile
 from app.models.user import User
-from app.models.user_profile_schemas import (
+from app.models.user_profile import (
     UserProfileCreate, UserProfileUpdate, UserProfile as UserProfileSchema,
     UserProfilesResponse, UserAllProfilesResponse, UserProfilesByScene
 )

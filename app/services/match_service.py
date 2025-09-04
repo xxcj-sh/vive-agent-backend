@@ -106,19 +106,19 @@ class MatchService:
         if match_type == "housing":
             # 对于房源匹配，可能需要从房源表或用户资料表中查询
             # 这里假设card_id就是用户资料ID，实际实现时需要根据具体业务逻辑调整
-            from app.models.user_profile import UserProfile
+            from app.models.user_profile_db import UserProfile
             profile = self.db.query(UserProfile).filter(UserProfile.id == card_id).first()
             return str(profile.user_id) if profile else None
         
         elif match_type == "dating":
             # 对于交友匹配，card_id可能直接是用户ID或用户资料ID
-            from app.models.user_profile import UserProfile
+            from app.models.user_profile_db import UserProfile
             profile = self.db.query(UserProfile).filter(UserProfile.id == card_id).first()
             return str(profile.user_id) if profile else None
         
         elif match_type == "activity":
             # 对于活动匹配，类似处理
-            from app.models.user_profile import UserProfile
+            from app.models.user_profile_db import UserProfile
             profile = self.db.query(UserProfile).filter(UserProfile.id == card_id).first()
             return str(profile.user_id) if profile else None
         

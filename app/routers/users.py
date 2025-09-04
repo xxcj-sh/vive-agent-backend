@@ -7,7 +7,7 @@ from app.services import db_service
 from app.services.data_adapter import data_service
 from app.services.user_profile_service import UserProfileService
 from app.dependencies import get_current_user
-from app.models.user_profile_schemas import (
+from app.models.user_profile import (
     UserProfileCreate, UserProfileUpdate, UserProfile as UserProfileSchema,
     UserAllProfilesResponse
 )
