@@ -3,9 +3,9 @@ from sqlalchemy import and_
 from typing import List, Optional, Dict, Any
 from app.models.user_profile_db import UserProfile
 from app.models.user import User
-from app.models.user_profile import (
-    UserProfileCreate, UserProfileUpdate, UserProfile as UserProfileSchema,
-    UserProfilesResponse, UserAllProfilesResponse, UserProfilesByScene
+from app.models.user_card import (
+    CardCreate, CardUpdate, Card as CardSchema,
+    CardsResponse, AllCardsResponse, CardsByScene
 )
 import uuid
 import json
@@ -14,8 +14,8 @@ class UserProfileService:
     """用户角色资料服务"""
     
     @staticmethod
-    def create_profile(db: Session, user_id: str, profile_data: UserProfileCreate) -> UserProfile:
-        """创建用户角色资料"""
+    def create_profile(db: Session, user_id: str, profile_data: CardCreate) -> UserProfile:
+        """创建用户角色卡片"""
         profile_id = f"profile_{profile_data.scene_type}_{profile_data.role_type}_{uuid.uuid4().hex[:8]}"
         
         db_profile = UserProfile(
@@ -39,7 +39,7 @@ class UserProfileService:
     
     @staticmethod
     def get_user_profiles(db: Session, user_id: str, active_only: bool = False) -> List[UserProfile]:
-        """获取用户的所有角色资料"""
+        """获取用户的所有角色卡片"""
         query = db.query(UserProfile).filter(UserProfile.user_id == user_id)
         
         if active_only:
@@ -129,8 +129,8 @@ class UserProfileService:
         ).order_by(UserProfile.created_at.desc()).all()
     
     @staticmethod
-    def update_profile(db: Session, profile_id: str, update_data: UserProfileUpdate) -> Optional[UserProfile]:
-        """更新用户角色资料"""
+    def update_profile(db: Session, profile_id: str, update_data: CardUpdate) -> Optional[UserProfile]:
+        """更新用户角色卡片"""
         db_profile = db.query(UserProfile).filter(UserProfile.id == profile_id).first()
         
         if not db_profile:
@@ -169,8 +169,8 @@ class UserProfileService:
         return db_profile
     
     @staticmethod
-    def get_user_all_profiles_response(db: Session, user_id: str) -> UserAllProfilesResponse:
-        """获取用户所有角色资料的完整响应"""
+    def get_user_all_profiles_response(db: Session, user_id: str) -> AllCardsResponse:
+        """获取用户所有角色卡片的完整响应"""
         all_profiles = UserProfileService.get_user_profiles(db, user_id)
         active_profiles = [p for p in all_profiles if p.is_active == 1]
         
@@ -183,11 +183,11 @@ class UserProfileService:
             scenes_dict[scene].append(profile)
         
         by_scene = [
-            UserProfilesByScene(scene_type=scene, profiles=profiles)
+            CardsByScene(scene_type=scene, profiles=profiles)
             for scene, profiles in scenes_dict.items()
         ]
         
-        return UserAllProfilesResponse(
+        return AllCardsResponse(
             user_id=user_id,
             total_count=len(all_profiles),
             active_count=len(active_profiles),

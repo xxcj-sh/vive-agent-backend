@@ -7,9 +7,14 @@ from app.services import db_service
 from app.services.data_adapter import data_service
 from app.services.user_profile_service import UserProfileService
 from app.dependencies import get_current_user
-from app.models.user_profile import (
-    UserProfileCreate, UserProfileUpdate, UserProfile as UserProfileSchema,
-    UserAllProfilesResponse
+from app.models.user_card import (
+    CardCreate, CardUpdate, Card as CardSchema,
+    AllCardsResponse
+)
+from app.utils.db_config import get_db
+from app.models.user_card import (
+    CardCreate, CardUpdate, Card as CardSchema,
+    AllCardsResponse
 )
 from app.utils.db_config import get_db
 
@@ -218,7 +223,7 @@ def get_current_user_stats(current_user: Dict[str, Any] = Depends(get_current_us
         }
     }
 
-@router.get("/me/profiles", response_model=UserAllProfilesResponse)
+@router.get("/me/profiles", response_model=AllCardsResponse)
 def get_current_user_profiles(
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -283,9 +288,9 @@ def get_current_user_profile_by_role(
         "data": processed_profile
     }
 
-@router.post("/me/profiles", response_model=UserProfileSchema)
+@router.post("/me/profiles", response_model=CardSchema)
 def create_user_profile(
-    profile_data: UserProfileCreate,
+    profile_data: CardCreate,
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -309,7 +314,7 @@ def create_user_profile(
 @router.put("/me/profiles/{profile_id}")
 def update_user_profile(
     profile_id: str,
-    update_data: UserProfileUpdate,
+    update_data: CardUpdate,
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

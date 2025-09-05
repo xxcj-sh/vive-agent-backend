@@ -637,7 +637,7 @@ class MatchCardStrategy:
         # 获取第一个资料，如果有多个的话
         profile = landlord.profiles[0] if landlord.profiles else None
         profile_data = profile.profile_data if profile and profile.profile_data else {}
-        
+        print("landlord.id:", landlord.id)
         return {
             "id": f"housing_db_{landlord.id}",
             "matchType": "housing",
@@ -658,7 +658,8 @@ class MatchCardStrategy:
             "landlordInfo": {
                 "avatar": "",  # 将通过多媒体服务填充
                 "name": landlord.nick_name or landlord.username or f"用户{landlord.id}",
-                "age": profile_data.get('age', 30)
+                "age": profile_data.get('age', 30),
+                "user_id": landlord.id
             },
             # 详情页面需要的额外信息
             "area": profile_data.get('housing_area', 80),

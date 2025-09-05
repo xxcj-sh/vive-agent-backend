@@ -89,7 +89,7 @@ class Match(Base):
     __tablename__ = "matches"
 
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))  # 改为String类型支持字符串ID
-    user_id = Column(String, ForeignKey("users.id"))  # 改为String类型匹配用户ID
+    user_id = Column(String, ForeignKey("user.id"))  # 改为String类型匹配用户ID
     match_type = Column(String)
     status = Column(String)
     score = Column(Float, default=0.0)

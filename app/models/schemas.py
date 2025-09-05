@@ -115,7 +115,7 @@ class ReadMessageRequest(BaseModel):
     last_message_id: str = Field(..., description="最后一条消息ID")
 
 # 个人资料相关模型
-class Profile(BaseModel):
+class Card(BaseModel):
     id: str = Field(..., description="用户ID")
     nick_name: str = Field(..., description="昵称")
     avatar_url: str = Field(..., description="头像URL")
@@ -127,7 +127,7 @@ class Profile(BaseModel):
     preferences: Optional[Dict[str, Any]] = Field(None, description="偏好设置")
     tenant_info: Optional[Dict[str, Any]] = Field(None, description="租户信息")
 
-class ProfileUpdateRequest(BaseModel):
+class CardUpdateRequest(BaseModel):
     nick_name: Optional[str] = Field(None, description="昵称")
     avatar_url: Optional[str] = Field(None, description="头像URL")
     age: Optional[int] = Field(None, description="年龄")
@@ -154,7 +154,7 @@ class SceneConfig(BaseModel):
     icon: str = Field(..., description="图标路径")
     description: str = Field(..., description="场景描述")
     roles: Dict[str, SceneRole] = Field(..., description="角色配置")
-    profileFields: List[str] = Field(..., description="个人资料字段")
+    CardFields: List[str] = Field(..., description="个人资料字段")
     tags: List[str] = Field(..., description="标签列表")
 
 class SceneConfigResponse(BaseModel):

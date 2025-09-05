@@ -26,7 +26,7 @@ class MatchAction(Base):
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, ForeignKey("users.id"), nullable=False)  # 操作用户ID
     target_user_id = Column(String, ForeignKey("users.id"), nullable=False)  # 目标用户ID
-    target_card_id = Column(String, nullable=False)  # 目标卡片ID（可能是用户资料ID或房源ID等）
+    target_card_id = Column(String, nullable=False)  # 目标卡片ID
     action_type = Column(Enum(MatchActionType), nullable=False)  # 操作类型
     match_type = Column(String, nullable=False)  # 匹配场景类型 (housing/dating/activity)
     scene_context = Column(String, nullable=True)  # 场景上下文信息
