@@ -11,7 +11,7 @@ from app.models.order import MembershipOrder, OrderStatus, Base
 from datetime import datetime
 
 # 数据库配置
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vmatch_dev.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tests/vmatch_dev.db")
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
 
 # 创建表

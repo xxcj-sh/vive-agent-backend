@@ -12,12 +12,15 @@ class UserCard(Base):
     user_id = Column(String, ForeignKey("users.id"), index=True, nullable=False)
     role_type = Column(String, nullable=False)
     scene_type = Column(String, nullable=False)
+    display_name = Column(String, nullable=False)
+    avatar_url = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
     profile_data = Column(JSON, nullable=True)
     preferences = Column(JSON, nullable=True)
     visibility = Column(String, default="public")
+    is_active = Column(Integer, default=1)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # 关系
-    user = relationship("User", back_populates="profiles")
+    user = relationship("User", back_populates="cards")

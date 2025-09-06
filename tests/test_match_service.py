@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.models.user import User
-from app.models.user_profile_db import UserProfile
+from app.models.user_card_db import UserCard
 from app.models.match_action import MatchAction, MatchResult, MatchActionType
 from app.services.match_service import MatchService
 from app.utils.db_config import Base

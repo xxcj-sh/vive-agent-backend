@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     """应用配置"""
     # 环境设置
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
     
     # 数据库配置
     DATABASE_URL: str = os.getenv(

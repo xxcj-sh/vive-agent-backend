@@ -88,18 +88,19 @@ class Region(str, enum.Enum):
 class Match(Base):
     __tablename__ = "matches"
 
-    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))  # 改为String类型支持字符串ID
-    user_id = Column(String, ForeignKey("user.id"))  # 改为String类型匹配用户ID
-    match_type = Column(String)
-    status = Column(String)
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"))
+    match_type = Column(Enum(MatchType))
+    status = Column(Enum(MatchStatus))
     score = Column(Float, default=0.0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
-    # 关系
+
     user = relationship("User", back_populates="matches")
-    match_details = relationship("MatchDetail", back_populates="match")
+    match_details = relationship("MatchDetail", back_populates="match", cascade="all, delete-orphan")
+    chat_messages = relationship("ChatMessage", back_populates="match", cascade="all, delete-orphan")
+    chat_conversation = relationship("ChatConversation", back_populates="match", uselist=False, cascade="all, delete-orphan")
 
 class MatchDetail(Base):
     __tablename__ = "match_details"

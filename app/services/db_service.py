@@ -38,6 +38,8 @@ def get_users(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
 def update_user(db: Session, user_id: str, user_data: Dict[str, Any]) -> Optional[User]:
     db_user = db.query(User).filter(User.id == user_id).first()
     if db_user:
+        import json
+        
         # 字段映射：前端字段名 -> 数据库字段名
         field_mapping = {
             'nickName': 'nick_name',
@@ -51,11 +53,16 @@ def update_user(db: Session, user_id: str, user_data: Dict[str, Any]) -> Optiona
             # 使用映射后的字段名，如果没有映射则使用原字段名
             db_field = field_mapping.get(key, key)
             if hasattr(db_user, db_field):
+                # 处理JSON字段：将数组/对象转换为JSON字符串
+                if db_field in ['location', 'interests'] and value is not None:
+                    if isinstance(value, (list, dict)):
+                        value = json.dumps(value, ensure_ascii=False)
                 setattr(db_user, db_field, value)
         
         db.commit()
         db.refresh(db_user)
-    return db_user
+        return db_user
+    return None
 
 def delete_user(db: Session, user_id: str) -> bool:
     db_user = db.query(User).filter(User.id == user_id).first()

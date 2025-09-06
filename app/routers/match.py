@@ -57,11 +57,6 @@ async def get_match_cards(
             current_user=current_user_dict
         )
         
-        # 添加调试信息
-        print(f"请求参数: matchType={matchType}, userRole={userRole}, page={page}, pageSize={pageSize}")
-        print(f"当前用户: {current_user_dict}")
-        print(f"策略返回结果: {result}")
-        
         return BaseResponse(
             code=0, 
             message="success", 

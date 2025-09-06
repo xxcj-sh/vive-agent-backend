@@ -38,7 +38,15 @@ class User(BaseModel):
     gender: int = Field(..., description="性别")
     age: Optional[int] = Field(None, description="年龄")
     occupation: Optional[str] = Field(None, description="职业")
-    location: Optional[List[str]] = Field(None, description="位置，按[省, 市, 区/县]顺序存储")
+    location: Optional[str] = Field(None, description="位置信息(JSON格式)")
+    education: Optional[str] = Field(None, description="教育背景")
+    interests: Optional[str] = Field(None, description="兴趣爱好(JSON格式)")
+    wechat: Optional[str] = Field(None, description="微信号")
+    email: Optional[str] = Field(None, description="邮箱")
+    status: Optional[str] = Field(None, description="用户状态")
+    level: Optional[int] = Field(None, description="用户等级")
+    points: Optional[int] = Field(None, description="积分")
+    last_login: Optional[datetime] = Field(None, description="最后登录时间")
     bio: Optional[str] = Field(None, description="个人简介")
     match_type: Optional[Literal["housing", "activity", "dating"]] = Field(None, description="匹配类型")
     user_role: Optional[Literal["seeker", "provider"]] = Field(None, description="用户角色")
@@ -90,12 +98,21 @@ class MatchListResponse(BaseModel):
 class ChatMessage(BaseModel):
     id: str = Field(..., description="消息ID")
     content: str = Field(..., description="消息内容")
-    type: Literal["text", "image", "voice"] = Field(..., description="消息类型")
+    type: Literal["text", "image", "voice", "video", "file", "system"] = Field(..., description="消息类型")
     sender_id: str = Field(..., description="发送者ID")
     sender_avatar: str = Field(..., description="发送者头像")
     sender_name: str = Field(..., description="发送者名称")
+    receiver_id: str = Field(..., description="接收者ID")
     timestamp: int = Field(..., description="时间戳")
     is_read: bool = Field(..., description="是否已读")
+    read_at: Optional[int] = Field(None, description="阅读时间戳")
+    status: Literal["sent", "delivered", "read", "failed", "deleted"] = Field("sent", description="消息状态")
+    media_url: Optional[str] = Field(None, description="媒体文件URL")
+    media_size: Optional[int] = Field(None, description="文件大小（字节）")
+    media_duration: Optional[int] = Field(None, description="语音/视频时长（秒）")
+    reply_to_id: Optional[str] = Field(None, description="回复消息ID")
+    system_type: Optional[str] = Field(None, description="系统消息类型")
+    system_data: Optional[Dict[str, Any]] = Field(None, description="系统消息数据")
 
 class ChatHistoryResponse(BaseModel):
     pagination: Pagination = Field(..., description="分页信息")
@@ -104,15 +121,47 @@ class ChatHistoryResponse(BaseModel):
 class SendMessageRequest(BaseModel):
     match_id: str = Field(..., description="匹配ID")
     content: str = Field(..., description="消息内容")
-    type: Literal["text", "image", "voice"] = Field(..., description="消息类型")
+    type: Literal["text", "image", "voice", "video", "file"] = Field(..., description="消息类型")
+    media_url: Optional[str] = Field(None, description="媒体文件URL")
+    media_size: Optional[int] = Field(None, description="文件大小（字节）")
+    media_duration: Optional[int] = Field(None, description="语音/视频时长（秒）")
+    reply_to_id: Optional[str] = Field(None, description="回复消息ID")
 
 class SendMessageResponse(BaseModel):
     id: str = Field(..., description="消息ID")
     timestamp: int = Field(..., description="时间戳")
+    status: str = Field(..., description="消息状态")
 
 class ReadMessageRequest(BaseModel):
     match_id: str = Field(..., description="匹配ID")
-    last_message_id: str = Field(..., description="最后一条消息ID")
+    message_ids: List[str] = Field(..., description="消息ID列表")
+
+class UnreadCountResponse(BaseModel):
+    unread_count: int = Field(..., description="未读消息数量")
+    last_message: Optional[ChatMessage] = Field(None, description="最后一条消息")
+
+class ConversationListItem(BaseModel):
+    match_id: str = Field(..., description="匹配ID")
+    user_id: str = Field(..., description="对方用户ID")
+    user_name: str = Field(..., description="对方用户名")
+    user_avatar: str = Field(..., description="对方头像")
+    last_message: Optional[ChatMessage] = Field(None, description="最后一条消息")
+    unread_count: int = Field(0, description="未读消息数量")
+    updated_at: int = Field(..., description="更新时间戳")
+    is_active: bool = Field(True, description="会话是否活跃")
+
+class ConversationListResponse(BaseModel):
+    pagination: Pagination = Field(..., description="分页信息")
+    list: List[ConversationListItem] = Field(..., description="会话列表")
+
+class DeleteMessageRequest(BaseModel):
+    message_ids: List[str] = Field(..., description="要删除的消息ID列表")
+    delete_type: Literal["soft", "hard"] = Field("soft", description="删除类型：软删除或硬删除")
+
+class ChatMediaUploadResponse(BaseModel):
+    url: str = Field(..., description="文件URL")
+    size: int = Field(..., description="文件大小")
+    duration: Optional[int] = Field(None, description="时长（语音/视频）")
 
 # 个人资料相关模型
 class Card(BaseModel):
@@ -152,6 +201,7 @@ class SceneConfig(BaseModel):
     key: str = Field(..., description="场景标识")
     label: str = Field(..., description="场景名称")
     icon: str = Field(..., description="图标路径")
+    iconActive: str = Field(..., description="激活时图标路径")
     description: str = Field(..., description="场景描述")
     roles: Dict[str, SceneRole] = Field(..., description="角色配置")
     CardFields: List[str] = Field(..., description="个人资料字段")

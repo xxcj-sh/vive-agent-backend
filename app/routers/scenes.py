@@ -11,6 +11,7 @@ SCENE_CONFIGS = {
         key="housing",
         label="住房",
         icon="/images/house.svg",
+        iconActive="/images/house-active.svg",
         description="寻找室友或出租房源",
         roles={
             "seeker": SceneRole(
@@ -38,6 +39,7 @@ SCENE_CONFIGS = {
         key="activity",
         label="活动",
         icon="/images/interest.svg",
+        iconActive="/images/interest-active.svg",
         description="寻找活动伙伴",
         roles={
             "seeker": SceneRole(
@@ -67,6 +69,7 @@ SCENE_CONFIGS = {
         key="dating",
         label="恋爱交友",
         icon="/images/icon-dating.svg",
+        iconActive="/images/icon-dating-active.svg",
         description="寻找恋爱对象",
         roles={
             "seeker": SceneRole(

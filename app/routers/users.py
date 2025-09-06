@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
+from datetime import datetime
 from app.utils.db_config import get_db
 from app.services import db_service
-from app.services.data_adapter import data_service
-from app.services.user_profile_service import UserProfileService
+from app.services.data_adapter import DataService
+from app.services.user_card_service import UserCardService
 from app.dependencies import get_current_user
 from app.models.user_card import (
     CardCreate, CardUpdate, Card as CardSchema,
@@ -97,6 +98,12 @@ class ProfileUpdate(BaseModel):
     preferences: Optional[Dict[str, Any]] = None
     phone: Optional[str] = None
     education: Optional[str] = None
+    wechat: Optional[str] = None
+    email: Optional[str] = None
+    status: Optional[str] = None
+    level: Optional[int] = None
+    points: Optional[int] = None
+    lastLogin: Optional[datetime] = None
     
     class Config:
         # 允许额外字段，提高兼容性
@@ -137,6 +144,9 @@ def get_current_user_info(current_user: Dict[str, Any] = Depends(get_current_use
     """获取当前用户基础信息"""
     from app.models.schemas import BaseResponse
     
+    # 创建DataService实例
+    data_service = DataService()
+    
     # 从数据服务获取最新的用户数据，而不是使用缓存的认证数据
     user_id = current_user.get("id")
     if user_id:
@@ -155,7 +165,7 @@ def get_current_user_info(current_user: Dict[str, Any] = Depends(get_current_use
     return BaseResponse(code=0, message="success", data=processed_data)
 
 @router.put("/me")
-def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any] = Depends(get_current_user)):
+def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any] = Depends(get_current_user), db: Session = Depends(get_db)):
     """更新当前用户基础信息"""
     user_id = current_user.get("id")
     if not user_id:
@@ -189,14 +199,21 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
             # 按空格分割，过滤空字符串
             location_parts = [part.strip() for part in location_str.split() if part.strip()]
             update_dict["location"] = location_parts
-        
+        print("user_id", user_id, "update_dict", update_dict)
         # 更新用户基础资料
-        updated_user = data_service.update_profile(user_id, update_dict)
+        updated_user = db_service.update_user(db, user_id, update_dict)
         if not updated_user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        # 将User对象转换为字典
+        user_dict = {}
+        if hasattr(updated_user, '__dict__'):
+            user_dict = updated_user.__dict__.copy()
+            # 移除SQLAlchemy内部字段
+            user_dict.pop('_sa_instance_state', None)
+        
         # 处理图片URL，确保包含完整前缀
-        processed_user = process_user_image_urls(updated_user)
+        processed_user = process_user_image_urls(user_dict)
         from app.models.schemas import BaseResponse
         return BaseResponse(code=0, message="success", data=processed_user)
         
@@ -223,8 +240,8 @@ def get_current_user_stats(current_user: Dict[str, Any] = Depends(get_current_us
         }
     }
 
-@router.get("/me/profiles", response_model=AllCardsResponse)
-def get_current_user_profiles(
+@router.get("/me/cards", response_model=AllCardsResponse)
+def get_current_user_cards(
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -234,16 +251,55 @@ def get_current_user_profiles(
         raise HTTPException(status_code=401, detail="User not authenticated")
     
     # 获取角色资料
-    profiles_response = UserProfileService.get_user_all_profiles_response(db, user_id)
+    cards_response = UserCardService.get_user_all_cards_response(db, user_id)
     
     # 添加用户基础资料信息
-    profiles_response_dict = profiles_response.dict() if hasattr(profiles_response, 'dict') else profiles_response.__dict__
-    profiles_response_dict["user_basic_info"] = current_user
+    cards_response_dict = cards_response.dict() if hasattr(cards_response, 'dict') else cards_response.__dict__
+    cards_response_dict["user_basic_info"] = current_user
     
-    return profiles_response_dict
+    return cards_response_dict
 
-@router.get("/me/profiles/{scene_type}")
-def get_current_user_profiles_by_scene(
+@router.get("/me")
+def get_current_user_info(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取当前用户的完整信息"""
+    user_id = current_user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User not authenticated")
+    
+    db_user = db_service.get_user(db, user_id=user_id)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "id": db_user.id,
+            "nickName": db_user.nick_name,
+            "avatarUrl": db_user.avatar_url,
+            "gender": db_user.gender or 0,
+            "age": db_user.age,
+            "occupation": db_user.occupation,
+            "location": db_user.location,
+            "education": db_user.education,
+            "interests": db_user.interests,
+            "wechat": db_user.wechat,
+            "email": db_user.email,
+            "status": db_user.status,
+            "level": db_user.level,
+            "points": db_user.points,
+            "lastLogin": db_user.last_login.isoformat() if db_user.last_login else None,
+            "phone": db_user.phone,
+            "createdAt": db_user.created_at.isoformat() if db_user.created_at else None,
+            "updatedAt": db_user.updated_at.isoformat() if db_user.updated_at else None
+        }
+    }
+
+@router.get("/me/cards/{scene_type}")
+def get_current_user_cards_by_scene(
     scene_type: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -253,17 +309,17 @@ def get_current_user_profiles_by_scene(
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
     
-    profiles = UserProfileService.get_profiles_by_scene(db, user_id, scene_type)
+    cards = UserCardService.get_cards_by_scene(db, user_id, scene_type)
     return {
         "code": 0,
         "message": "success",
         "data": {
             "scene_type": scene_type,
-            "profiles": profiles
+            "cards": cards
         }
     }
 
-@router.get("/me/profiles/{scene_type}/{role_type}")
+@router.get("/me/cards/{scene_type}/{role_type}")
 def get_current_user_profile_by_role(
     scene_type: str,
     role_type: str,
@@ -275,20 +331,20 @@ def get_current_user_profile_by_role(
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
     
-    profile = UserProfileService.get_user_profile_by_role(db, user_id, scene_type, role_type)
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
+    card = UserCardService.get_user_card_by_role(db, user_id, scene_type, role_type)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
     
     # 处理图片URL，确保包含完整前缀
-    processed_profile = process_user_image_urls(profile)
+    processed_card = process_user_image_urls(card)
     
     return {
         "code": 0,
         "message": "success",
-        "data": processed_profile
+        "data": processed_card
     }
 
-@router.post("/me/profiles", response_model=CardSchema)
+@router.post("/me/cards", response_model=CardSchema)
 def create_user_profile(
     profile_data: CardCreate,
     current_user: Dict[str, Any] = Depends(get_current_user),
@@ -300,18 +356,18 @@ def create_user_profile(
         raise HTTPException(status_code=401, detail="User not authenticated")
     
     # 检查是否已存在相同场景和角色的资料
-    existing_profile = UserProfileService.get_user_profile_by_role(
+    existing_card = UserCardService.get_user_card_by_role(
         db, user_id, profile_data.scene_type, profile_data.role_type
     )
-    if existing_profile:
+    if existing_card:
         raise HTTPException(
             status_code=400, 
-            detail=f"Profile for {profile_data.scene_type}.{profile_data.role_type} already exists"
+            detail=f"Card for {profile_data.scene_type}.{profile_data.role_type} already exists"
         )
     
-    return UserProfileService.create_profile(db, user_id, profile_data)
+    return UserCardService.create_card(db, user_id, profile_data)
 
-@router.put("/me/profiles/{profile_id}")
+@router.put("/me/cards/{profile_id}")
 def update_user_profile(
     profile_id: str,
     update_data: CardUpdate,
@@ -324,18 +380,20 @@ def update_user_profile(
         raise HTTPException(status_code=401, detail="User not authenticated")
     
     # 验证资料属于当前用户
-    profile = UserProfileService.get_profile_by_id(db, profile_id)
-    if not profile or profile.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Profile not found")
+    card = UserCardService.get_card_by_id(db, profile_id)
+    if not card or card.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Card not found")
     
-    updated_profile = UserProfileService.update_profile(db, profile_id, update_data)
+    # 将Pydantic模型转换为字典
+    update_dict = update_data.dict(exclude_unset=True)
+    updated_card = UserCardService.update_card(db, profile_id, update_dict)
     return {
         "code": 0,
         "message": "success",
-        "data": updated_profile
+        "data": updated_card
     }
 
-@router.delete("/me/profiles/{profile_id}")
+@router.delete("/me/cards/{profile_id}")
 def delete_user_profile(
     profile_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
@@ -347,20 +405,20 @@ def delete_user_profile(
         raise HTTPException(status_code=401, detail="User not authenticated")
     
     # 验证资料属于当前用户
-    profile = UserProfileService.get_profile_by_id(db, profile_id)
-    if not profile or profile.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Profile not found")
+    card = UserCardService.get_card_by_id(db, profile_id)
+    if not card or card.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Card not found")
     
-    success = UserProfileService.delete_profile(db, profile_id)
+    success = UserCardService.delete_card(db, profile_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        raise HTTPException(status_code=404, detail="Card not found")
     
     return {
         "code": 0,
-        "message": "Profile deleted successfully"
+        "message": "Card deleted successfully"
     }
 
-@router.patch("/me/profiles/{profile_id}/toggle")
+@router.patch("/me/cards/{profile_id}/toggle")
 def toggle_user_profile_status(
     profile_id: str,
     is_active: int,
@@ -373,18 +431,18 @@ def toggle_user_profile_status(
         raise HTTPException(status_code=401, detail="User not authenticated")
     
     # 验证资料属于当前用户
-    profile = UserProfileService.get_profile_by_id(db, profile_id)
-    if not profile or profile.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Profile not found")
+    card = UserCardService.get_card_by_id(db, profile_id)
+    if not card or card.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Card not found")
     
-    updated_profile = UserProfileService.toggle_profile_status(db, profile_id, is_active)
+    updated_card = UserCardService.toggle_card_status(db, profile_id, is_active)
     return {
         "code": 0,
-        "message": "Profile status updated successfully",
-        "data": updated_profile
+        "message": "Card status updated successfully",
+        "data": updated_card
     }
 
-@router.get("/{user_id}/profiles/{scene_type}/{role_type}")
+@router.get("/{user_id}/cards/{scene_type}/{role_type}")
 def get_user_profile_by_role(
     user_id: str,
     scene_type: str,
@@ -393,34 +451,34 @@ def get_user_profile_by_role(
 ):
     """获取指定用户在特定场景和角色下的资料"""
     # 首先尝试作为用户ID查询
-    profile = UserProfileService.get_user_profile_by_role(db, user_id, scene_type, role_type)
+    card = UserCardService.get_user_card_by_role(db, user_id, scene_type, role_type)
     
-    # 如果没找到，检查user_id是否实际上是一个profile_id
-    if not profile:
-        # 尝试通过profile_id获取profile
-        profile_by_id = UserProfileService.get_profile_by_id(db, user_id)
-        if profile_by_id:
+    # 如果没找到，检查user_id是否实际上是一个card_id
+    if not card:
+        # 尝试通过card_id获取card
+        card_by_id = UserCardService.get_card_by_id(db, user_id)
+        if card_by_id:
             # 获取完整的用户资料信息
-            full_profile = UserProfileService.get_user_profile_by_role(
-                db, str(profile_by_id.user_id), str(profile_by_id.scene_type), str(profile_by_id.role_type)
+            full_card = UserCardService.get_user_card_by_role(
+                db, str(card_by_id.user_id), str(card_by_id.scene_type), str(card_by_id.role_type)
             )
-            if full_profile:
-                # 返回找到的profile，说明实际的类型
+            if full_card:
+                # 返回找到的card，说明实际的类型
                 return {
                     "code": 0,
-                    "message": f"Found profile by ID: {profile_by_id.scene_type}.{profile_by_id.role_type}",
+                    "message": f"Found card by ID: {card_by_id.scene_type}.{card_by_id.role_type}",
                     "requested": {"scene_type": scene_type, "role_type": role_type},
-                    "actual": {"scene_type": profile_by_id.scene_type, "role_type": profile_by_id.role_type},
-                    "data": full_profile
+                    "actual": {"scene_type": card_by_id.scene_type, "role_type": card_by_id.role_type},
+                    "data": full_card
                 }
     
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
     
     return {
         "code": 0,
         "message": "success",
-        "data": profile
+        "data": card
     }
 
 @router.get("/{user_id}")
@@ -438,6 +496,17 @@ def read_user(user_id: str, db: Session = Depends(get_db)):
             "nickname": db_user.nick_name,
             "avatarUrl": db_user.avatar_url,
             "gender": db_user.gender or 0,
+            "age": db_user.age,
+            "occupation": db_user.occupation,
+            "location": db_user.location,
+            "education": db_user.education,
+            "interests": db_user.interests,
+            "wechat": db_user.wechat,
+            "email": db_user.email,
+            "status": db_user.status,
+            "level": db_user.level,
+            "points": db_user.points,
+            "lastLogin": db_user.last_login.isoformat() if db_user.last_login else None,
             "phone": getattr(db_user, 'phone', None)
         }
     )

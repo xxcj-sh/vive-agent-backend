@@ -13,7 +13,7 @@ from collections import defaultdict
 
 from app.models.match_action import MatchAction, MatchResult, MatchActionType, MatchResultStatus
 from app.models.user import User
-from app.models.user_profile_db import UserProfile
+from app.models.user_card_db import UserCard
 from app.services.match_service import MatchService
 
 
@@ -225,13 +225,13 @@ class EnhancedMatchService(MatchService):
             if not current_user:
                 return []
             
-            # 获取用户资料
-            current_user_profile = self._get_user_profile_data(user_id, match_type)
-            if not current_user_profile:
+            # 获取用户卡片
+            current_user_card = self._get_user_card_data(user_id, match_type)
+            if not current_user_card:
                 return []
             
             # 获取用户角色
-            user_role = current_user_profile.get('role_type', 'seeker')
+            user_role = current_user_card.get('role_type', 'seeker')
             
             # 根据角色获取候选用户
             candidates = self._get_match_candidates(user_id, match_type, user_role)
@@ -239,10 +239,10 @@ class EnhancedMatchService(MatchService):
             # 计算兼容性分数并排序
             scored_candidates = []
             for candidate in candidates:
-                candidate_profile = self._get_user_profile_data(candidate.id, match_type)
-                if candidate_profile:
+                candidate_card = self._get_user_card_data(candidate.id, match_type)
+                if candidate_card:
                     compatibility_score = self.compatibility_calculator.calculate_compatibility_score(
-                        current_user_profile, candidate_profile, match_type
+                        current_user_card, candidate_card, match_type
                     )
                     
                     scored_candidates.append({
@@ -255,10 +255,10 @@ class EnhancedMatchService(MatchService):
                             'occupation': candidate.occupation,
                             'location': candidate.location
                         },
-                        'profile_data': candidate_profile,
+                        'card_data': candidate_card,
                         'compatibility_score': compatibility_score,
                         'match_reasons': self._generate_match_reasons(
-                            current_user_profile, candidate_profile, match_type
+                            current_user_card, candidate_card, match_type
                         )
                     })
             
@@ -293,14 +293,14 @@ class EnhancedMatchService(MatchService):
             target_role = None
         
         # 构建查询
-        query = self.db.query(User).join(UserProfile).filter(
+        query = self.db.query(User).join(UserCard).filter(
             User.id != user_id,  # 排除自己
-            UserProfile.scene_type == match_type,
-            UserProfile.is_active == 1
+            UserCard.scene_type == match_type,
+            UserCard.is_active == 1
         )
         
         if target_role:
-            query = query.filter(UserProfile.role_type.like(f'%{target_role}%'))
+            query = query.filter(UserCard.role_type.like(f'%{target_role}%'))
         
         # 排除已经操作过的用户
         acted_user_ids = self.db.query(MatchAction.target_user_id).filter(
@@ -313,30 +313,30 @@ class EnhancedMatchService(MatchService):
         # 限制候选数量，提高查询效率
         return query.limit(50).all()
     
-    def _get_user_profile_data(self, user_id: str, match_type: str) -> Optional[Dict[str, Any]]:
-        """获取用户在特定场景下的资料数据"""
-        profile = self.db.query(UserProfile).filter(
-            UserProfile.user_id == user_id,
-            UserProfile.scene_type == match_type,
-            UserProfile.is_active == 1
+    def _get_user_card_data(self, user_id: str, match_type: str) -> Optional[Dict[str, Any]]:
+        """获取用户在特定场景下的卡片数据"""
+        card = self.db.query(UserCard).filter(
+            UserCard.user_id == user_id,
+            UserCard.scene_type == match_type,
+            UserCard.is_active == 1
         ).first()
         
-        if not profile:
+        if not card:
             return None
         
-        # 合并基础用户信息和资料数据
+        # 合并基础用户信息和卡片数据
         user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
             return None
         
-        profile_data = profile.profile_data or {}
-        profile_data.update({
-            'role_type': profile.role_type,
-            'scene_type': profile.scene_type,
-            'display_name': profile.display_name,
-            'bio': profile.bio,
-            'tags': profile.tags or [],
-            'preferences': profile.preferences or {},
+        card_data = card.card_data or {}
+        card_data.update({
+            'role_type': card.role_type,
+            'scene_type': card.scene_type,
+            'display_name': card.display_name,
+            'bio': card.bio,
+            'tags': card.tags or [],
+            'preferences': card.preferences or {},
             # 用户基础信息
             'age': user.age,
             'gender': user.gender,
@@ -345,55 +345,55 @@ class EnhancedMatchService(MatchService):
             'interests': user.interests or []
         })
         
-        return profile_data
+        return card_data
     
-    def _generate_match_reasons(self, user1_profile: Dict, user2_profile: Dict, 
+    def _generate_match_reasons(self, user1_card: Dict, user2_card: Dict, 
                                match_type: str) -> List[str]:
         """生成匹配原因列表"""
         reasons = []
         
         if match_type == "housing":
             # 房源匹配原因
-            if user1_profile.get('housing_price', 0) and user2_profile.get('housing_budget_min', 0):
-                price = user1_profile.get('housing_price', 0)
-                budget_min = user2_profile.get('housing_budget_min', 0)
-                budget_max = user2_profile.get('housing_budget_max', 0)
+            if user1_card.get('housing_price', 0) and user2_card.get('housing_budget_min', 0):
+                price = user1_card.get('housing_price', 0)
+                budget_min = user2_card.get('housing_budget_min', 0)
+                budget_max = user2_card.get('housing_budget_max', 0)
                 if budget_min <= price <= budget_max:
                     reasons.append("价格符合预算")
             
-            if user1_profile.get('location') == user2_profile.get('preferred_location'):
+            if user1_card.get('location') == user2_card.get('preferred_location'):
                 reasons.append("地理位置匹配")
             
-            if user1_profile.get('housing_type') == user2_profile.get('preferred_housing_type'):
+            if user1_card.get('housing_type') == user2_card.get('preferred_housing_type'):
                 reasons.append("房屋类型匹配")
                 
         elif match_type == "dating":
             # 交友匹配原因
-            interests1 = set(str(user1_profile.get('interests', '')).split(','))
-            interests2 = set(str(user2_profile.get('interests', '')).split(','))
+            interests1 = set(str(user1_card.get('interests', '')).split(','))
+            interests2 = set(str(user2_card.get('interests', '')).split(','))
             common_interests = interests1.intersection(interests2)
             if common_interests:
                 reasons.append(f"共同兴趣: {', '.join(list(common_interests)[:3])}")
             
-            age1 = user1_profile.get('age', 0)
-            age2 = user2_profile.get('age', 0)
+            age1 = user1_card.get('age', 0)
+            age2 = user2_card.get('age', 0)
             if abs(age1 - age2) <= 5:
                 reasons.append("年龄相近")
             
-            if user1_profile.get('location') == user2_profile.get('location'):
+            if user1_card.get('location') == user2_card.get('location'):
                 reasons.append("同城用户")
                 
         elif match_type == "activity":
             # 活动匹配原因
-            if user1_profile.get('activity_type') == user2_profile.get('preferred_activity_type'):
+            if user1_card.get('activity_type') == user2_card.get('preferred_activity_type'):
                 reasons.append("活动类型匹配")
             
-            if user1_profile.get('activity_location') == user2_profile.get('preferred_activity_location'):
+            if user1_card.get('activity_location') == user2_card.get('preferred_activity_location'):
                 reasons.append("活动地点匹配")
             
-            activity_price = user1_profile.get('activity_price', 0)
-            budget_min = user2_profile.get('activity_budget_min', 0)
-            budget_max = user2_profile.get('activity_budget_max', 0)
+            activity_price = user1_card.get('activity_price', 0)
+            budget_min = user2_card.get('activity_budget_min', 0)
+            budget_max = user2_card.get('activity_budget_max', 0)
             if budget_min <= activity_price <= budget_max:
                 reasons.append("价格合适")
         
@@ -490,9 +490,9 @@ class EnhancedMatchService(MatchService):
         """
         try:
             # 获取活跃用户列表
-            active_users = self.db.query(User).join(UserProfile).filter(
-                UserProfile.scene_type == match_type,
-                UserProfile.is_active == 1,
+            active_users = self.db.query(User).join(UserCard).filter(
+                UserCard.scene_type == match_type,
+                UserCard.is_active == 1,
                 User.is_active == True
             ).limit(batch_size).all()
             

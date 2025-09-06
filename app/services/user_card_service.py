@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from typing import List, Optional, Dict, Any
-from app.models.user_profile_db import UserProfile
+from app.models.user_card_db import UserCard
 from app.models.user import User
 from app.models.user_card import (
     CardCreate, CardUpdate, Card as CardSchema,
@@ -9,190 +9,183 @@ from app.models.user_card import (
 )
 import uuid
 import json
+from datetime import datetime
 
-class UserProfileService:
-    """用户角色资料服务"""
+class UserCardService:
+    """用户角色卡片服务"""
     
     @staticmethod
-    def create_profile(db: Session, user_id: str, profile_data: CardCreate) -> UserProfile:
+    def create_card(db: Session, user_id: str, card_data: CardCreate) -> UserCard:
         """创建用户角色卡片"""
-        profile_id = f"profile_{profile_data.scene_type}_{profile_data.role_type}_{uuid.uuid4().hex[:8]}"
+        card_id = f"card_{card_data.scene_type}_{card_data.role_type}_{uuid.uuid4().hex[:8]}"
         
-        db_profile = UserProfile(
-            id=profile_id,
+        db_card = UserCard(
+            id=card_id,
             user_id=user_id,
-            role_type=profile_data.role_type,
-            scene_type=profile_data.scene_type,
-            display_name=profile_data.display_name,
-            avatar_url=profile_data.avatar_url,
-            bio=profile_data.bio,
-            profile_data=profile_data.profile_data,
-            preferences=profile_data.preferences,
-            tags=profile_data.tags,
-            visibility=profile_data.visibility or "public"
+            role_type=card_data.role_type,
+            scene_type=card_data.scene_type,
+            display_name=card_data.display_name,
+            avatar_url=card_data.avatar_url,
+            bio=card_data.bio,
+            profile_data=card_data.profile_data,
+            preferences=card_data.preferences,
+            visibility=card_data.visibility or "public"
         )
         
-        db.add(db_profile)
+        db.add(db_card)
         db.commit()
-        db.refresh(db_profile)
-        return db_profile
+        db.refresh(db_card)
+        return db_card
     
     @staticmethod
-    def get_user_profiles(db: Session, user_id: str, active_only: bool = False) -> List[UserProfile]:
+    def get_user_cards(db: Session, user_id: str, active_only: bool = False) -> List[UserCard]:
         """获取用户的所有角色卡片"""
-        query = db.query(UserProfile).filter(UserProfile.user_id == user_id)
+        query = db.query(UserCard).filter(UserCard.user_id == user_id)
         
         if active_only:
-            query = query.filter(UserProfile.is_active == 1)
+            query = query.filter(UserCard.is_active == 1)
             
-        return query.order_by(UserProfile.created_at.desc()).all()
+        return query.order_by(UserCard.created_at.desc()).all()
     
     @staticmethod
-    def get_profile_by_id(db: Session, profile_id: str) -> Optional[UserProfile]:
-        """根据资料ID获取角色资料"""
-        return db.query(UserProfile).filter(UserProfile.id == profile_id).first()
+    def get_card_by_id(db: Session, card_id: str) -> Optional[UserCard]:
+        """根据卡片ID获取角色卡片"""
+        return db.query(UserCard).filter(UserCard.id == card_id).first()
     
     @staticmethod
-    def get_user_profile_by_role(db: Session, user_id: str, scene_type: str, role_type: str) -> Optional[Dict[str, Any]]:
-        """获取用户在特定场景和角色下的资料，包含基础用户信息"""
+    def get_user_card_by_role(db: Session, user_id: str, scene_type: str, role_type: str) -> Optional[Dict[str, Any]]:
+        """获取用户在特定场景和角色下的卡片，包含基础用户信息"""
         
-        # 获取用户资料
-        profile = db.query(UserProfile).filter(
+        # 获取用户卡片
+        card = db.query(UserCard).filter(
             and_(
-                UserProfile.user_id == user_id,
-                UserProfile.scene_type == scene_type,
-                UserProfile.role_type == role_type,
-                UserProfile.is_active == 1
+                UserCard.user_id == user_id,
+                UserCard.scene_type == scene_type,
+                UserCard.role_type == role_type,
+                UserCard.is_active == 1
             )
         ).first()
         
-        if not profile:
+        if not card:
             return None
             
         # 获取基础用户信息
         user = db.query(User).filter(User.id == user_id).first()
         
-        # 构建基础profile信息
+        # 构建基础card信息
         result = {
-            "id": profile.id,
-            "user_id": profile.user_id,
-            "role_type": profile.role_type,
-            "scene_type": profile.scene_type,
-            "display_name": profile.display_name,
-            "profile_data": profile.profile_data or {},
-            "preferences": profile.preferences or {},
-            "tags": profile.tags or [],
-            "visibility": profile.visibility,
-            "is_active": profile.is_active,
-            "created_at": profile.created_at,
-            "updated_at": profile.updated_at,
+            "id": card.id,
+            "user_id": card.user_id,
+            "role_type": card.role_type,
+            "scene_type": card.scene_type,
+            "display_name": card.display_name,
+            "avatar_url": card.avatar_url,
+            "profile_data": card.profile_data or {},
+            "preferences": card.preferences or {},
+            "visibility": card.visibility,
+            "is_active": card.is_active,
+            "created_at": card.created_at,
+            "updated_at": card.updated_at,
+            "bio": card.bio or ""
         }
-        
-        # 处理avatar_url：优先使用profile的，如果为空则使用用户基础信息的
-        avatar_url = profile.avatar_url
-        if not avatar_url and user:
-            avatar_url = user.avatar_url or ""
-        result["avatar_url"] = avatar_url
-        
-        # 处理bio：优先使用profile的，如果为空则使用用户基础信息的
-        bio = profile.bio
-        if not bio and user:
-            bio = user.bio or ""
-        result["bio"] = bio
         
         # 添加基础用户信息
         if user:
             result.update({
-                "username": user.username,
-                "email": user.email,
+                "username": user.nick_name or user.phone,  # 使用昵称或手机号作为用户名
+                "email": None,  # 用户模型中没有邮箱字段
                 "nick_name": user.nick_name,
                 "age": user.age,
                 "gender": user.gender,
-                "occupation": user.occupation,
-                "location": user.location,
+                "occupation": getattr(user, 'occupation', None),  # 使用getattr处理可能不存在的字段
+                "location": getattr(user, 'location', None),
                 "phone": user.phone,
-                "education": user.education,
-                "interests": user.interests or [],
+                "education": getattr(user, 'education', None),
+                "interests": getattr(user, 'interests', []) or [],
 
             })
         
         return result
     
     @staticmethod
-    def get_profiles_by_scene(db: Session, user_id: str, scene_type: str) -> List[UserProfile]:
-        """获取用户在特定场景下的所有角色资料"""
-        return db.query(UserProfile).filter(
+    def get_cards_by_scene(db: Session, user_id: str, scene_type: str) -> List[UserCard]:
+        """获取用户在特定场景下的所有角色卡片"""
+        return db.query(UserCard).filter(
             and_(
-                UserProfile.user_id == user_id,
-                UserProfile.scene_type == scene_type
+                UserCard.user_id == user_id,
+                UserCard.scene_type == scene_type
             )
-        ).order_by(UserProfile.created_at.desc()).all()
+        ).order_by(UserCard.created_at.desc()).all()
     
     @staticmethod
-    def update_profile(db: Session, profile_id: str, update_data: CardUpdate) -> Optional[UserProfile]:
-        """更新用户角色卡片"""
-        db_profile = db.query(UserProfile).filter(UserProfile.id == profile_id).first()
-        
-        if not db_profile:
+    def update_card(db: Session, card_id: str, update_data: Dict[str, Any]) -> Optional[UserCard]:
+        """更新角色卡片"""
+        card = db.query(UserCard).filter(UserCard.id == card_id).first()
+        if not card:
             return None
-        update_dict = update_data.dict(exclude_unset=True)
-        for field, value in update_dict.items():
-            setattr(db_profile, field, value)
-        
+            
+        # 更新允许修改的字段
+        for field, value in update_data.items():
+            if field in ["bio", "profile_data", "preferences", "visibility"]:
+                setattr(card, field, value)
+                
+        card.updated_at = datetime.now()
         db.commit()
-        db.refresh(db_profile)
-        return db_profile
+        db.refresh(card)
+        
+        return card
     
     @staticmethod
-    def delete_profile(db: Session, profile_id: str) -> bool:
-        """删除用户角色资料"""
-        db_profile = db.query(UserProfile).filter(UserProfile.id == profile_id).first()
-        
-        if not db_profile:
+    def delete_card(db: Session, card_id: str) -> bool:
+        """删除角色卡片（软删除）"""
+        card = db.query(UserCard).filter(UserCard.id == card_id).first()
+        if not card:
             return False
-        
-        db.delete(db_profile)
+            
+        card.is_active = 0
+        card.updated_at = datetime.now()
         db.commit()
+        
         return True
     
     @staticmethod
-    def toggle_profile_status(db: Session, profile_id: str, is_active: int) -> Optional[UserProfile]:
-        """切换资料激活状态"""
-        db_profile = db.query(UserProfile).filter(UserProfile.id == profile_id).first()
+    def toggle_card_status(db: Session, card_id: str, is_active: int) -> Optional[UserCard]:
+        """切换卡片激活状态"""
+        db_card = db.query(UserCard).filter(UserCard.id == card_id).first()
         
-        if not db_profile:
+        if not db_card:
             return None
         
-        db_profile.is_active = is_active
+        db_card.is_active = is_active
         db.commit()
-        db.refresh(db_profile)
-        return db_profile
+        db.refresh(db_card)
+        return db_card
     
     @staticmethod
-    def get_user_all_profiles_response(db: Session, user_id: str) -> AllCardsResponse:
+    def get_user_all_cards_response(db: Session, user_id: str) -> AllCardsResponse:
         """获取用户所有角色卡片的完整响应"""
-        all_profiles = UserProfileService.get_user_profiles(db, user_id)
-        active_profiles = [p for p in all_profiles if p.is_active == 1]
+        all_cards = UserCardService.get_user_cards(db, user_id)
+        active_cards = [c for c in all_cards if c.is_active == 1]
         
         # 按场景分组
         scenes_dict = {}
-        for profile in all_profiles:
-            scene = profile.scene_type
+        for card in all_cards:
+            scene = card.scene_type
             if scene not in scenes_dict:
                 scenes_dict[scene] = []
-            scenes_dict[scene].append(profile)
+            scenes_dict[scene].append(card)
         
         by_scene = [
-            CardsByScene(scene_type=scene, profiles=profiles)
-            for scene, profiles in scenes_dict.items()
+            CardsByScene(scene_type=scene, profiles=cards)
+            for scene, cards in scenes_dict.items()
         ]
         
         return AllCardsResponse(
             user_id=user_id,
-            total_count=len(all_profiles),
-            active_count=len(active_profiles),
+            total_count=len(all_cards),
+            active_count=len(active_cards),
             by_scene=by_scene,
-            all_profiles=all_profiles
+            all_profiles=all_cards
         )
     
     @staticmethod
@@ -206,8 +199,8 @@ class UserProfileService:
         return role_mapping.get(scene_type, [])
     
     @staticmethod
-    def get_profile_template(scene_type: str, role_type: str) -> Dict[str, Any]:
-        """获取特定场景和角色的资料模板"""
+    def get_card_template(scene_type: str, role_type: str) -> Dict[str, Any]:
+        """获取特定场景和角色的卡片模板"""
         templates = {
             "housing": {
                 "housing_seeker": {

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.services.enhanced_match_service import EnhancedMatchService
 from app.models.user import User
-from app.models.user_profile_db import UserProfile
+from app.models.user_card_db import UserCard
 import logging
 
 # 配置日志
@@ -144,9 +144,9 @@ class MatchScheduler:
             # 例如：更新Redis中的用户匹配统计信息
             
             active_users_count = db.query(User).filter(User.is_active == True).count()
-            active_profiles_count = db.query(UserProfile).filter(UserProfile.is_active == 1).count()
+            active_cards_count = db.query(UserCard).filter(UserCard.is_active == 1).count()
             
-            logger.info(f"当前活跃用户: {active_users_count}, 活跃资料: {active_profiles_count}")
+            logger.info(f"当前活跃用户: {active_users_count}, 活跃卡片: {active_cards_count}")
             
             self.last_run_times['statistics_update'] = datetime.now()
             logger.info("匹配统计更新任务完成")

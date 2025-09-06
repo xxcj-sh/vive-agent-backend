@@ -298,10 +298,10 @@ async def calculate_compatibility(
         match_service = EnhancedMatchService(db)
         
         # 获取两个用户的资料
-        current_user_profile = match_service._get_user_profile_data(user_id, matchType)
-        target_user_profile = match_service._get_user_profile_data(target_user_id, matchType)
+        current_user_card = match_service._get_user_card_data(user_id, matchType)
+        target_user_card = match_service._get_user_card_data(target_user_id, matchType)
         
-        if not current_user_profile or not target_user_profile:
+        if not current_user_card or not target_user_card:
             return BaseResponse(
                 code=404,
                 message="用户资料不存在",
@@ -310,12 +310,12 @@ async def calculate_compatibility(
         
         # 计算兼容性分数
         compatibility_score = match_service.compatibility_calculator.calculate_compatibility_score(
-            current_user_profile, target_user_profile, matchType
+            current_user_card, target_user_card, matchType
         )
         
         # 生成匹配原因
         match_reasons = match_service._generate_match_reasons(
-            current_user_profile, target_user_profile, matchType
+            current_user_card, target_user_card, matchType
         )
         
         return BaseResponse(
