@@ -198,6 +198,13 @@ class ManagementService(str, enum.Enum):
 class NearbyAmenity(str, enum.Enum):
     """周边配套枚举"""
     SUBWAY = "地铁"
+
+class UserStatus(str, enum.Enum):
+    """用户状态枚举"""
+    PENDING = "pending"      # 待激活
+    ACTIVE = "active"        # 正常
+    SUSPENDED = "suspended"  # 暂停
+    DELETED = "deleted"      # 已删除
     BUS_STOP = "公交站"
     SUPERMARKET = "超市"
     MALL = "商场"

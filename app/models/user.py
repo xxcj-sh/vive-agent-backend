@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.utils.db_config import Base
+from app.models.enums import UserStatus
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -30,10 +31,11 @@ class User(Base):
     interests = Column(Text, nullable=True)  # 兴趣爱好（JSON格式存储数组）
     wechat = Column(String(100), nullable=True)  # 微信号
     email = Column(String(255), nullable=True)  # 邮箱
-    status = Column(String(20), default='active')  # 用户状态
+    status = Column(String(20), default='pending')  # 用户状态: pending(待激活), active(正常), suspended(暂停), deleted(已删除)
     last_login = Column(DateTime(timezone=True), nullable=True)  # 最后登录时间
     level = Column(Integer, default=1)  # 用户等级
     points = Column(Integer, default=0)  # 积分
+    register_at = Column(DateTime(timezone=True), nullable=True)  # 用户注册成功时间
         
     # 关系
     matches = relationship("Match", back_populates="user")
@@ -55,6 +57,8 @@ class UserBase(BaseModel):
     interests: Optional[str] = None  # JSON字符串
     wechat: Optional[str] = None
     email: Optional[str] = None
+    status: Optional[str] = None
+    register_at: Optional[datetime] = None
 
 class UserCreate(UserBase):
     phone: str
@@ -78,6 +82,7 @@ class UserResponse(BaseModel):
     level: Optional[int] = None
     points: Optional[int] = None
     last_login: Optional[datetime] = None
+    register_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     
@@ -105,3 +110,5 @@ class UserProfileUpdate(BaseModel):
     interests: Optional[str] = None  # JSON字符串
     wechat: Optional[str] = None
     email: Optional[str] = None
+    status: Optional[str] = None
+    register_at: Optional[datetime] = None

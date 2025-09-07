@@ -195,9 +195,9 @@ class CardPreferences(BaseModel):
     
     def set_preferences_by_type(self, card_type: str, preferences: BaseModel) -> None:
         """根据卡片类型设置对应的偏好设置"""
-        if card_type == "activity_organizer":
+        if card_type == "activity_organizer" or card_type == "activity_provider":
             self.activity_organizer = preferences
-        elif card_type == "activity_participant":
+        elif card_type == "activity_participant" or card_type == "activity_seeker":
             self.activity_participant = preferences
         elif card_type == "house_seeker":
             self.house_seeker = preferences

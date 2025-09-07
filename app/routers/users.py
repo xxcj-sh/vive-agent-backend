@@ -292,6 +292,7 @@ def get_current_user_info(
             "level": db_user.level,
             "points": db_user.points,
             "lastLogin": db_user.last_login.isoformat() if db_user.last_login else None,
+            "registerAt": db_user.register_at.isoformat() if db_user.register_at else None,
             "phone": db_user.phone,
             "createdAt": db_user.created_at.isoformat() if db_user.created_at else None,
             "updatedAt": db_user.updated_at.isoformat() if db_user.updated_at else None

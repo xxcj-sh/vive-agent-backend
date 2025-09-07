@@ -8,6 +8,7 @@ import secrets
 import time
 import random
 import uuid
+from datetime import datetime
 
 # 延迟导入避免循环依赖
 def get_db_services():
@@ -128,8 +129,8 @@ class AuthService:
                 user_dict = {
                     "id": db_user.id,
                     "phone": db_user.phone,
-                    "nickName": db_user.nick_name or "用户",
-                    "avatarUrl": db_user.avatar_url or "https://picsum.photos/200/200?random=default",
+                    "nickName": db_user.nick_name,
+                    "avatarUrl": db_user.avatar_url,
                     "gender": db_user.gender or 0
                 }
             else:
@@ -140,9 +141,11 @@ class AuthService:
                     "id": user_id,
                     "phone": phone,
                     "nick_name": f"用户{phone[-4:]}",
-                    "avatar_url": "https://picsum.photos/200/200?random=default",
+                    "avatar_url": "",
                     "gender": 0,
-                    "is_active": True
+                    "is_active": True,
+                    "status": "active",
+                    "register_at": datetime.now()
                 }
                 db_user = create_user_func(db, user_data)
                 user_dict = {
@@ -231,7 +234,9 @@ class AuthService:
                 "nick_name": nick_name or f"用户{phone[-4:]}",
                 "avatar_url": user_data.get("avatar_url") or user_data.get("avatarUrl") or "https://picsum.photos/200/200?random=default",
                 "gender": user_data.get("gender", 0),
-                "is_active": True
+                "is_active": True,
+                "status": "active",  # 注册成功后设置为激活状态
+                "register_at": datetime.now()  # 设置注册时间
             }
             
             db_user = create_user_func(db, new_user_data)
