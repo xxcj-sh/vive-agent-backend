@@ -191,12 +191,8 @@ class UserCardService:
     @staticmethod
     def get_available_roles_for_scene(scene_type: str) -> List[str]:
         """获取特定场景下可用的角色类型"""
-        role_mapping = {
-            "housing": ["housing_seeker", "housing_provider"],
-            "dating": ["dating_seeker"],
-            "activity": ["activity_organizer", "activity_participant"]
-        }
-        return role_mapping.get(scene_type, [])
+        from app.utils.role_converter import RoleConverter
+        return RoleConverter.get_available_roles(scene_type)
     
     @staticmethod
     def get_card_template(scene_type: str, role_type: str) -> Dict[str, Any]:

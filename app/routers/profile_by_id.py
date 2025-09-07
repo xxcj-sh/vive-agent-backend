@@ -9,7 +9,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.get("/{card_id}/details")
+@router.get("/{card_id}")
 def get_card_details(
     card_id: str,
     db: Session = Depends(get_db)
