@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
+import json
 from app.utils.db_config import get_db
 from app.services import db_service
 from app.services.data_adapter import DataService
@@ -12,12 +13,6 @@ from app.models.user_card import (
     CardCreate, CardUpdate, Card as CardSchema,
     AllCardsResponse
 )
-from app.utils.db_config import get_db
-from app.models.user_card import (
-    CardCreate, CardUpdate, Card as CardSchema,
-    AllCardsResponse
-)
-from app.utils.db_config import get_db
 
 router = APIRouter(
     prefix="/users",
@@ -228,17 +223,41 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
         raise HTTPException(status_code=422, detail=f"Failed to update profile: {str(e)}")
 
 @router.get("/me/stats")
-def get_current_user_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """获取用户统计信息"""
-    return {
-        "code": 0,
-        "message": "success",
-        "data": {
-            "matchCount": 10,
-            "messageCount": 50,
-            "favoriteCount": 5
+def get_current_user_stats(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取用户真实统计信息"""
+    try:
+        from app.services.user_stats_service import UserStatsService
+        
+        user_id = current_user.get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User not authenticated")
+        
+        stats_service = UserStatsService(db)
+        stats = stats_service.get_user_stats(user_id)
+        
+        return {
+            "code": 0,
+            "message": "success",
+            "data": stats
         }
-    }
+        
+    except Exception as e:
+        print(f"获取用户统计失败: {str(e)}")
+        return {
+            "code": 500,
+            "message": f"获取统计信息失败: {str(e)}",
+            "data": {
+                "matchCount": 0,
+                "messageCount": 0,
+                "favoriteCount": 0,
+                "newMatches": 0,
+                "unreadMessages": 0,
+                "activeMatches": 0
+            }
+        }
 
 @router.get("/me/cards", response_model=AllCardsResponse)
 def get_current_user_cards(

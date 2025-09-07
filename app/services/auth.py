@@ -117,7 +117,7 @@ class AuthService:
             raise ValueError("无效的验证码")
         
         user_dict = None
-        is_new_user = False
+        is_new_user = None
         
         # 使用数据库
         if db:
@@ -125,7 +125,7 @@ class AuthService:
             db_user = get_user_by_phone_func(db, phone)
             if db_user:
                 # 检查用户是否为新用户（没有创建任何资料）
-                is_new_user = False if hasattr(db_user, 'profiles') and db_user.profiles else True
+                is_new_user = False if hasattr(db_user, 'register_at') and db_user.register_at else True
                 user_dict = {
                     "id": db_user.id,
                     "phone": db_user.phone,
