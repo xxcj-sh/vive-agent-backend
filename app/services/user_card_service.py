@@ -199,99 +199,180 @@ class UserCardService:
         """获取特定场景和角色的卡片模板"""
         templates = {
             "housing": {
-                "housing_seeker": {
+                "house_seeker": {
                     "profile_data": {
-                        "budget_range": [0, 0],
-                        "preferred_areas": [],
-                        "room_type": "",
+                        "budget_range": [1000, 3000],
+                        "room_type": "master_bedroom",
                         "move_in_date": "",
-                        "lease_duration": "",
-                        "lifestyle": "",
-                        "work_schedule": "",
+                        "lease_duration": "1_year",
+                        "lifestyle": "quiet",
+                        "work_schedule": "9_to_5",
                         "pets": False,
                         "smoking": False,
                         "occupation": "",
-                        "company_location": ""
+                        "company_location": "",
+                        "preferred_areas": [],
+                        "amenities": []
                     },
                     "preferences": {
-                        "roommate_gender": "any",
-                        "roommate_age_range": [18, 60],
-                        "shared_facilities": [],
-                        "transportation": [],
-                        "nearby_facilities": []
+                        "preferred_house_types": ["apartment", "condo"],
+                        "budget_flexibility": { "flexible": True, "max_increase_percent": 10 },
+                        "preferred_districts": [],
+                        "max_commute_time": 60,
+                        "nearby_requirements": ["subway", "supermarket"],
+                        "required_facilities": ["wifi", "kitchen"],
+                        "furniture_preference": "partially_furnished",
+                        "roommate_preferences": {
+                            "gender_preference": "no_preference",
+                            "age_range": [20, 35],
+                            "occupation_types": ["professional", "student"]
+                        },
+                        "lifestyle_compatibility": ["quiet", "clean"],
+                        "lease_flexibility": True,
+                        "move_in_flexibility_days": 7,
+                        "preferred_landlord_type": ["individual", "agent"],
+                        "require_verification": True,
+                        "match_strictness": "medium"
                     }
                 },
-                "housing_provider": {
+                "house": {
                     "profile_data": {
-                        "properties": [],
+                        "properties": [{
+                            "type": "apartment",
+                            "area": 80,
+                            "rooms": 2,
+                            "floor": 5,
+                            "total_floors": 20,
+                            "address": "",
+                            "subway_distance": 500,
+                            "facilities": ["elevator", "parking"],
+                            "photos": [],
+                            "virtual_tour_url": "",
+                            "description": ""
+                        }],
                         "landlord_type": "individual",
                         "response_time": "within_24_hours",
                         "viewing_available": True,
-                        "lease_terms": []
+                        "lease_terms": ["1_year", "2_years"]
                     },
                     "preferences": {
-                        "tenant_requirements": {
-                            "stable_income": True,
-                            "no_pets": False,
-                            "no_smoking": False,
-                            "quiet_lifestyle": False
-                        },
+                        "preferred_tenant_type": ["professional", "student"],
+                        "preferred_gender": ["不限"],
+                        "preferred_age_range": [18, 60],
+                        "preferred_occupation": [],
+                        "smoking_policy": "prefer_no_smoking",
+                        "pet_policy": "small_pets_allowed",
+                        "max_tenants": 2,
+                        "require_verification": True,
+                        "match_strictness": "medium",
+                        "house_rules": [],
                         "payment_methods": []
                     }
                 }
             },
             "dating": {
-                "dating_seeker": {
+                "dating": {
                     "profile_data": {
-                        "age": 0,
-                        "height": 0,
-                        "education": "",
+                        "age": 25,
+                        "height": 170,
+                        "education": "本科",
                         "occupation": "",
                         "income_range": "",
                         "relationship_status": "single",
-                        "looking_for": "",
+                        "looking_for": "dating",
                         "hobbies": [],
                         "personality": [],
-                        "lifestyle": {}
+                        "lifestyle": {
+                            "smoking": False,
+                            "drinking": "occasionally",
+                            "exercise": "regularly",
+                            "diet": "balanced"
+                        },
+                        "languages": [],
+                        "children": 0,
+                        "religion": ""
                     },
                     "preferences": {
-                        "age_range": [18, 60],
-                        "height_range": [150, 200],
-                        "education_level": [],
-                        "personality_preferences": [],
-                        "lifestyle_preferences": {},
-                        "relationship_goals": ""
+                        "preferred_age_range": [20, 35],
+                        "preferred_height_range": [160, 180],
+                        "preferred_education_levels": ["本科", "硕士"],
+                        "preferred_occupations": [],
+                        "income_preference": { "min": "不限", "flexible": True },
+                        "preferred_relationship_status": ["single"],
+                        "looking_for_match": ["dating", "relationship"],
+                        "shared_interests_weight": 0.5,
+                        "personality_compatibility": [],
+                        "lifestyle_compatibility": [],
+                        "preferred_locations": [],
+                        "max_distance_km": 50,
+                        "appearance_preferences": {},
+                        "lifestyle_requirements": {
+                            "smoking": "no_preference",
+                            "drinking": "no_preference",
+                            "exercise": "no_preference"
+                        },
+                        "match_strictness": "medium",
+                        "allow_different_intentions": False,
+                        "require_verification": True,
+                        "allow_social_media_verification": True
                     }
                 }
             },
             "activity": {
                 "activity_organizer": {
                     "profile_data": {
-                        "organizing_experience": "",
+                        "activity_start_time": "",
+                        "activity_end_time": "",
+                        "activity_cost": "免费",
+                        "activity_city": "",
+                        "activity_location": "",
+                        "activity_max_participants": 10,
+                        "activity_min_participants": 2,
+                        "activity_types": [],
+                        "organizing_experience": 0,
                         "specialties": [],
-                        "group_size_preference": "",
-                        "frequency": "",
                         "locations": [],
                         "past_activities": [],
                         "contact_info": {}
                     },
                     "preferences": {
+                        "preferred_participant_age_range": [18, 60],
+                        "preferred_participant_count": { "min": 2, "max": 20 },
+                        "preferred_activity_types": [],
+                        "preferred_locations": [],
+                        "budget_preference": { "flexible": True, "max_budget": 100 },
+                        "preferred_days": ["weekend"],
+                        "preferred_time_slots": ["afternoon"],
+                        "min_participation_history": 0,
+                        "require_verification": False,
+                        "match_strictness": "medium",
                         "participant_requirements": {},
-                        "activity_types": [],
                         "weather_dependency": "flexible"
                     }
                 },
                 "activity_participant": {
                     "profile_data": {
                         "interests": [],
-                        "availability": {},
-                        "experience_level": {},
+                        "availability": {
+                            "weekdays": ["evening"],
+                            "weekends": ["afternoon", "evening"]
+                        },
+                        "experience_level": {
+                            "beginner": True,
+                            "intermediate": False,
+                            "advanced": False
+                        },
                         "transportation": [],
-                        "budget_range": {}
+                        "budget_range": { "min": 0, "max": 100 },
+                        "skill_levels": []
                     },
                     "preferences": {
-                        "activity_types": [],
-                        "group_size": "",
+                        "preferred_activity_types": [],
+                        "preferred_locations": [],
+                        "preferred_time_slots": ["evening", "weekend"],
+                        "budget_range": { "min": 0, "max": 100 },
+                        "group_size_preference": "small",
+                        "match_strictness": "medium",
                         "duration": "",
                         "difficulty_level": [],
                         "location_preference": ""
