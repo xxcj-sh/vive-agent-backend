@@ -279,16 +279,18 @@ class EnhancedMatchService(MatchService):
         Args:
             user_id: 当前用户ID
             match_type: 匹配类型
-            user_role: 用户角色(简化格式)
+            user_role: 用户角色
             
         Returns:
             候选用户列表
         """
-        from app.utils.role_converter import RoleConverter
-        
-        # 将简化角色转换为完整角色
-        current_full_role = RoleConverter.to_full_role(match_type, user_role)
-        target_full_role = RoleConverter.get_target_role(current_full_role)
+        # 确定目标角色
+        if user_role == 'seeker':
+            target_role = 'provider'
+        elif user_role == 'provider':
+            target_role = 'seeker'
+        else:
+            target_role = None
         
         # 构建查询
         query = self.db.query(User).join(UserCard).filter(
@@ -297,8 +299,8 @@ class EnhancedMatchService(MatchService):
             UserCard.is_active == 1
         )
         
-        if target_full_role:
-            query = query.filter(UserCard.role_type == target_full_role)
+        if target_role:
+            query = query.filter(UserCard.role_type.like(f'%{target_role}%'))
         
         # 排除已经操作过的用户
         acted_user_ids = self.db.query(MatchAction.target_user_id).filter(
