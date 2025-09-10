@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import card, users, match, auth, membership, membership_orders, scenes, file, properties, chat, enhanced_match
+from app.routers import card, users, match, auth, membership, membership_orders, scenes, file, properties, chat, enhanced_match, llm
 from app.utils.db_init import init_db
 from app.config import settings
 import os
@@ -43,6 +43,7 @@ app.include_router(file.router, prefix="/api/v1/files")
 app.include_router(properties.router, prefix="/api/v1")
 app.include_router(card.router, prefix="/api/v1")
 app.include_router(enhanced_match.router, prefix="/api/v1/enhanced-match", tags=["enhanced-match"])
+app.include_router(llm.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():

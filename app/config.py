@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     MAX_IMAGE_SIZE: int = int(os.getenv("MAX_IMAGE_SIZE", 10 * 1024 * 1024))   # 10MB (图片限制)
     MAX_VIDEO_SIZE: int = int(os.getenv("MAX_VIDEO_SIZE", 500 * 1024 * 1024))  # 500MB (视频限制)
     
+    # LLM配置
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+    
+    # LLM调用限制
+    LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", 1000))
+    LLM_TIMEOUT: int = int(os.getenv("LLM_TIMEOUT", 30))
+    LLM_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("LLM_RATE_LIMIT_PER_MINUTE", 60))
+    
     class Config:
         env_file = ".env"
 
