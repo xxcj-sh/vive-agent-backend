@@ -126,7 +126,7 @@ class UserCardService:
             
         # 更新允许修改的字段
         for field, value in update_data.items():
-            if field in ["bio", "profile_data", "preferences", "visibility"]:
+            if field in ["bio", "profile_data", "preferences", "visibility", "avatar_url", "display_name"]:
                 setattr(card, field, value)
                 
         card.updated_at = datetime.now()
