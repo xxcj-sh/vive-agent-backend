@@ -6,6 +6,7 @@ from datetime import datetime
 class ActivityOrganizerProfile(BaseModel):
     """活动组织者卡片"""
     # 必填字段
+    activity_start_date: Optional[datetime] = Field(None, description="活动开始日期")
     activity_start_time: Optional[datetime] = Field(None, description="活动开始时间")
     activity_cost: Optional[str] = Field(None, description="活动费用")
     activity_city: Optional[str] = Field(None, description="活动城市，默认为用户所在城市")

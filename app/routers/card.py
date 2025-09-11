@@ -36,7 +36,7 @@ def get_card_details(
         "data": full_card
     }
 
-@router.post("/")
+@router.post("")
 def create_card(
     card_data: CardCreate,
     current_user: Dict[str, Any] = Depends(get_current_user),
