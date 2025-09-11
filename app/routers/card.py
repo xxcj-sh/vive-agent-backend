@@ -17,23 +17,47 @@ def get_card_details(
     card_id: str,
     db: Session = Depends(get_db)
 ):
-    """通过card ID获取资料详情"""
+    """通过card ID获取资料详情，包含卡片信息和用户基础资料"""
+    from app.models.user import User
+    
     card = UserCardService.get_card_by_id(db, card_id)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     
-    # 获取完整的用户资料信息
-    full_card = UserCardService.get_user_card_by_role(
-        db, card.user_id, card.scene_type, card.role_type
-    )
+    # 获取用户基础信息
+    user = db.query(User).filter(User.id == card.user_id).first()
     
-    if not full_card:
-        raise HTTPException(status_code=404, detail="Card details not found")
+    # 构建响应数据，包含卡片信息和用户基础资料
+    response_data = {
+        "id": card.id,
+        "user_id": card.user_id,
+        "role_type": card.role_type,
+        "scene_type": card.scene_type,
+        "display_name": card.display_name,
+        "avatar_url": card.avatar_url,
+        "bio": card.bio,
+        "visibility": card.visibility,
+        "created_at": card.created_at,
+        "updated_at": card.updated_at,
+        "profile_data": card.profile_data or {},
+        "preferences": card.preferences or {},
+        # 用户基础信息
+        "user_info": {
+            "nick_name": user.nick_name if user else None,
+            "age": user.age if user else None,
+            "gender": user.gender if user else None,
+            "occupation": getattr(user, 'occupation', None) if user else None,
+            "location": getattr(user, 'location', None) if user else None,
+            "education": getattr(user, 'education', None) if user else None,
+            "interests": getattr(user, 'interests', []) if user else [],
+            "phone": user.phone if user else None
+        } if user else None
+    }
     
     return {
         "code": 0,
         "message": "success",
-        "data": full_card
+        "data": response_data
     }
 
 @router.post("")
