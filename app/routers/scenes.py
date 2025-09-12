@@ -146,7 +146,6 @@ async def get_roles_display() -> BaseResponse:
             for role_key, scene_role in scene_config.roles.items():
                 # 使用角色的 key 作为字典的 key，label 作为显示文案
                 roles_display[role_key] = scene_role.label
-        print("roles_display:", roles_display)
         return BaseResponse(
             code=0,
             message="success",
