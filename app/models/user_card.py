@@ -73,4 +73,4 @@ class AllCardsResponse(BaseModel):
     total_count: int = Field(..., description="总卡片数")
     active_count: int = Field(..., description="激活卡片数")
     by_scene: List[CardsByScene] = Field(..., description="按场景分组的卡片")
-    all_profiles: List[Card] = Field(..., description="所有卡片信息列表")
+    all_cards: List[Card] = Field(..., description="所有卡片信息列表")

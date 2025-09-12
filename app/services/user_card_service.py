@@ -185,7 +185,7 @@ class UserCardService:
             total_count=len(all_cards),
             active_count=len(active_cards),
             by_scene=by_scene,
-            all_profiles=all_cards
+            all_cards=all_cards
         )
     
     @staticmethod
