@@ -3,7 +3,6 @@
 提供统一的LLM API调用接口，支持多种提供商
 """
 
-import os
 import time
 import json
 import uuid
@@ -19,9 +18,9 @@ from app.config import settings
 from app.models.llm_usage_log import LLMUsageLog, LLMProvider, LLMTaskType
 from app.models.llm_schemas import (
     LLMRequest, ProfileAnalysisRequest, InterestAnalysisRequest,
-    ChatAnalysisRequest, QuestionAnsweringRequest,
+    ChatAnalysisRequest, QuestionAnsweringRequest, ConversationSuggestionRequest,
     LLMResponse, ProfileAnalysisResponse, InterestAnalysisResponse,
-    ChatAnalysisResponse, QuestionAnsweringResponse
+    ChatAnalysisResponse, QuestionAnsweringResponse, ConversationSuggestionResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -44,14 +43,13 @@ class LLMService:
                 base_url=settings.LLM_BASE_URL,
                 api_key=llm_api_key
             )
-        
         # 其他客户端初始化...
         # 可以根据需要添加更多提供商
     
     async def call_llm_api(
         self,
         request: LLMRequest,
-        provider: LLMProvider = LLMProvider.OPENAI,
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
         model_name: str = None
     ) -> LLMResponse:
         """
@@ -70,17 +68,24 @@ class LLMService:
         
         # 设置默认模型名
         if model_name is None:
-            model_name = settings.LLM_MODEL
+            model_name = getattr(settings, 'LLM_MODEL', 'unknown-model')
+        # 确保model_name不为空
+        if not model_name:
+            model_name = 'unknown-model'
         
         try:
             # 记录开始时间
             request_start = time.time()
             
             # 根据提供商调用不同的API
-            if provider == LLMProvider.OPENAI:
-                response = await self._call_openai_api(request, model_name)
-            elif provider == LLMProvider.VOLCENGINE:
-                response = await self._call_volcengine_api(request, model_name)
+            if provider == LLMProvider.VOLCENGINE:
+                # 检查VOLCENGINE客户端是否已初始化
+                if LLMProvider.VOLCENGINE in self.clients:
+                    response = await self._call_volcengine_api(request, model_name)
+                else:
+                    # 如果客户端未初始化，降级使用模拟API
+                    logger.warning(f"VOLCENGINE客户端未初始化，使用模拟API代替")
+                    response = await self._call_mock_api(request, provider, model_name)
             else:
                 # 可以扩展其他提供商
                 response = await self._call_mock_api(request, provider, model_name)
@@ -150,38 +155,7 @@ class LLMService:
                 duration=duration
             )
     
-    async def _call_openai_api(self, request: LLMRequest, model_name: str) -> Dict[str, Any]:
-        """调用OpenAI API"""
-        client = self.clients.get(LLMProvider.OPENAI)
-        if not client:
-            raise ValueError("OpenAI客户端未初始化")
 
-        messages = [
-            {"role": "system", "content": self._get_system_prompt(request.task_type)},
-            {"role": "user", "content": request.prompt}
-        ]
-
-        response = await client.chat.completions.create(
-            model=model_name,
-            messages=messages,
-            max_tokens=1000,
-            temperature=0.7
-        )
-
-        return {
-            "choices": [
-                {
-                    "message": {
-                        "content": response.choices[0].message.content
-                    }
-                }
-            ],
-            "usage": {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens
-            }
-        }
 
     async def _call_volcengine_api(self, request: LLMRequest, model_name: str) -> Dict[str, Any]:
         """调用火山引擎API"""
@@ -258,6 +232,14 @@ class LLMService:
                 "answer": "根据您的需求，我推荐您关注以下方面...",
                 "confidence": 0.9,
                 "sources": ["用户资料", "常见问题库"]
+            },
+            LLMTaskType.CONVERSATION_SUGGESTION: {
+                "suggestions": [
+                    "听起来很有趣！你能和我分享更多关于这个话题的事情吗？",
+                    "我也有类似的经历，那时候我...",
+                    "你说得很有道理，我觉得..."
+                ],
+                "confidence": 0.85
             }
         }
         
@@ -304,6 +286,12 @@ class LLMService:
             你是一个智能助手，专门帮助用户解答关于交友、租房、
             活动等方面的问题。请基于提供的上下文信息，
             给出准确、有用的回答。请用中文回复。
+            """,
+            LLMTaskType.CONVERSATION_SUGGESTION: """
+            你是一个聊天助手，专门为用户提供自然、恰当的对话回复建议。
+            请根据用户的性格特点和聊天上下文，生成符合情境的回复内容。
+            回复应自然流畅，符合用户性格，并保持积极友好的态度。
+            请用中文回复。
             """
         }
         return prompts.get(task_type, "你是一个智能助手，请帮助用户解决问题。")
@@ -318,36 +306,65 @@ class LLMService:
         prompt_tokens: int,
         completion_tokens: int,
         total_tokens: int,
-        prompt_content: str,
-        response_content: str,
-        duration: float,
+        prompt_content: Optional[str] = None,
+        response_content: Optional[str] = None,
+        duration: float = 0.0,
         status: str = "success",
         error_message: Optional[str] = None
     ):
-        """记录API调用日志"""
+        """记录API调用日志
+        
+        注意：如果日志记录失败，不会影响主要功能
+        """
         try:
-            log_entry = LLMUsageLog(
-                id=log_id,
-                user_id=user_id,
-                task_type=task_type,
-                provider=provider,
-                llm_model_name=model_name,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
-                prompt_content=prompt_content,
-                response_content=response_content,
-                request_duration=duration,
-                response_time=duration,
-                status=status,
-                error_message=error_message
-            )
+            # 使用简单的dict记录，避免数据库操作失败影响主流程
+            log_data = {
+                "id": log_id,
+                "user_id": user_id,
+                "task_type": task_type,
+                "provider": provider,
+                "model_name": model_name,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
+                "duration": duration,
+                "status": status,
+                "timestamp": datetime.utcnow().isoformat()
+            }
             
-            self.db.add(log_entry)
-            self.db.commit()
+            logger.info(f"LLM API调用记录: {json.dumps(log_data, ensure_ascii=False)}")
             
+            # 尝试数据库记录，但失败不影响功能
+            try:
+                # 显式设置创建和更新时间
+                current_time = datetime.utcnow()
+                log_entry = LLMUsageLog(
+                    id=log_id,
+                    user_id=user_id,
+                    task_type=task_type,
+                    provider=provider,
+                    llm_model_name=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    prompt_content=prompt_content,
+                    response_content=response_content,
+                    request_duration=duration,
+                    response_time=duration,
+                    status=status,
+                    error_message=error_message,
+                    created_at=current_time,
+                    updated_at=current_time
+                )
+                
+                self.db.add(log_entry)
+                self.db.commit()
+            except Exception as db_error:
+                logger.error(f"数据库日志记录失败，但不影响功能: {str(db_error)}")
+                # 回滚事务
+                self.db.rollback()
         except Exception as e:
-            logger.error(f"记录LLM使用日志失败: {str(e)}")
+            logger.error(f"LLM使用日志处理失败: {str(e)}")
     
     # 特定任务的便捷方法
     async def analyze_user_profile(
@@ -355,8 +372,8 @@ class LLMService:
         user_id: str,
         profile_data: Dict[str, Any],
         card_type: str,
-        provider: LLMProvider = LLMProvider.OPENAI,
-        model_name: str = "gpt-3.5-turbo"
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
     ) -> ProfileAnalysisResponse:
         """分析用户资料"""
         prompt = f"""
@@ -413,8 +430,8 @@ class LLMService:
         user_id: str,
         user_interests: List[str],
         context_data: Optional[Dict[str, Any]] = None,
-        provider: LLMProvider = LLMProvider.OPENAI,
-        model_name: str = "gpt-3.5-turbo"
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
     ) -> InterestAnalysisResponse:
         """分析用户兴趣"""
         prompt = f"""
@@ -471,8 +488,8 @@ class LLMService:
         user_id: str,
         chat_history: List[Dict[str, Any]],
         analysis_type: str = "summary",
-        provider: LLMProvider = LLMProvider.OPENAI,
-        model_name: str = "gpt-3.5-turbo"
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
     ) -> ChatAnalysisResponse:
         """分析聊天记录"""
         prompt = f"""
@@ -532,8 +549,8 @@ class LLMService:
         user_id: str,
         question: str,
         context: Optional[Dict[str, Any]] = None,
-        provider: LLMProvider = LLMProvider.OPENAI,
-        model_name: str = "gpt-3.5-turbo"
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
     ) -> QuestionAnsweringResponse:
         """回答用户问题"""
         context_str = json.dumps(context, ensure_ascii=False) if context else "无上下文信息"
@@ -592,8 +609,8 @@ class LLMService:
         chat_history: Optional[List[Dict[str, Any]]] = None,
         context: Optional[Dict[str, Any]] = None,
         analysis_types: Optional[List[str]] = None,
-        provider: LLMProvider = LLMProvider.OPENAI,
-        model_name: str = "gpt-3.5-turbo"
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
     ) -> Dict[str, Any]:
         """
         综合分析：一次性完成用户画像、兴趣、聊天记录的综合分析
@@ -673,6 +690,83 @@ class LLMService:
             "duration": response.duration,
             "error": "综合分析失败"
         }
+
+# 导入asyncio用于模拟API
+    async def generate_conversation_suggestion(
+        self,
+        user_id: str,
+        chatId: str,
+        context: Dict[str, Any],
+        suggestionType: str = "reply",
+        maxSuggestions: int = 3,
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
+    ) -> ConversationSuggestionResponse:
+        """生成对话建议"""
+        # 从上下文中提取用户性格和聊天记录
+        userPersonality = context.get("userPersonality", {})
+        chatHistory = context.get("chatHistory", [])
+        
+        # 构建提示词
+        prompt = f"""
+        请根据以下信息生成对话建议：
+        
+        聊天ID: {chatId}
+        用户性格特点: {json.dumps(userPersonality, ensure_ascii=False)}
+        聊天记录: {json.dumps(chatHistory, ensure_ascii=False)}
+        建议类型: {suggestionType}
+        
+        请生成{maxSuggestions}条适合当前对话情境的回复建议，要求：
+        1. 符合用户性格特点
+        2. 自然流畅，符合对话上下文
+        3. 内容积极友好
+        4. 每条建议是独立完整的回复
+        
+        请以JSON格式回复，包含suggestions（建议列表）和confidence（置信度）字段。
+        """
+        
+        # 创建请求对象
+        request = LLMRequest(
+            user_id=user_id,
+            task_type=LLMTaskType.CONVERSATION_SUGGESTION,
+            prompt=prompt
+        )
+
+        print("LLMRequest:", request)
+        
+        # 调用LLM API
+        response = await self.call_llm_api(request, provider, model_name)
+        
+        if response.success and response.data:
+            try:
+                data = json.loads(response.data)
+                return ConversationSuggestionResponse(
+                    success=True,
+                    data=response.data,  # 保持原始字符串格式
+                    usage=response.usage,
+                    duration=response.duration,
+                    suggestions=data.get("suggestions", []),
+                    confidence=data.get("confidence", 0.8)
+                )
+            except json.JSONDecodeError:
+                # 如果解析失败，尝试将响应内容直接作为单条建议
+                return ConversationSuggestionResponse(
+                    success=True,
+                    data=response.data,
+                    usage=response.usage,
+                    duration=response.duration,
+                    suggestions=[response.data],
+                    confidence=0.7
+                )
+        
+        return ConversationSuggestionResponse(
+            success=False,
+            data=None,
+            usage=response.usage,
+            duration=response.duration,
+            suggestions=[],
+            confidence=0
+        )
 
 # 导入asyncio用于模拟API
 import asyncio

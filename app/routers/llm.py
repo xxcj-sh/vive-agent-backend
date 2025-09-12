@@ -6,13 +6,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from app.config import settings
 
 from app.database import get_db
 from app.services.auth import auth_service
 from app.services.llm_service import LLMService
 from app.models.llm_schemas import (
     ProfileAnalysisRequest, InterestAnalysisRequest,
-    ChatAnalysisRequest, QuestionAnsweringRequest,
+    ChatAnalysisRequest, QuestionAnsweringRequest, ConversationSuggestionRequest,
     LLMUsageLogResponse, ComprehensiveAnalysisRequest
 )
 from app.models.llm_usage_log import LLMTaskType, LLMProvider
@@ -41,7 +42,7 @@ async def analyze_user_profile(
         profile_data=request.profile_data,
         card_type=request.card_type,
         provider=LLMProvider.OPENAI,  # 可以从前端指定
-        model_name="gpt-3.5-turbo"
+        model_name=settings.LLM_MODEL
     )
     
     if not response.success:
@@ -80,7 +81,7 @@ async def analyze_user_interests(
         user_interests=request.user_interests,
         context_data=request.context_data,
         provider=LLMProvider.OPENAI,
-        model_name="gpt-3.5-turbo"
+        model_name=settings.LLM_MODEL
     )
     
     if not response.success:
@@ -119,7 +120,7 @@ async def analyze_chat_history(
         chat_history=request.chat_history,
         analysis_type=request.analysis_type,
         provider=LLMProvider.OPENAI,
-        model_name="gpt-3.5-turbo"
+        model_name=settings.LLM_MODEL
     )
     
     if not response.success:
@@ -159,7 +160,7 @@ async def answer_user_question(
         question=request.question,
         context=request.context,
         provider=LLMProvider.OPENAI,
-        model_name="gpt-3.5-turbo"
+        model_name=settings.LLM_MODEL
     )
     
     if not response.success:
@@ -247,7 +248,7 @@ async def comprehensive_analysis(
         context=request.context,
         analysis_types=request.analysis_types,
         provider=LLMProvider.OPENAI,
-        model_name="gpt-3.5-turbo"
+        model_name=settings.LLM_MODEL
     )
     
     if not response.success:
@@ -369,5 +370,46 @@ async def get_usage_stats(
                 }
                 for stat in provider_stats
             ]
+        }
+    }
+
+@router.post("/conversation-suggestions")
+async def generate_conversation_suggestions(
+    request: ConversationSuggestionRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    生成对话建议
+    
+    分析用户聊天记录信息，生成一条或多条适合当前对话情境的回复建议
+    """
+    service = LLMService(db)
+    
+    # 如果request中没有user_id，使用当前登录用户
+    if not request.user_id:
+        request.user_id = current_user["id"]
+    
+    response = await service.generate_conversation_suggestion(
+        user_id=request.user_id,
+        chatId=request.chatId,
+        context=request.context,
+        suggestionType=request.suggestionType,
+        maxSuggestions=request.maxSuggestions,
+        provider=LLMProvider.VOLCENGINE,
+        model_name=settings.LLM_MODEL
+    )
+    print("response:", response)
+    if not response.success:
+        raise HTTPException(status_code=500, detail="生成对话建议失败")
+    
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "suggestions": response.suggestions,
+            "confidence": response.confidence,
+            "usage": response.usage,
+            "duration": response.duration
         }
     }

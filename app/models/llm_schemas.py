@@ -87,6 +87,19 @@ class ComprehensiveAnalysisResponse(LLMResponse):
     overall_insights: List[str] = Field(..., description="综合洞察")
     recommendations: List[str] = Field(..., description="综合建议")
 
+class ConversationSuggestionRequest(BaseModel):
+    """对话建议请求"""
+    user_id: Optional[str] = Field(None, description="用户ID")
+    chatId: str = Field(..., description="聊天ID")
+    context: Dict[str, Any] = Field(..., description="上下文信息")
+    suggestionType: str = Field(..., description="建议类型")
+    maxSuggestions: int = Field(default=3, description="最大建议数量")
+
+class ConversationSuggestionResponse(LLMResponse):
+    """对话建议响应"""
+    suggestions: List[str] = Field(..., description="建议列表")
+    confidence: float = Field(..., description="置信度")
+
 class LLMUsageLogResponse(BaseModel):
     """LLM使用日志响应"""
     id: str = Field(..., description="日志ID")

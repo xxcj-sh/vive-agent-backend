@@ -29,6 +29,7 @@ class LLMTaskType(str, enum.Enum):
     RECOMMENDATION = "recommendation"
     SENTIMENT_ANALYSIS = "sentiment_analysis"
     COMPREHENSIVE_ANALYSIS = "comprehensive_analysis"
+    CONVERSATION_SUGGESTION = "conversation_suggestion"
 
 class LLMUsageLog(Base):
     """大语言模型调用日志表"""
@@ -65,7 +66,7 @@ class LLMUsageLog(Base):
     
     # 时间戳
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=True, server_default=func.now(), onupdate=func.now())
     
     def __repr__(self):
         return f"<LLMUsageLog(id={self.id}, user_id={self.user_id}, task_type={self.task_type}, total_tokens={self.total_tokens})>"

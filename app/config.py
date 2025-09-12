@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
@@ -36,12 +37,12 @@ class Settings(BaseSettings):
     MAX_VIDEO_SIZE: int = int(os.getenv("MAX_VIDEO_SIZE", 500 * 1024 * 1024))  # 500MB (视频限制)
     
     # LLM配置
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
-    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")  # 通用LLM API密钥
     LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "doubao-seed-1-6-250615")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "volcengine")
+    llm_provider: Optional[str] = None  # 兼容性格式
+    openai_api_key: Optional[str] = None  # 兼容性格式
     
     # LLM调用限制
     LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", 1000))
