@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 import httpx
 from openai import AsyncOpenAI
 
+from app.config import settings
 from app.models.llm_usage_log import LLMUsageLog, LLMProvider, LLMTaskType
 from app.models.llm_schemas import (
     LLMRequest, ProfileAnalysisRequest, InterestAnalysisRequest,
@@ -35,10 +36,14 @@ class LLMService:
     
     def _init_clients(self):
         """初始化各个LLM客户端"""
-        # OpenAI客户端
-        openai_api_key = os.getenv("OPENAI_API_KEY")
-        if openai_api_key:
-            self.clients[LLMProvider.OPENAI] = AsyncOpenAI(api_key=openai_api_key)
+
+        # 火山大语言模型客户端（使用通用配置）
+        llm_api_key = settings.LLM_API_KEY
+        if llm_api_key:
+            self.clients[LLMProvider.VOLCENGINE] = AsyncOpenAI(
+                base_url=settings.LLM_BASE_URL,
+                api_key=llm_api_key
+            )
         
         # 其他客户端初始化...
         # 可以根据需要添加更多提供商
@@ -47,7 +52,7 @@ class LLMService:
         self,
         request: LLMRequest,
         provider: LLMProvider = LLMProvider.OPENAI,
-        model_name: str = "gpt-3.5-turbo"
+        model_name: str = None
     ) -> LLMResponse:
         """
         调用LLM API的统一接口
@@ -63,6 +68,10 @@ class LLMService:
         start_time = time.time()
         log_id = str(uuid.uuid4())
         
+        # 设置默认模型名
+        if model_name is None:
+            model_name = settings.LLM_MODEL
+        
         try:
             # 记录开始时间
             request_start = time.time()
@@ -70,6 +79,8 @@ class LLMService:
             # 根据提供商调用不同的API
             if provider == LLMProvider.OPENAI:
                 response = await self._call_openai_api(request, model_name)
+            elif provider == LLMProvider.VOLCENGINE:
+                response = await self._call_volcengine_api(request, model_name)
             else:
                 # 可以扩展其他提供商
                 response = await self._call_mock_api(request, provider, model_name)
@@ -144,19 +155,52 @@ class LLMService:
         client = self.clients.get(LLMProvider.OPENAI)
         if not client:
             raise ValueError("OpenAI客户端未初始化")
-        
+
         messages = [
             {"role": "system", "content": self._get_system_prompt(request.task_type)},
             {"role": "user", "content": request.prompt}
         ]
-        
+
         response = await client.chat.completions.create(
             model=model_name,
             messages=messages,
             max_tokens=1000,
             temperature=0.7
         )
-        
+
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": response.choices[0].message.content
+                    }
+                }
+            ],
+            "usage": {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens
+            }
+        }
+
+    async def _call_volcengine_api(self, request: LLMRequest, model_name: str) -> Dict[str, Any]:
+        """调用火山引擎API"""
+        client = self.clients.get(LLMProvider.VOLCENGINE)
+        if not client:
+            raise ValueError("火山引擎客户端未初始化")
+
+        messages = [
+            {"role": "system", "content": self._get_system_prompt(request.task_type)},
+            {"role": "user", "content": request.prompt}
+        ]
+
+        response = await client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            max_tokens=1000,
+            temperature=0.7
+        )
+
         return {
             "choices": [
                 {
@@ -287,7 +331,7 @@ class LLMService:
                 user_id=user_id,
                 task_type=task_type,
                 provider=provider,
-                model_name=model_name,
+                llm_model_name=model_name,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,

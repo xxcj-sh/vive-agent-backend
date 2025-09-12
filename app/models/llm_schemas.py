@@ -41,7 +41,7 @@ class QuestionAnsweringRequest(LLMRequest):
 class LLMResponse(BaseModel):
     """LLM响应基础模型"""
     success: bool = Field(..., description="是否成功")
-    data: Optional[Dict[str, Any]] = Field(None, description="响应数据")
+    data: Optional[str] = Field(None, description="响应数据")
     usage: Dict[str, int] = Field(..., description="token使用情况")
     duration: float = Field(..., description="处理耗时(秒)")
     
@@ -76,7 +76,7 @@ class LLMUsageLogResponse(BaseModel):
     user_id: Optional[str] = Field(None, description="用户ID")
     task_type: LLMTaskType = Field(..., description="任务类型")
     provider: LLMProvider = Field(..., description="服务提供商")
-    model_name: str = Field(..., description="模型名称")
+    llm_model_name: str = Field(..., description="模型名称")
     total_tokens: int = Field(..., description="总token数")
     prompt_tokens: int = Field(..., description="输入token数")
     completion_tokens: int = Field(..., description="输出token数")

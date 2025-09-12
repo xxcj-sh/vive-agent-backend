@@ -58,7 +58,7 @@ def create_llm_table():
             user_id = Column(String)
             task_type = Column(String, nullable=False)
             provider = Column(String, nullable=False)
-            model_name = Column(String, nullable=False)
+            llm_model_name = Column(String, nullable=False)
             prompt_tokens = Column(Integer, default=0, nullable=False)
             completion_tokens = Column(Integer, default=0, nullable=False)
             total_tokens = Column(Integer, default=0, nullable=False)

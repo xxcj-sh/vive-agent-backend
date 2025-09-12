@@ -17,6 +17,7 @@ class LLMProvider(str, enum.Enum):
     ALIYUN = "aliyun"
     TENCENT = "tencent"
     CUSTOM = "custom"
+    VOLCENGINE = "volcengine"  # 火山引擎
 
 class LLMTaskType(str, enum.Enum):
     """LLM任务类型枚举"""
@@ -38,7 +39,7 @@ class LLMUsageLog(Base):
     user_id = Column(String, nullable=True, index=True, comment="用户ID，可为空")
     task_type = Column(Enum(LLMTaskType), nullable=False, comment="任务类型")
     provider = Column(Enum(LLMProvider), nullable=False, comment="服务提供商")
-    model_name = Column(String, nullable=False, comment="模型名称")
+    llm_model_name = Column(String, nullable=False, comment="模型名称")
     
     # 输入输出统计
     prompt_tokens = Column(Integer, nullable=False, default=0, comment="输入token数")

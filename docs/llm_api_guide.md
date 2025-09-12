@@ -26,6 +26,11 @@ OPENAI_API_KEY=your_openai_api_key_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 GOOGLE_API_KEY=your_google_api_key_here
 
+# 通用LLM配置（适用于火山引擎等）
+LLM_API_KEY=your_llm_api_key_here
+LLM_MODEL=doubao-seed-1-6-250615
+LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+
 # LLM调用限制
 LLM_MAX_TOKENS=1000
 LLM_TIMEOUT=30
@@ -247,8 +252,8 @@ GET /api/v1/llm/usage-logs?limit=10&task_type=profile_analysis
         "id": "log_123456",
         "user_id": "user_789",
         "task_type": "profile_analysis",
-        "provider": "openai",
-        "model_name": "gpt-3.5-turbo",
+        "provider": "volcengine",
+        "llm_model_name": "doubao-seed-1-6-250615",
         "total_tokens": 245,
         "prompt_tokens": 156,
         "completion_tokens": 89,
