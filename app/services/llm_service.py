@@ -584,5 +584,95 @@ class LLMService:
             sources=[]
         )
 
+    async def comprehensive_analysis(
+        self,
+        user_id: str,
+        profile_data: Dict[str, Any],
+        interests: List[str],
+        chat_history: Optional[List[Dict[str, Any]]] = None,
+        context: Optional[Dict[str, Any]] = None,
+        analysis_types: Optional[List[str]] = None,
+        provider: LLMProvider = LLMProvider.OPENAI,
+        model_name: str = "gpt-3.5-turbo"
+    ) -> Dict[str, Any]:
+        """
+        综合分析：一次性完成用户画像、兴趣、聊天记录的综合分析
+        
+        Args:
+            user_id: 用户ID
+            profile_data: 用户资料数据
+            user_interests: 用户兴趣列表
+            chat_history: 聊天记录(可选)
+            card_type: 卡片类型
+            context: 额外上下文信息
+            provider: LLM服务提供商
+            model_name: 模型名称
+            
+        Returns:
+            包含所有分析结果的字典
+        """
+        
+        # 构建综合分析提示词
+        prompt = f"""
+        请对以下用户进行综合分析：
+        
+        用户资料：{json.dumps(profile_data, ensure_ascii=False)}
+        兴趣列表：{json.dumps(interests, ensure_ascii=False)}
+        聊天记录：{json.dumps(chat_history, ensure_ascii=False) if chat_history else "无"}
+        额外上下文：{json.dumps(context, ensure_ascii=False) if context else "无"}
+        分析类型：{json.dumps(analysis_types, ensure_ascii=False) if analysis_types else "全部"}
+        
+        请提供以下方面的综合分析：
+        1. 用户画像分析（性格、价值观、生活方式等）
+        2. 兴趣分析与分类
+        3. 聊天行为分析（如果有聊天记录）
+        4. 个性化推荐与建议
+        5. 匹配建议与潜在伙伴类型
+        
+        请以JSON格式回复，包含以下字段：
+        - profile_analysis: 用户画像分析结果
+        - interest_analysis: 兴趣分析结果
+        - chat_analysis: 聊天分析结果（如果有聊天记录）
+        - overall_insights: 综合洞察要点
+        - recommendations: 个性化建议列表
+        - match_suggestions: 匹配建议
+        """
+        
+        # 创建LLM请求
+        request = LLMRequest(
+            user_id=user_id,
+            task_type=LLMTaskType.COMPREHENSIVE_ANALYSIS,
+            prompt=prompt
+        )
+        
+        # 调用LLM API
+        response = await self.call_llm_api(request, provider, model_name)
+        
+        if response.success and response.data:
+            try:
+                analysis_result = json.loads(response.data)
+                return {
+                    "success": True,
+                    "data": analysis_result,
+                    "usage": response.usage,
+                    "duration": response.duration
+                }
+            except json.JSONDecodeError:
+                return {
+                    "success": False,
+                    "data": None,
+                    "usage": response.usage,
+                    "duration": response.duration,
+                    "error": "分析结果格式错误"
+                }
+        
+        return {
+            "success": False,
+            "data": None,
+            "usage": response.usage,
+            "duration": response.duration,
+            "error": "综合分析失败"
+        }
+
 # 导入asyncio用于模拟API
 import asyncio

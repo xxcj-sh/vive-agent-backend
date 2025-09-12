@@ -70,6 +70,23 @@ class QuestionAnsweringResponse(LLMResponse):
     confidence: float = Field(..., description="置信度")
     sources: Optional[List[str]] = Field(None, description="信息来源")
 
+class ComprehensiveAnalysisRequest(BaseModel):
+    """综合分析请求"""
+    user_id: Optional[str] = Field(None, description="用户ID")
+    profile_data: Dict[str, Any] = Field(..., description="用户资料数据")
+    interests: List[str] = Field(..., description="用户兴趣列表")
+    chat_history: Optional[List[Dict[str, Any]]] = Field(None, description="聊天记录")
+    context: Optional[Dict[str, Any]] = Field(None, description="额外上下文信息")
+    analysis_types: List[str] = Field(..., description="分析类型列表")
+
+class ComprehensiveAnalysisResponse(LLMResponse):
+    """综合分析响应"""
+    profile_analysis: Optional[Dict[str, Any]] = Field(None, description="用户资料分析")
+    interest_analysis: Optional[Dict[str, Any]] = Field(None, description="兴趣分析")
+    chat_analysis: Optional[Dict[str, Any]] = Field(None, description="聊天分析")
+    overall_insights: List[str] = Field(..., description="综合洞察")
+    recommendations: List[str] = Field(..., description="综合建议")
+
 class LLMUsageLogResponse(BaseModel):
     """LLM使用日志响应"""
     id: str = Field(..., description="日志ID")

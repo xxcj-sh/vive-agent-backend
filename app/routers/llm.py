@@ -13,7 +13,7 @@ from app.services.llm_service import LLMService
 from app.models.llm_schemas import (
     ProfileAnalysisRequest, InterestAnalysisRequest,
     ChatAnalysisRequest, QuestionAnsweringRequest,
-    LLMUsageLogResponse
+    LLMUsageLogResponse, ComprehensiveAnalysisRequest
 )
 from app.models.llm_usage_log import LLMTaskType, LLMProvider
 
@@ -220,6 +220,50 @@ async def get_usage_logs(
                 "offset": offset,
                 "total": query.count()
             }
+        }
+    }
+
+@router.post("/comprehensive-analysis")
+async def comprehensive_analysis(
+    request: ComprehensiveAnalysisRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    综合分析
+    
+    对用户的资料、兴趣、聊天记录进行综合分析，提供全面的洞察和建议
+    """
+    service = LLMService(db)
+    
+    if not request.user_id:
+        request.user_id = current_user["id"]
+    
+    response = await service.comprehensive_analysis(
+        user_id=request.user_id,
+        profile_data=request.profile_data,
+        interests=request.interests,
+        chat_history=request.chat_history,
+        context=request.context,
+        analysis_types=request.analysis_types,
+        provider=LLMProvider.OPENAI,
+        model_name="gpt-3.5-turbo"
+    )
+    
+    if not response.success:
+        raise HTTPException(status_code=500, detail="综合分析失败")
+    
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "profile_analysis": response.profile_analysis,
+            "interest_analysis": response.interest_analysis,
+            "chat_analysis": response.chat_analysis,
+            "overall_insights": response.overall_insights,
+            "recommendations": response.recommendations,
+            "usage": response.usage,
+            "duration": response.duration
         }
     }
 

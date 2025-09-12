@@ -28,6 +28,7 @@ class LLMTaskType(str, enum.Enum):
     CONTENT_GENERATION = "content_generation"
     RECOMMENDATION = "recommendation"
     SENTIMENT_ANALYSIS = "sentiment_analysis"
+    COMPREHENSIVE_ANALYSIS = "comprehensive_analysis"
 
 class LLMUsageLog(Base):
     """大语言模型调用日志表"""
