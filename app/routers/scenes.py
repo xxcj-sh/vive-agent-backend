@@ -15,12 +15,12 @@ SCENE_CONFIGS = {
         description="寻找活动伙伴",
         roles={
             "seeker": SceneRole(
-                key="seeker",
+                key="activity_seeker",
                 label="参与者",
                 description="寻找活动伙伴"
             ),
             "provider": SceneRole(
-                key="provider",
+                key="activity_provider",
                 label="组织者",
                 description="组织活动的组织者"
             )
@@ -44,25 +44,25 @@ SCENE_CONFIGS = {
         iconActive="/images/social-active.svg",
         description="商务社交与职业发展",
         roles={
-            "business_networker": SceneRole(
-                key="business_networker",
+            "social_business": SceneRole(
+                key="social_business",
                 label="商务拓展",
                 description="寻找商务合作、投资机会"
             ),
-            "career_seeker": SceneRole(
-                key="career_seeker",
+            "social_career": SceneRole(
+                key="social_career",
                 label="职业发展",
                 description="寻求职业指导、跳槽机会"
             ),
-            "mentor": SceneRole(
-                key="mentor",
-                label="导师指导",
-                description="提供职业指导、经验分享"
+            "social_interest": SceneRole(
+                key="social_interest",
+                label="兴趣社交",
+                description="基于共同兴趣的社交互动"
             ),
-            "knowledge_sharer": SceneRole(
-                key="knowledge_sharer",
-                label="知识分享",
-                description="分享专业知识、技能经验"
+            "social_dating": SceneRole(
+                key="social_dating",
+                label="社交约会",
+                description="寻找恋爱关系和约会对象"
             )
         },
         CardFields=[
@@ -122,6 +122,70 @@ async def get_scene_configs() -> BaseResponse:
             message="success",
             data=response.model_dump()
         )
+    except Exception as e:
+        return BaseResponse(
+            code=1500,
+            message=f"服务器内部错误: {str(e)}",
+            data=None
+        )
+
+@router.get("/roles")
+async def get_roles_display() -> BaseResponse:
+    """
+    获取所有场景的角色类型显示文案配置
+    
+    返回格式：{roleType: role_display_string}
+    其中 roleType 是角色的 key，role_display_string 是角色的 label
+    """
+    try:
+        roles_display = {}
+        
+        # 遍历所有场景配置
+        for scene_key, scene_config in SCENE_CONFIGS.items():
+            # 遍历场景中的角色
+            for role_key, scene_role in scene_config.roles.items():
+                # 使用角色的 key 作为字典的 key，label 作为显示文案
+                roles_display[role_key] = scene_role.label
+        
+        return BaseResponse(
+            code=0,
+            message="success",
+            data=roles_display
+        )
+    except Exception as e:
+        return BaseResponse(
+            code=1500,
+            message=f"服务器内部错误: {str(e)}",
+            data=None
+        )
+
+@router.get("/{scene_key}/roles")
+async def get_scene_roles_display(scene_key: str) -> BaseResponse:
+    """
+    获取指定场景的角色类型显示文案配置
+    
+    返回格式：{roleType: role_display_string}
+    其中 roleType 是角色的 key，role_display_string 是角色的 label
+    """
+    try:
+        if scene_key not in SCENE_CONFIGS:
+            raise HTTPException(status_code=404, detail="场景不存在")
+        
+        roles_display = {}
+        scene_config = SCENE_CONFIGS[scene_key]
+        
+        # 遍历场景中的角色
+        for role_key, scene_role in scene_config.roles.items():
+            # 使用角色的 key 作为字典的 key，label 作为显示文案
+            roles_display[role_key] = scene_role.label
+        
+        return BaseResponse(
+            code=0,
+            message="success",
+            data=roles_display
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         return BaseResponse(
             code=1500,
