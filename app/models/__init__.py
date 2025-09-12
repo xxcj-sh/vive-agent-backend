@@ -7,6 +7,6 @@ from .card_preferences import *
 from .chat_message import ChatMessage, ChatConversation, MessageType, MessageStatus
 from .order import MembershipOrder, OrderStatus
 from .schemas import *
-from .unified_enums import *
+# unified_enums 已合并到 enums.py 中
 from .llm_usage_log import LLMUsageLog, LLMProvider, LLMTaskType
 from .llm_schemas import *

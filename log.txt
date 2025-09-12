@@ -1,0 +1,54 @@
+# 枚举文件重构日志
+
+## 重构时间
+2024年重构
+
+## 重构目标
+将 `/app/models/enums.py` 和 `/app/models/unified_enums.py` 合并为一个文件，同时保持向后兼容性
+
+## 变更内容
+
+### 1. 文件合并
+- ✅ 将 `unified_enums.py` 的内容合并到 `enums.py`
+- ✅ 删除 `unified_enums.py` 文件
+- ✅ 更新 `__init__.py` 移除对已删除文件的引用
+
+### 2. 新增枚举类
+在 `enums.py` 中新增以下枚举类：
+- `SceneType`: 场景类型枚举
+- `UserRoleType`: 用户角色类型枚举（完整格式）
+- `SimplifiedRole`: 简化角色枚举（用于前端交互）
+- `RoleMapping`: 角色映射工具类
+
+### 3. 向后兼容性
+- ✅ 保留所有原有枚举定义
+- ✅ 保留所有原有工具函数
+- ✅ 原有导入路径保持不变
+
+### 4. 引用更新
+- ✅ 更新 `app/utils/role_converter.py` 中的导入路径
+- ✅ 从 `app.models.unified_enums` 改为 `app.models.enums`
+
+### 5. 测试验证
+- ✅ 语法检查通过
+- ✅ 基本枚举值验证通过
+- ✅ 统一角色管理功能验证通过
+- ✅ 向后兼容性测试通过
+- ✅ 角色转换测试通过
+
+## 影响范围
+本次重构仅涉及以下文件：
+1. `app/models/enums.py` - 合并后的主文件
+2. `app/models/unified_enums.py` - 已删除
+3. `app/models/__init__.py` - 更新引用
+4. `app/utils/role_converter.py` - 更新导入路径
+
+## 风险评估
+- **低风险**：所有现有功能保持不变
+- **零业务影响**：所有业务逻辑代码无需修改
+- **向后兼容**：现有代码无需任何更改即可继续运行
+
+## 后续建议
+1. 可以考虑逐步统一使用新的角色管理枚举
+2. 新开发的代码优先使用 `SceneType` 和 `UserRoleType`
+3. 保持 `MatchType` 和 `UserRole` 用于向后兼容

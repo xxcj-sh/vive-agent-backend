@@ -4,7 +4,7 @@
 """
 
 from typing import Optional
-from app.models.unified_enums import RoleMapping, SceneType
+from app.models.enums import RoleMapping, SceneType
 
 class RoleConverter:
     """角色转换工具类"""
