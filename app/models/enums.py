@@ -396,6 +396,73 @@ class WorkIndustry(str, enum.Enum):
     STUDENT = "学生"
     OTHER = "其他"
 
+# 7. 社交场景专用枚举
+
+class SocialPurpose(str, enum.Enum):
+    """社交目的枚举"""
+    BUSINESS_NETWORKING = "商务拓展"
+    CAREER_DEVELOPMENT = "职业发展"
+    SKILL_EXCHANGE = "技能交换"
+    HOBBY_SHARING = "兴趣分享"
+    FRIENDSHIP = "结交朋友"
+    MENTORSHIP = "导师指导"
+    COLLABORATION = "项目合作"
+    KNOWLEDGE_SHARING = "知识分享"
+
+class SocialActivity(str, enum.Enum):
+    """社交活动类型枚举"""
+    COFFEE_CHAT = "咖啡聊天"
+    BUSINESS_MEETUP = "商务聚会"
+    WORKSHOP = "工作坊"
+    SEMINAR = "研讨会"
+    NETWORKING_EVENT = "社交活动"
+    ONLINE_DISCUSSION = "线上讨论"
+    STUDY_GROUP = "学习小组"
+    PROJECT_COLLABORATION = "项目合作"
+
+class SocialInterest(str, enum.Enum):
+    """社交兴趣枚举"""
+    TECHNOLOGY = "科技"
+    FINANCE = "金融"
+    STARTUP = "创业"
+    MARKETING = "市场营销"
+    DESIGN = "设计"
+    PRODUCT = "产品"
+    DATA_SCIENCE = "数据科学"
+    AI_ML = "人工智能"
+    BLOCKCHAIN = "区块链"
+    E_COMMERCE = "电商"
+    CONSULTING = "咨询"
+    INVESTMENT = "投资"
+
+class ProfessionalLevel(str, enum.Enum):
+    """职业水平枚举"""
+    STUDENT = "学生"
+    ENTRY_LEVEL = "初级"
+    MID_LEVEL = "中级"
+    SENIOR_LEVEL = "高级"
+    EXECUTIVE = "高管"
+    ENTREPRENEUR = "创业者"
+    EXPERT = "专家"
+
+class CompanySize(str, enum.Enum):
+    """公司规模枚举"""
+    STARTUP = "初创公司"
+    SMALL = "小型公司(1-50人)"
+    MEDIUM = "中型公司(50-200人)"
+    LARGE = "大型公司(200-1000人)"
+    ENTERPRISE = "大型企业(1000人以上)"
+    FREELANCE = "自由职业"
+
+class ConnectionType(str, enum.Enum):
+    """连接类型枚举"""
+    MENTOR = "导师"
+    PEER = "同行"
+    MENTEE = "学生"
+    PARTNER = "合作伙伴"
+    INVESTOR = "投资人"
+    ADVISOR = "顾问"
+
 # 5. 系统枚举
 
 class MatchType(str, enum.Enum):
@@ -404,6 +471,7 @@ class MatchType(str, enum.Enum):
     HOUSING = "housing"         # 房源
     ACTIVITY = "activity"       # 活动
     BUSINESS = "business"       # 商务
+    SOCIAL = "social"           # 社交
 
 class MatchStatus(str, enum.Enum):
     """匹配状态枚举"""
@@ -433,6 +501,7 @@ class SceneType(str, enum.Enum):
     DATING = "dating"
     ACTIVITY = "activity"
     BUSINESS = "business"
+    SOCIAL = "social"
 
 class UserRoleType(str, enum.Enum):
     """用户角色类型枚举 - 完整格式"""
@@ -452,6 +521,13 @@ class UserRoleType(str, enum.Enum):
     BUSINESS_SEEKER = "business_seeker"
     BUSINESS_PROVIDER = "business_provider"
 
+    # 社交场景
+    SOCIAL_BUSINESS = "social_business"
+    SOCIAL_CAREER = "social_career"
+    SOCIAL_INTEREST = "social_interest"
+    SOCIAL_DATING = "social_dating"
+    
+
 class SimplifiedRole(str, enum.Enum):
     """简化角色枚举 - 用于前端交互"""
     SEEKER = "seeker"
@@ -467,7 +543,8 @@ class RoleMapping:
         SceneType.HOUSING: [UserRoleType.HOUSING_SEEKER, UserRoleType.HOUSING_PROVIDER],
         SceneType.DATING: [UserRoleType.DATING_SEEKER, UserRoleType.DATING_PROVIDER],
         SceneType.ACTIVITY: [UserRoleType.ACTIVITY_ORGANIZER, UserRoleType.ACTIVITY_PARTICIPANT],
-        SceneType.BUSINESS: [UserRoleType.BUSINESS_SEEKER, UserRoleType.BUSINESS_PROVIDER]
+        SceneType.BUSINESS: [UserRoleType.BUSINESS_SEEKER, UserRoleType.BUSINESS_PROVIDER],
+        SceneType.SOCIAL: [UserRoleType.SOCIAL_BUSINESS, UserRoleType.SOCIAL_CAREER, UserRoleType.SOCIAL_INTEREST, UserRoleType.SOCIAL_DATING]
     }
     
     # 简化角色到完整角色的映射

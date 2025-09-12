@@ -7,34 +7,6 @@ router = APIRouter(prefix="/scenes", tags=["scenes"], dependencies=[])
 
 # 场景配置数据 - 使用与 schemas.py 一致的格式
 SCENE_CONFIGS = {
-    "housing": SceneConfig(
-        key="housing",
-        label="住房",
-        icon="/images/house.svg",
-        iconActive="/images/house-active.svg",
-        description="寻找室友或出租房源",
-        roles={
-            "seeker": SceneRole(
-                key="seeker",
-                label="租客",
-                description="寻找房源的租客"
-            ),
-            "provider": SceneRole(
-                key="provider",
-                label="房东",
-                description="出租房源的房东"
-            )
-        },
-        CardFields=["budget", "location", "houseType", "moveInDate", "leaseTerm"],
-        tags=[
-            "近地铁",
-            "拎包入住",
-            "押一付一",
-            "精装修",
-            "家电齐全",
-            "南北通透"
-        ]
-    ),
     "activity": SceneConfig(
         key="activity",
         label="活动",
@@ -65,32 +37,68 @@ SCENE_CONFIGS = {
             "游戏"
         ]
     ),
-    "dating": SceneConfig(
-        key="dating",
-        label="恋爱交友",
-        icon="/images/icon-dating.svg",
-        iconActive="/images/icon-dating-active.svg",
-        description="寻找恋爱对象",
+    "social": SceneConfig(
+        key="social",
+        label="社交",
+        icon="/images/social.svg",
+        iconActive="/images/social-active.svg",
+        description="商务社交与职业发展",
         roles={
-            "seeker": SceneRole(
-                key="seeker",
-                label="女生",
-                description="寻找恋爱对象"
+            "business_networker": SceneRole(
+                key="business_networker",
+                label="商务拓展",
+                description="寻找商务合作、投资机会"
             ),
-            "provider": SceneRole(
-                key="provider",
-                label="男生",
-                description="寻找恋爱对象"
+            "career_seeker": SceneRole(
+                key="career_seeker",
+                label="职业发展",
+                description="寻求职业指导、跳槽机会"
+            ),
+            "mentor": SceneRole(
+                key="mentor",
+                label="导师指导",
+                description="提供职业指导、经验分享"
+            ),
+            "knowledge_sharer": SceneRole(
+                key="knowledge_sharer",
+                label="知识分享",
+                description="分享专业知识、技能经验"
             )
         },
-        CardFields=["ageRange", "height", "education", "income", "location", "interests"],
+        CardFields=[
+            "currentRole",
+            "currentCompany",
+            "industry",
+            "yearsOfExperience",
+            "skills",
+            "expertiseAreas",
+            "socialInterests",
+            "valueOfferings",
+            "seekingOpportunities",
+            "professionalLevel",
+            "companySize"
+        ],
         tags=[
-            "温柔体贴",
-            "幽默风趣",
-            "事业稳定",
-            "热爱运动",
-            "喜欢旅行",
-            "美食达人"
+            "互联网科技",
+            "人工智能",
+            "金融科技",
+            "企业服务",
+            "电子商务",
+            "教育培训",
+            "医疗健康",
+            "新能源",
+            "区块链",
+            "大数据",
+            "云计算",
+            "物联网",
+            "游戏娱乐",
+            "广告营销",
+            "咨询顾问",
+            "创业投资",
+            "产品设计",
+            "技术开发",
+            "运营管理",
+            "市场销售"
         ]
     )
 }
@@ -101,9 +109,9 @@ async def get_scene_configs() -> BaseResponse:
     """
     获取所有场景配置信息
     
-    返回住房、活动、恋爱交友三个场景的配置数据，包括：
+    返回住房、活动、社交、恋爱交友等场景的配置数据，包括：
     - 场景基本信息（名称、图标、描述）
-    - 角色配置（租客/房东、参与者/组织者、寻找对象/被寻找）
+    - 角色配置（租客/房东、参与者/组织者、商务拓展/职业发展等）
     - 个人资料字段配置
     - 场景相关标签
     """
