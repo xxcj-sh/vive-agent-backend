@@ -383,20 +383,22 @@ async def generate_conversation_suggestions(
     生成对话建议
     
     分析用户聊天记录信息，生成一条或多条适合当前对话情境的回复建议
+    上下文引入卡片主人的偏好信息，引导用户回答问题，以判断用户是否满足卡片主人的偏好
     """
     service = LLMService(db)
     
     # 如果request中没有user_id，使用当前登录用户
-    if not request.user_id:
-        request.user_id = current_user["id"]
+    if not request.userId:
+        request.userId = current_user["id"]
     
     response = await service.generate_conversation_suggestion(
-        user_id=request.user_id,
+        user_id=request.userId,
+        card_id=request.cardId,
         chatId=request.chatId,
         context=request.context,
         suggestionType=request.suggestionType,
         maxSuggestions=request.maxSuggestions,
-        provider=LLMProvider.VOLCENGINE,
+        provider=settings.LLM_PROVIDER,
         model_name=settings.LLM_MODEL
     )
     print("response:", response)
@@ -410,6 +412,8 @@ async def generate_conversation_suggestions(
             "suggestions": response.suggestions,
             "confidence": response.confidence,
             "usage": response.usage,
-            "duration": response.duration
+            "duration": response.duration,
+            "is_meet_preference": response.is_meet_preference,
+            "preference_judgement": response.preference_judgement
         }
     }
