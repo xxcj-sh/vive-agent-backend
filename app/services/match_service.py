@@ -286,7 +286,271 @@ class MatchService:
         """检查双向匹配 - 保持原有实现，添加过期时间处理"""
         # ... existing code ...
         
+    def get_recommendation_cards(self, user_id: str, scene_type: str, 
+                               user_role: str, page: int = 1, page_size: int = 10) -> Dict[str, Any]:
+        """
+        获取匹配推荐卡片
+        
+        Args:
+            user_id: 用户ID
+            scene_type: 场景类型 (housing, dating, activity)
+            user_role: 用户角色 (seeker, provider, participant, organizer)
+            page: 页码
+            page_size: 每页数量
+            
+        Returns:
+            包含卡片列表和分页信息的字典
+        """
+        try:
+            from app.services.match_card_strategy import match_card_strategy
+            from app.models.user import User
+            
+            # 获取当前用户信息
+            current_user = self.db.query(User).filter(User.id == user_id).first()
+            if not current_user:
+                return {"cards": [], "total": 0}
+            
+            # 构建当前用户信息字典
+            current_user_dict = {
+                "id": str(current_user.id),
+                "nickName": getattr(current_user, 'nick_name', None) or getattr(current_user, 'name', '匿名用户'),
+                "gender": getattr(current_user, 'gender', 0),
+                "age": getattr(current_user, 'age', 25),
+                "occupation": getattr(current_user, 'occupation', ''),
+                "location": getattr(current_user, 'location', ''),
+                "bio": getattr(current_user, 'bio', ''),
+                "interests": getattr(current_user, 'interests', []),
+                "avatarUrl": getattr(current_user, 'avatar_url', None),
+                "preferences": getattr(current_user, 'preferences', {})
+            }
+            
+            # 使用匹配卡片策略获取推荐卡片
+            result = match_card_strategy.get_match_cards(
+                match_type=scene_type,
+                user_role=user_role,
+                page=page,
+                page_size=page_size,
+                current_user=current_user_dict
+            )
+            
+            # 转换返回格式
+            cards = result.get("list", [])
+            total = result.get("total", 0)
+            
+            # 格式化卡片数据
+            formatted_cards = []
+            for card in cards:
+                formatted_card = {
+                    "id": card.get("id"),
+                    "userId": card.get("userId"),
+                    "name": card.get("name", "匿名用户"),
+                    "avatar": card.get("avatar"),
+                    "age": card.get("age", 25),
+                    "occupation": card.get("occupation", ""),
+                    "location": card.get("location", ""),
+                    "bio": card.get("bio", ""),
+                    "interests": card.get("interests", []),
+                    "sceneType": scene_type,
+                    "userRole": card.get("userRole", user_role),
+                    "createdAt": card.get("createdAt", ""),
+                    "matchScore": card.get("matchScore", 75)
+                }
+                
+                # 根据场景类型添加特定字段
+                if scene_type == "housing":
+                    if user_role == "seeker":
+                        # 租客看房源
+                        formatted_card.update({
+                            "houseTitle": card.get("houseTitle", ""),
+                            "housePrice": card.get("housePrice", 0),
+                            "houseArea": card.get("houseArea", 0),
+                            "houseLocation": card.get("houseLocation", ""),
+                            "houseImages": card.get("houseImages", []),
+                            "landlordName": card.get("landlordName", "")
+                        })
+                    else:
+                        # 房东看租客需求
+                        formatted_card.update({
+                            "budget": card.get("budget", 0),
+                            "leaseDuration": card.get("leaseDuration", ""),
+                            "moveInDate": card.get("moveInDate", ""),
+                            "tenantRequirements": card.get("tenantRequirements", [])
+                        })
+                        
+                elif scene_type == "dating":
+                    formatted_card.update({
+                        "gender": card.get("gender", 0),
+                        "education": card.get("education", ""),
+                        "height": card.get("height", 0),
+                        "relationshipStatus": card.get("relationshipStatus", "")
+                    })
+                    
+                elif scene_type == "activity":
+                    if user_role == "seeker":
+                        # 参与者看活动
+                        formatted_card.update({
+                            "activityName": card.get("activityName", ""),
+                            "activityType": card.get("activityType", ""),
+                            "activityPrice": card.get("activityPrice", 0),
+                            "activityTime": card.get("activityTime", ""),
+                            "activityLocation": card.get("activityLocation", ""),
+                            "organizerName": card.get("organizerName", "")
+                        })
+                    else:
+                        # 组织者看参与者
+                        formatted_card.update({
+                            "preferredActivity": card.get("preferredActivity", ""),
+                            "budgetRange": card.get("budgetRange", ""),
+                            "availability": card.get("availability", "")
+                        })
+                
+                formatted_cards.append(formatted_card)
+            
+            return {
+                "cards": formatted_cards,
+                "total": total
+            }
+            
+        except Exception as e:
+            print(f"获取匹配推荐卡片失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {"cards": [], "total": 0}
+
     def get_user_matches(self, user_id: str, status: str = "all", 
                         page: int = 1, page_size: int = 10) -> Dict[str, Any]:
-        """获取用户匹配列表 - 保持原有实现"""
-        # ... existing code ...
+        """
+        获取用户匹配列表
+        
+        Args:
+            user_id: 用户ID
+            status: 匹配状态 (all, pending, matched, rejected, expired)
+            page: 页码
+            page_size: 每页数量
+            
+        Returns:
+            包含匹配列表和分页信息的字典
+        """
+        try:
+            from sqlalchemy import and_, or_
+            from app.models.match_action import MatchAction, MatchActionType
+            from app.models.user import User
+            
+            # 基础查询：获取用户的所有匹配操作
+            query = self.db.query(MatchAction).filter(
+                MatchAction.user_id == user_id
+            )
+            
+            # 根据状态筛选
+            if status != "all":
+                if status == "pending":
+                    # 待处理：用户发起的操作，等待对方回应
+                    query = query.filter(
+                        MatchAction.action_type.in_([
+                            MatchActionType.LIKE,
+                            MatchActionType.SUPER_LIKE
+                        ])
+                    )
+                elif status == "matched":
+                    # 已匹配：双向匹配成功
+                    query = query.filter(
+                        MatchAction.action_type == MatchActionType.MUTUAL_MATCH
+                    )
+                elif status == "rejected":
+                    # 已拒绝：用户或对方拒绝
+                    query = query.filter(
+                        MatchAction.action_type == MatchActionType.REJECT
+                    )
+                elif status == "expired":
+                    # 已过期：超过有效期的操作
+                    cutoff_date = datetime.utcnow() - timedelta(days=7)
+                    query = query.filter(
+                        MatchAction.created_at < cutoff_date,
+                        MatchAction.action_type.in_([
+                            MatchActionType.LIKE,
+                            MatchActionType.SUPER_LIKE
+                        ])
+                    )
+            
+            # 获取总数
+            total = query.count()
+            
+            # 获取分页数据
+            matches = query.order_by(MatchAction.created_at.desc()).offset(
+                (page - 1) * page_size
+            ).limit(page_size).all()
+            
+            # 格式化匹配数据
+            formatted_matches = []
+            for match in matches:
+                # 获取目标用户信息
+                target_user = self.db.query(User).filter(
+                    User.id == match.target_user_id
+                ).first()
+                
+                if not target_user:
+                    continue
+                
+                # 获取对应的卡片信息
+                from app.models.user_card_db import UserCard
+                target_card = self.db.query(UserCard).filter(
+                    UserCard.user_id == match.target_user_id,
+                    UserCard.scene_type == match.match_type,
+                    UserCard.is_active == 1
+                ).first()
+                
+                match_data = {
+                    "id": str(match.id),
+                    "targetUserId": str(target_user.id),
+                    "targetUserName": getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
+                    "targetUserAvatar": getattr(target_user, 'avatar_url', None),
+                    "matchType": match.match_type,
+                    "actionType": match.action_type.value,
+                    "status": self._get_match_status(match.action_type),
+                    "createdAt": match.created_at.isoformat() if match.created_at else "",
+                    "updatedAt": match.updated_at.isoformat() if match.updated_at else ""
+                }
+                
+                # 添加场景特定信息
+                if match.match_type == "housing":
+                    if target_card:
+                        match_data.update({
+                            "houseTitle": getattr(target_card, 'title', ''),
+                            "housePrice": getattr(target_card, 'price', 0),
+                            "houseLocation": getattr(target_card, 'location', '')
+                        })
+                elif match.match_type == "activity":
+                    if target_card:
+                        match_data.update({
+                            "activityName": getattr(target_card, 'title', ''),
+                            "activityTime": getattr(target_card, 'activity_time', ''),
+                            "activityLocation": getattr(target_card, 'location', '')
+                        })
+                elif match.match_type == "dating":
+                    match_data.update({
+                        "targetUserAge": getattr(target_user, 'age', 25),
+                        "targetUserGender": getattr(target_user, 'gender', 0)
+                    })
+                
+                formatted_matches.append(match_data)
+            
+            return {
+                "matches": formatted_matches,
+                "total": total
+            }
+            
+        except Exception as e:
+            print(f"获取用户匹配列表失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {"matches": [], "total": 0}
+    
+    def _get_match_status(self, action_type: MatchActionType) -> str:
+        """根据操作类型获取匹配状态"""
+        status_mapping = {
+            MatchActionType.LIKE: "pending",
+            MatchActionType.SUPER_LIKE: "pending",
+            MatchActionType.REJECT: "rejected",
+            MatchActionType.MUTUAL_MATCH: "matched"
+        }
+        return status_mapping.get(action_type, "unknown")

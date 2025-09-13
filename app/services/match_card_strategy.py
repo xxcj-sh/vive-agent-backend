@@ -7,6 +7,9 @@ from typing import Dict, List, Any, Optional
 from enum import Enum
 
 from app.services.data_adapter import DataService
+
+# 创建数据服务实例
+data_service = DataService()
 from app.services.media_service import media_service
 from app.models.user import User
 from app.models.user_card_db import UserCard
@@ -72,7 +75,7 @@ class MatchCardStrategy:
         except Exception as e:
             print(f"匹配卡片策略执行失败: {str(e)}")
             # 降级到基础数据服务
-            return DataService.get_cards(match_type, user_role, page, page_size)
+            return data_service.get_cards(match_type, user_role, page, page_size)
     
     def _get_housing_cards(
         self, 
@@ -135,7 +138,7 @@ class MatchCardStrategy:
         current_user: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """默认卡片获取策略"""
-        return DataService.get_cards(match_type, user_role, page, page_size)
+        return data_service.get_cards(match_type, user_role, page, page_size)
     
     def _get_housing_cards_for_seeker(self, page: int, page_size: int, current_user: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """从数据库获取租客视角的房源卡片（显示房东的房源信息）"""
@@ -395,10 +398,22 @@ class MatchCardStrategy:
     
     def _convert_user_to_housing_card_for_seeker(self, landlord: User) -> Dict[str, Any]:
         """将房东用户数据转换为租客视角的房源卡片"""
-        # 获取第一个资料，如果有多个的话
-        profile = landlord.profiles[0] if landlord.profiles else None
-        profile_data = profile.profile_data if profile and profile.profile_data else {}
-        print("landlord.id:", landlord.id)
+        # 获取用户的房源卡片信息
+        from sqlalchemy.orm import Session
+        from app.database import get_db
+        from app.models.user_card_db import UserCard
+        
+        db = next(get_db())
+        user_card = db.query(UserCard).filter(
+            UserCard.user_id == str(landlord.id),
+            UserCard.scene_type == 'housing',
+            UserCard.role_type == 'housing_provider',
+            UserCard.is_active == 1,
+            UserCard.is_deleted == 0
+        ).first()
+        
+        card_data = user_card.profile_data if user_card and user_card.profile_data else {}
+        
         return {
             "id": f"housing_db_{landlord.id}",
             "matchType": "housing",
@@ -406,42 +421,51 @@ class MatchCardStrategy:
             # 房源基本信息
             "houseImage": "",  # 将通过多媒体服务填充
             "houseInfo": {
-                "price": profile_data.get('housing_price', 5000),
-                "area": profile_data.get('housing_area', 80),
-                "orientation": profile_data.get('housing_orientation', '南北通透'),
-                "hasElevator": profile_data.get('housing_has_elevator', True),
-                "location": profile_data.get('location', '朝阳区'),
-                "community": profile_data.get('housing_community', '未知小区'),
+                "price": card_data.get('price', 5000),
+                "area": card_data.get('area', 80),
+                "orientation": card_data.get('orientation', '南北通透'),
+                "hasElevator": card_data.get('hasElevator', True),
+                "location": card_data.get('location', '朝阳区'),
+                "community": card_data.get('community', '未知小区'),
                 "images": [],  # 将通过多媒体服务填充
                 "videoUrl": ""  # 将通过多媒体服务填充
             },
             # 房东信息
             "landlordInfo": {
                 "avatar": "",  # 将通过多媒体服务填充
-                "name": landlord.nick_name or landlord.username or f"用户{landlord.id}",
-                "age": profile_data.get('age', 30),
+                "name": landlord.nick_name or landlord.name or f"用户{landlord.id}",
+                "age": card_data.get('age', 30),
                 "user_id": landlord.id
             },
             # 详情页面需要的额外信息
-            "area": profile_data.get('housing_area', 80),
-            "orientation": profile_data.get('housing_orientation', '南北通透'),
-            "floor": profile_data.get('housing_floor', '10/20层'),
-            "hasElevator": profile_data.get('housing_has_elevator', True),
-            "decoration": profile_data.get('housing_decoration', '精装修'),
-            "price": profile_data.get('housing_price', 5000),
-            "deposit": profile_data.get('housing_deposit', '1押1付'),
-            "community": profile_data.get('housing_community', '未知小区'),
-            "location": profile_data.get('location', '朝阳区'),
-            "title": f"{profile_data.get('housing_type', '两')}居室 - {profile_data.get('housing_community', '未知小区')}",
+            "area": card_data.get('area', 80),
+            "orientation": card_data.get('orientation', '南北通透'),
+            "floor": card_data.get('floor', '10/20层'),
+            "hasElevator": card_data.get('hasElevator', True),
+            "decoration": card_data.get('decoration', '精装修'),
+            "price": card_data.get('price', 5000),
+            "deposit": card_data.get('deposit', '押一付一'),
+            "community": card_data.get('community', '未知小区'),
+            "location": card_data.get('location', '朝阳区'),
+            "title": f"{card_data.get('type', '两')}居室 - {card_data.get('community', '未知小区')}",
             "publishTime": int(landlord.created_at.timestamp()) if landlord.created_at else 0,
             "recommendReason": "位置便利，交通方便"
         }
     
     def _convert_user_to_tenant_card_for_provider(self, tenant: User) -> Dict[str, Any]:
         """将租客用户数据转换为房东视角的租客卡片"""
-        # 获取第一个资料，如果有多个的话
-        profile = tenant.profiles[0] if tenant.profiles else None
-        profile_data = profile.profile_data if profile and profile.profile_data else {}
+        from sqlalchemy.orm import Session
+        from app.models.user_card_db import UserCard as UserCardModel
+        
+        # 获取用户的卡片数据
+        db = next(get_db())
+        card = db.query(UserCardModel).filter(
+            UserCardModel.user_id == tenant.id,
+            UserCardModel.scene_type == 'housing',
+            UserCardModel.role_type == 'housing_seeker'
+        ).first()
+        
+        card_data = card.profile_data if card and card.profile_data else {}
         
         return {
             "id": f"tenant_db_{tenant.id}",
@@ -449,118 +473,144 @@ class MatchCardStrategy:
             "userRole": "provider",
             # 租客基本信息
             "name": tenant.nick_name or tenant.username or f"用户{tenant.id}",
-            "age": profile_data.get('age', 25),
-            "occupation": profile_data.get('occupation', '未知职业'),
+            "age": card_data.get('age', 25),
+            "occupation": card_data.get('occupation', '未知职业'),
             "avatar": "",  # 将通过多媒体服务填充
             "videoUrl": "",  # 将通过多媒体服务填充
             "images": [],  # 将通过多媒体服务填充
             # 租房需求信息
             "tenantInfo": {
-                "budget": getattr(profile, 'housing_budget', 5000),
-                "leaseDuration": getattr(profile, 'housing_lease_duration', '一年'),
-                "moveInDate": getattr(profile, 'housing_move_in_date', '随时'),
-                "priceRange": f"{getattr(profile, 'housing_budget_min', 3000)}-{getattr(profile, 'housing_budget_max', 8000)}元",
-                "leaseTerm": getattr(profile, 'housing_lease_duration', '一年')
+                "budget": card_data.get('housing_budget', 5000),
+                "leaseDuration": card_data.get('housing_lease_duration', '一年'),
+                "moveInDate": card_data.get('housing_move_in_date', '随时'),
+                "priceRange": f"{card_data.get('housing_budget_min', 3000)}-{card_data.get('housing_budget_max', 8000)}元",
+                "leaseTerm": card_data.get('housing_lease_duration', '一年')
             },
             # 详情页面信息
-            "location": [getattr(profile, 'city', '北京市'), getattr(profile, 'district', '朝阳区')],
-            "bio": getattr(profile, 'bio', '工作稳定，寻找合适的住所'),
-            "interests": getattr(profile, 'interests', '').split(',') if getattr(profile, 'interests', '') else [],
-            "priceRange": f"{getattr(profile, 'housing_budget_min', 3000)}-{getattr(profile, 'housing_budget_max', 8000)}元",
-            "leaseTerm": getattr(profile, 'housing_lease_duration', '一年'),
-            "moveInDate": getattr(profile, 'housing_move_in_date', '随时入住'),
+            "location": [card_data.get('city', '北京市'), card_data.get('district', '朝阳区')],
+            "bio": card_data.get('bio', '工作稳定，寻找合适的住所'),
+            "interests": card_data.get('interests', '').split(',') if card_data.get('interests', '') else [],
+            "priceRange": f"{card_data.get('housing_budget_min', 3000)}-{card_data.get('housing_budget_max', 8000)}元",
+            "leaseTerm": card_data.get('housing_lease_duration', '一年'),
+            "moveInDate": card_data.get('housing_move_in_date', '随时入住'),
             "recommendReason": "工作稳定，信誉良好"
         }
     
     def _convert_user_to_dating_card(self, user: User) -> Dict[str, Any]:
         """将用户数据转换为交友卡片"""
-        # 获取第一个资料，如果有多个的话
-        profile = user.profiles[0] if user.profiles else None
-        profile_data = profile.profile_data if profile and profile.profile_data else {}
+        from sqlalchemy.orm import Session
+        from app.models.user_card_db import UserCard as UserCardModel
+        
+        # 获取用户的卡片数据
+        db = next(get_db())
+        card = db.query(UserCardModel).filter(
+            UserCardModel.user_id == user.id,
+            UserCardModel.scene_type == 'dating'
+        ).first()
+        
+        card_data = card.profile_data if card and card.profile_data else {}
         
         return {
             "id": f"dating_db_{user.id}",
             "matchType": "dating",
             "userRole": "user",
-            "name": user.nickname or user.username or f"用户{user.id}",
-            "nickName": user.nickname or user.username,
-            "age": getattr(profile, 'age', 25),
-            "gender": getattr(profile, 'gender', Gender.MALE).value if hasattr(profile, 'gender') else 1,
-            "occupation": getattr(profile, 'occupation', '未知职业'),
-            "location": [getattr(profile, 'city', '北京市'), getattr(profile, 'district', '朝阳区')],
-            "bio": getattr(profile, 'bio', '热爱生活，寻找志同道合的朋友'),
-            "interests": getattr(profile, 'interests', '').split(',') if getattr(profile, 'interests', '') else [],
-            "hobbies": getattr(profile, 'hobbies', '').split(',') if getattr(profile, 'hobbies', '') else [],
+            "name": user.nick_name or user.username or f"用户{user.id}",
+            "nickName": user.nick_name or user.username,
+            "age": card_data.get('age', 25),
+            "gender": card_data.get('gender', 1),
+            "occupation": card_data.get('occupation', '未知职业'),
+            "location": [card_data.get('city', '北京市'), card_data.get('district', '朝阳区')],
+            "bio": card_data.get('bio', '热爱生活，寻找志同道合的朋友'),
+            "interests": card_data.get('interests', '').split(',') if card_data.get('interests', '') else [],
+            "hobbies": card_data.get('hobbies', '').split(',') if card_data.get('hobbies', '') else [],
             # 多媒体数据（将通过多媒体服务填充）
             "avatar": "",
             "avatarUrl": "",
             "videoUrl": "",
             "images": [],
             # 交友特定信息
-            "education": getattr(profile, 'education', '本科'),
-            "height": getattr(profile, 'height', 170),
-            "income": getattr(profile, 'income_range', '10-20万'),
-            "lookingFor": getattr(profile, 'looking_for', '寻找志同道合的朋友'),
+            "education": card_data.get('education', '本科'),
+            "height": card_data.get('height', 170),
+            "income": card_data.get('income_range', '10-20万'),
+            "lookingFor": card_data.get('looking_for', '寻找志同道合的朋友'),
             "recommendReason": "兴趣爱好相似"
         }
     
     def _convert_user_to_activity_card_for_seeker(self, organizer: User) -> Dict[str, Any]:
         """将组织者用户数据转换为参与者视角的活动卡片"""
-        # 获取第一个资料，如果有多个的话
-        profile = organizer.profiles[0] if organizer.profiles else None
-        profile_data = profile.profile_data if profile and profile.profile_data else {}
+        from sqlalchemy.orm import Session
+        from app.models.user_card_db import UserCard as UserCardModel
+        
+        # 获取用户的卡片数据
+        db = next(get_db())
+        card = db.query(UserCardModel).filter(
+            UserCardModel.user_id == organizer.id,
+            UserCardModel.scene_type == 'activity',
+            UserCardModel.role_type == 'activity_organizer'
+        ).first()
+        
+        card_data = card.profile_data if card and card.profile_data else {}
         
         return {
             "id": f"activity_db_{organizer.id}",
             "matchType": "activity",
             "userRole": "seeker",
-            "name": organizer.nickname or organizer.username or f"组织者{organizer.id}",
-            "age": getattr(profile, 'age', 30),
-            "occupation": getattr(profile, 'occupation', '活动策划师'),
+            "name": organizer.nick_name or organizer.username or f"组织者{organizer.id}",
+            "age": card_data.get('age', 30),
+            "occupation": card_data.get('occupation', '活动策划师'),
             # 多媒体数据（将通过多媒体服务填充）
             "avatar": "",
             "videoUrl": "",
             "images": [],
             # 活动信息
-            "activityName": getattr(profile, 'activity_name', '周末户外活动'),
-            "activityType": getattr(profile, 'activity_type', '户外运动'),
-            "activityTime": getattr(profile, 'activity_time', '周末上午 9:00-12:00'),
-            "activityLocation": getattr(profile, 'activity_location', '朝阳公园'),
-            "activityPrice": getattr(profile, 'activity_price', 100),
-            "activityDuration": getattr(profile, 'activity_duration', '3小时'),
-            "activityMaxParticipants": getattr(profile, 'activity_max_participants', 20),
-            "activityDifficulty": getattr(profile, 'activity_difficulty', '初级'),
-            "activityIncludes": getattr(profile, 'activity_includes', '专业指导,活动用品').split(','),
-            "activityDescription": getattr(profile, 'activity_description', '欢迎参加我们的活动，一起度过愉快的时光'),
+            "activityName": card_data.get('activity_name', '周末户外活动'),
+            "activityType": card_data.get('activity_type', '户外运动'),
+            "activityTime": card_data.get('activity_time', '周末上午 9:00-12:00'),
+            "activityLocation": card_data.get('activity_location', '朝阳公园'),
+            "activityPrice": card_data.get('activity_price', 100),
+            "activityDuration": card_data.get('activity_duration', '3小时'),
+            "activityMaxParticipants": card_data.get('activity_max_participants', 20),
+            "activityDifficulty": card_data.get('activity_difficulty', '初级'),
+            "activityIncludes": card_data.get('activity_includes', '专业指导,活动用品').split(','),
+            "activityDescription": card_data.get('activity_description', '欢迎参加我们的活动，一起度过愉快的时光'),
             "recommendReason": "符合您的兴趣偏好"
         }
     
     def _convert_user_to_participant_card_for_organizer(self, participant: User) -> Dict[str, Any]:
         """将参与者用户数据转换为组织者视角的参与者卡片"""
-        # 获取第一个资料，如果有多个的话
-        profile = participant.profiles[0] if participant.profiles else None
-        profile_data = profile.profile_data if profile and profile.profile_data else {}
+        from sqlalchemy.orm import Session
+        from app.models.user_card_db import UserCard as UserCardModel
+        
+        # 获取用户的卡片数据
+        db = next(get_db())
+        card = db.query(UserCardModel).filter(
+            UserCardModel.user_id == participant.id,
+            UserCardModel.scene_type == 'activity',
+            UserCardModel.role_type == 'activity_participant'
+        ).first()
+        
+        card_data = card.profile_data if card and card.profile_data else {}
         
         return {
             "id": f"participant_db_{participant.id}",
             "matchType": "activity",
             "userRole": "provider",
             # 参与者基本信息
-            "name": participant.nickname or participant.username or f"用户{participant.id}",
-            "age": getattr(profile, 'age', 25),
-            "occupation": getattr(profile, 'occupation', '未知职业'),
+            "name": participant.nick_name or participant.username or f"用户{participant.id}",
+            "age": card_data.get('age', 25),
+            "occupation": card_data.get('occupation', '未知职业'),
             "avatar": "",  # 将通过多媒体服务填充
             "videoUrl": "",  # 将通过多媒体服务填充
             "images": [],  # 将通过多媒体服务填充
             # 活动偏好信息
-            "preferredActivity": getattr(profile, 'preferred_activity_type', '户外运动'),
-            "budgetRange": f"{getattr(profile, 'activity_budget_min', 50)}-{getattr(profile, 'activity_budget_max', 200)}元",
-            "preferredTime": getattr(profile, 'preferred_activity_time', '周末上午'),
-            "preferredLocation": getattr(profile, 'preferred_activity_location', '朝阳区'),
+            "preferredActivity": card_data.get('preferred_activity_type', '户外运动'),
+            "budgetRange": f"{card_data.get('activity_budget_min', 50)}-{card_data.get('activity_budget_max', 200)}元",
+            "preferredTime": card_data.get('preferred_activity_time', '周末上午'),
+            "preferredLocation": card_data.get('preferred_activity_location', '朝阳区'),
             # 详情页面信息
-            "location": [getattr(profile, 'city', '北京市'), getattr(profile, 'district', '朝阳区')],
-            "bio": getattr(profile, 'bio', '热爱运动，希望通过活动结识朋友'),
-            "interests": getattr(profile, 'interests', '').split(',') if getattr(profile, 'interests', '') else [],
+            "location": [card_data.get('city', '北京市'), card_data.get('district', '朝阳区')],
+            "bio": card_data.get('bio', '热爱运动，希望通过活动结识朋友'),
+            "interests": card_data.get('interests', '').split(',') if card_data.get('interests', '') else [],
             "recommendReason": "活动参与积极，兴趣匹配"
         }
     

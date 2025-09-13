@@ -241,10 +241,12 @@ async def get_match_actions_history(
 
 @router.get("/recommendations")
 async def get_match_recommendations(
-    sceneType: str = Query(..., description="匹配类型"),
-    roleType: str = Query(..., description="用户角色"),
+    sceneType: str = Query(None, description="匹配类型"),
+    roleType: str = Query(None, description="用户角色"),
+    status: str = Query(None, description="匹配状态"),
     page: int = Query(1, description="页码"),
     pageSize: int = Query(10, description="每页数量"),
+    limit: int = Query(None, description="每页数量(兼容参数)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -253,10 +255,7 @@ async def get_match_recommendations(
     
     统一使用 /api/v1/matches/recommendations 端点
     """
-    print("=== Match Recommendations API Called ===")
-    print(f"URL: /api/v1/matches/recommendations")
-    print(f"Parameters: sceneType={sceneType}, roleType={roleType}, page={page}, pageSize={pageSize}")
-    
+
     try:
         # 优先获取AI推荐
         from sqlalchemy import and_
@@ -277,10 +276,9 @@ async def get_match_recommendations(
                 MatchAction.action_type == MatchActionType.AI_RECOMMEND_AFTER_USER_CHAT
             )
         ).order_by(MatchAction.created_at.desc())
-        
         ai_total = ai_recommend_actions.count()
         ai_actions = ai_recommend_actions.offset((page - 1) * pageSize).limit(pageSize).all()
-        
+        print("ai_actions", ai_actions)
         if ai_total > 0:
             # 有AI推荐，返回AI推荐数据
             cards = []
@@ -404,7 +402,63 @@ async def get_match_detail(
     """
     print("=== Match Recommendations API Called ===")
     print(f"URL: /api/v1/matches/recommendations")
-    print(f"Parameters: sceneType={sceneType}, roleType={roleType}, page={page}, pageSize={pageSize}")
+    print(f"Parameters: sceneType={sceneType}, roleType={roleType}, status={status}, page={page}, pageSize={pageSize}, limit={limit}")
+    
+    # 处理兼容参数
+    if limit is not None and pageSize == 10:  # 如果提供了limit且pageSize是默认值
+        pageSize = limit
+    
+    # 如果提供了status参数，使用获取用户匹配列表的逻辑
+    if status is not None:
+        try:
+            from app.services.match_service import MatchService
+            match_service = MatchService(db)
+            
+            # 获取当前用户ID
+            if isinstance(current_user, dict):
+                user_id = str(current_user.get('id', ''))
+            else:
+                user_id = str(current_user.id)
+            
+            # 获取用户匹配列表
+            matches_data = match_service.get_user_matches(
+                user_id=user_id,
+                status=status,
+                page=page,
+                page_size=pageSize
+            )
+            
+            return BaseResponse(
+                code=0,
+                message="success",
+                data={
+                    "matches": matches_data.get("matches", []),
+                    "pagination": {
+                        "page": page,
+                        "pageSize": pageSize,
+                        "total": matches_data.get("total", 0),
+                        "totalPages": (matches_data.get("total", 0) + pageSize - 1) // pageSize
+                    }
+                }
+            )
+            
+        except Exception as e:
+            print(f"获取用户匹配列表异常: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return BaseResponse(
+                code=500,
+                message=f"获取用户匹配列表失败: {str(e)}",
+                data=None
+            )
+    
+    # 检查必需参数
+    if sceneType is None or roleType is None:
+        return BaseResponse(
+            code=422,
+            message="参数错误：sceneType和roleType是必需的参数",
+            data=None
+        )
     
     try:
         # 优先获取AI推荐

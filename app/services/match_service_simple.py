@@ -25,13 +25,13 @@ class MatchService:
         try:
             card_id = str(action_data.get("cardId", ""))
             action_type = str(action_data.get("action", ""))
-            match_type = str(action_data.get("matchType", ""))
+            scene_type = str(action_data.get("sceneType", ""))
             
-            if not all([card_id, action_type, match_type]):
-                raise ValueError("缺少必要参数: cardId, action, matchType")
+            if not all([card_id, action_type, scene_type]):
+                raise ValueError("缺少必要参数: cardId, action, sceneType")
             
             # 解析目标用户ID（从cardId中提取或查询）
-            target_user_id = self._extract_target_user_id(card_id, match_type)
+            target_user_id = self._extract_target_user_id(card_id, scene_type)
             
             if not target_user_id:
                 raise ValueError(f"无法从cardId {card_id} 中获取目标用户ID")
@@ -41,7 +41,7 @@ class MatchService:
                 MatchAction.user_id == user_id,
                 MatchAction.target_user_id == target_user_id,
                 MatchAction.target_card_id == card_id,
-                MatchAction.match_type == match_type
+                MatchAction.scene_type == scene_type
             ).first()
             
             if existing_action:
@@ -58,7 +58,7 @@ class MatchService:
                 target_user_id=target_user_id,
                 target_card_id=card_id,
                 action_type=MatchActionType(action_type),
-                match_type=match_type,
+                scene_type=scene_type,
                 scene_context=action_data.get("sceneContext")
             )
             
@@ -73,7 +73,7 @@ class MatchService:
             
             if action_type in ["like", "super_like"]:
                 is_match, match_id = self._check_mutual_match(
-                    user_id, target_user_id, card_id, match_type, match_action.id
+                    user_id, target_user_id, card_id, scene_type, match_action.id
                 )
             elif action_type == "ai_recommend_after_user_chat":
                 # AI引荐操作，记录但不触发匹配检查
@@ -91,20 +91,20 @@ class MatchService:
             self.db.rollback()
             raise Exception(f"提交匹配操作失败: {str(e)}")
     
-    def _extract_target_user_id(self, card_id: str, match_type: str) -> Optional[str]:
+    def _extract_target_user_id(self, card_id: str, scene_type: str) -> Optional[str]:
         """
         从卡片ID中提取目标用户ID
         """
         try:
             # 根据不同的匹配类型，从不同的表中查询目标用户ID
-            if match_type == "housing":
+            if scene_type == "housing":
                 # 对于房源匹配，从用户资料表中查询
                 from app.models.user_card_db import UserCard
                 profile = self.db.query(UserCard).filter(UserCard.id == card_id).first()
                 if profile and hasattr(profile, 'user_id'):
                     return str(profile.user_id)
             
-            elif match_type in ["dating", "activity"]:
+            elif scene_type in ["dating", "activity"]:
                 # 对于交友和活动匹配，从用户资料表中查询
                 from app.models.user_card_db import UserCard
                 profile = self.db.query(UserCard).filter(UserCard.id == card_id).first()
@@ -123,7 +123,7 @@ class MatchService:
             return None
     
     def _check_mutual_match(self, user_id: str, target_user_id: str, 
-                           card_id: str, match_type: str, current_action_id: str) -> tuple[bool, Optional[str]]:
+                           card_id: str, scene_type: str, current_action_id: str) -> tuple[bool, Optional[str]]:
         """
         检查是否形成双向匹配
         """
@@ -132,14 +132,14 @@ class MatchService:
             target_action = self.db.query(MatchAction).filter(
                 MatchAction.user_id == target_user_id,
                 MatchAction.target_user_id == user_id,
-                MatchAction.match_type == match_type,
+                MatchAction.scene_type == scene_type,
                 MatchAction.action_type.in_([MatchActionType.LIKE, MatchActionType.SUPER_LIKE])
             ).first()
             
             if target_action:
                 # 检查是否已经存在匹配结果
                 existing_match = self.db.query(MatchResult).filter(
-                    MatchResult.match_type == match_type
+                    MatchResult.scene_type == scene_type
                 ).filter(
                     ((MatchResult.user1_id == user_id) & (MatchResult.user2_id == target_user_id)) |
                     ((MatchResult.user1_id == target_user_id) & (MatchResult.user2_id == user_id))
@@ -165,7 +165,7 @@ class MatchService:
                     user2_id=user2_id,
                     user1_card_id=user1_card_id,
                     user2_card_id=user2_card_id,
-                    match_type=match_type,
+                    scene_type=scene_type,
                     status=MatchResultStatus.MATCHED,
                     user1_action_id=user1_action_id,
                     user2_action_id=user2_action_id
@@ -221,7 +221,7 @@ class MatchService:
                         },
                         "matchedAt": match.matched_at.isoformat() if match.matched_at else "",
                         "lastActivity": match.last_activity_at.isoformat() if match.last_activity_at else "",
-                        "matchType": str(match.match_type),
+                        "matchType": str(match.scene_type),
                         "status": match.status.value if match.status else "matched"
                     })
             
@@ -280,7 +280,7 @@ class MatchService:
                     "bio": getattr(other_user, 'bio', None)
                 },
                 "matchedAt": match.matched_at.isoformat() if match.matched_at else "",
-                "matchType": str(match.match_type),
+                "matchType": str(match.scene_type),
                 "status": match.status.value if match.status else "matched",
                 "reason": self._generate_match_reason(match)
             }
@@ -293,17 +293,17 @@ class MatchService:
         """
         生成匹配原因描述
         """
-        match_type = str(match.match_type)
-        if match_type == "housing":
+        scene_type = str(match.scene_type)
+        if scene_type == "housing":
             return "你们都在寻找合适的住房"
-        elif match_type == "dating":
+        elif scene_type == "dating":
             return "你们互相感兴趣"
-        elif match_type == "activity":
+        elif scene_type == "activity":
             return "你们都对相同的活动感兴趣"
         else:
             return "你们互相匹配成功"
     
-    def get_user_match_actions(self, user_id: str, match_type: Optional[str] = None, 
+    def get_user_match_actions(self, user_id: str, scene_type: Optional[str] = None, 
                               page: int = 1, page_size: int = 20) -> Dict[str, Any]:
         """
         获取用户的匹配操作历史
@@ -311,8 +311,8 @@ class MatchService:
         try:
             query = self.db.query(MatchAction).filter(MatchAction.user_id == user_id)
             
-            if match_type:
-                query = query.filter(MatchAction.match_type == match_type)
+            if scene_type:
+                query = query.filter(MatchAction.scene_type == scene_type)
             
             query = query.order_by(MatchAction.created_at.desc())
             
@@ -329,7 +329,7 @@ class MatchService:
                         "name": getattr(target_user, 'nick_name', None) if target_user else "未知用户"
                     },
                     "actionType": action.action_type.value if action.action_type else "unknown",
-                    "matchType": str(action.match_type),
+                    "matchType": str(action.scene_type),
                     "createdAt": action.created_at.isoformat() if action.created_at else ""
                 })
             
