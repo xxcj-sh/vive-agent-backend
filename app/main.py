@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import card, users, match, auth, membership, membership_orders, scenes, file, properties, chat, enhanced_match, llm
+from app.routers import card, users, match, auth, membership, membership_orders, scenes, file, properties, chat, llm
 from app.api import social_routes
 from app.utils.db_init import init_db
 from app.config import settings
@@ -35,14 +35,13 @@ app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(scenes.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
-app.include_router(match.router, prefix="/api/v1/matches")
+app.include_router(match.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(membership.router, prefix="/api/v1")
 app.include_router(membership_orders.router, prefix="/api/v1")
 app.include_router(file.router, prefix="/api/v1/files")
 app.include_router(properties.router, prefix="/api/v1")
 app.include_router(card.router, prefix="/api/v1")
-app.include_router(enhanced_match.router, prefix="/api/v1/enhanced-match", tags=["enhanced-match"])
 app.include_router(llm.router, prefix="/api/v1")
 app.include_router(social_routes.router)
 

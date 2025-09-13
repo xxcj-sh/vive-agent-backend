@@ -15,7 +15,6 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user = auth_service.get_user_from_token(token)
         print("USER:", user)
         if not user:
-
             raise HTTPException(status_code=401, detail="无效的token")
         return user
     except Exception as e:

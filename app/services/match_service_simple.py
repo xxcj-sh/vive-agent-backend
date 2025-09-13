@@ -67,6 +67,7 @@ class MatchService:
             self.db.refresh(match_action)
             
             # 如果是喜欢或超级喜欢，检查是否形成双向匹配
+            # AI引荐不会触发双向匹配，需要等待对方回应
             is_match = False
             match_id = None
             
@@ -74,6 +75,10 @@ class MatchService:
                 is_match, match_id = self._check_mutual_match(
                     user_id, target_user_id, card_id, match_type, match_action.id
                 )
+            elif action_type == "ai_recommend_after_user_chat":
+                # AI引荐操作，记录但不触发匹配检查
+                is_match = False
+                match_id = None
             
             return {
                 "isMatch": is_match,
