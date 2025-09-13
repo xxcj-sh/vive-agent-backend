@@ -16,6 +16,7 @@ class CardBase(BaseModel):
     id: str = Field(..., description="卡片ID")
     user_id: str = Field(..., description="用户ID")
     is_active: int = Field(..., description="是否激活")
+    is_deleted: int = Field(..., description="是否删除")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: Optional[datetime] = Field(None, description="更新时间")
 
@@ -36,8 +37,8 @@ class CardUpdate(BaseModel):
     display_name: Optional[str] = Field(None, description="显示名称")
     avatar_url: Optional[str] = Field(None, description="头像URL")
     bio: Optional[str] = Field(None, description="个人简介")
-    profile_data: Optional[Dict[str, Any]] = Field(None, description="角色特定数据")
-    preferences: Optional[Dict[str, Any]] = Field(None, description="偏好设置")
+    profile_data: Optional[Dict[str, Any]] = Field(None, description="卡片描述数据")
+    preferences: Optional[Dict[str, Any]] = Field(None, description="收卡人条件偏好")
     visibility: Optional[str] = Field(None, description="可见性")
     is_active: Optional[int] = Field(None, description="是否激活")
 

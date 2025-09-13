@@ -19,6 +19,7 @@ class UserCard(Base):
     preferences = Column(JSON, nullable=True)
     visibility = Column(String, default="public")
     is_active = Column(Integer, default=1)
+    is_deleted = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
