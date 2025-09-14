@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.services.user_card_service import UserCardService
 from app.services.enhanced_match_service import EnhancedMatchService
-from app.services.match_card_strategy import MatchCardStrategy
+from app.services.match_service.card_strategy import MatchCardStrategy
 from app.utils.role_converter import RoleConverter
 
 def test_user_card_service():

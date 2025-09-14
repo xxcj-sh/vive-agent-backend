@@ -6,15 +6,19 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app.services.match_card_strategy import match_card_strategy
+from app.services.match_service.card_strategy import MatchCardStrategy
 
 def test_housing_seeker_cards():
     """测试租客视角的房源卡片"""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    strategy = MatchCardStrategy(db)
+    
     print("=== 测试租客视角的房源卡片 ===")
     
-    result = match_card_strategy.get_match_cards(
-        match_type="housing",
-        user_role="seeker",  # 租客身份
+    result = strategy.get_match_cards(
+        scene_type="housing",
+        role_type="seeker",
         page=1,
         page_size=3,
         current_user={"id": "test_seeker_001"}
@@ -35,11 +39,15 @@ def test_housing_seeker_cards():
 
 def test_housing_provider_cards():
     """测试房东视角的租客卡片"""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    strategy = MatchCardStrategy(db)
+    
     print("\n=== 测试房东视角的租客卡片 ===")
     
-    result = match_card_strategy.get_match_cards(
-        match_type="housing",
-        user_role="provider",  # 房东身份
+    result = strategy.get_match_cards(
+        scene_type="housing",
+        role_type="provider",  # 房东身份
         page=1,
         page_size=3,
         current_user={"id": "test_provider_001"}
@@ -60,11 +68,15 @@ def test_housing_provider_cards():
 
 def test_activity_seeker_cards():
     """测试活动参与者视角的活动卡片"""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    strategy = MatchCardStrategy(db)
+    
     print("\n=== 测试活动参与者视角的活动卡片 ===")
     
-    result = match_card_strategy.get_match_cards(
-        match_type="activity",
-        user_role="seeker",  # 参与者身份
+    result = strategy.get_match_cards(
+        scene_type="activity",
+        role_type="participant",
         page=1,
         page_size=2,
         current_user={"id": "test_activity_seeker_001"}
@@ -84,11 +96,15 @@ def test_activity_seeker_cards():
 
 def test_activity_organizer_cards():
     """测试活动组织者视角的参与者卡片"""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    strategy = MatchCardStrategy(db)
+    
     print("\n=== 测试活动组织者视角的参与者卡片 ===")
     
-    result = match_card_strategy.get_match_cards(
-        match_type="activity",
-        user_role="provider",  # 组织者身份
+    result = strategy.get_match_cards(
+        scene_type="activity",
+        role_type="organizer",
         page=1,
         page_size=2,
         current_user={"id": "test_activity_organizer_001"}

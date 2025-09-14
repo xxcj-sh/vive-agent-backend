@@ -5,8 +5,8 @@ from app.models.schemas import BaseResponse
 from app.utils.auth import get_current_user
 from app.models.user import User
 from app.models.enums import Gender
-from app.services.match_card_strategy import match_card_strategy
-from app.services.match_service_simple import MatchService
+from app.services.match_service.card_strategy import MatchCardStrategy
+from app.services.match_service.core import MatchService
 from app.database import get_db
 from pydantic import BaseModel
 from typing import Optional
@@ -81,7 +81,6 @@ async def get_match_cards(
         print("current_user:", current_user)
         # 将 User 对象转换为字典格式
         current_user_dict = None
-        print("getattr(current_user, 'id'):", current_user['id'])
         if current_user:
             current_user_dict = {
                 "id": current_user['id'],
@@ -92,10 +91,13 @@ async def get_match_cards(
                 "preferences": getattr(current_user, 'preferences', {}),
             }
         
+        # 创建匹配卡片策略服务实例
+        match_card_strategy = MatchCardStrategy(db)
+        
         # 使用匹配卡片策略服务
         result = match_card_strategy.get_match_cards(
-            action_type=sceneType,
-            user_role=userRole,
+            scene_type=sceneType,
+            role_type=userRole,
             page=page,
             page_size=pageSize,
             current_user=current_user_dict
@@ -239,8 +241,8 @@ async def get_match_actions_history(
             data=None
         )
 
-@router.get("/recommendations")
-async def get_match_recommendations(
+@router.get("/recommendation-cards")
+async def get_match_recommendation_cards(
     sceneType: str = Query(None, description="匹配类型"),
     roleType: str = Query(None, description="用户角色"),
     status: str = Query(None, description="匹配状态"),
@@ -253,7 +255,7 @@ async def get_match_recommendations(
     """
     获取匹配推荐列表
     
-    统一使用 /api/v1/matches/recommendations 端点
+    统一使用 /api/v1/matches/recommendation-cards 端点
     """
 
     try:
@@ -324,32 +326,28 @@ async def get_match_recommendations(
                 card_data = {
                     "id": str(action.id),
                     "userId": str(target_user.id),
+                    "sceneType": sceneType,
+                    "userRole": roleType,
                     "name": getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
-                    "avatar": getattr(target_user, 'avatar_url', None),
+                    "avatar": getattr(target_user, 'avatar_url', None) or "",
                     "age": getattr(target_user, 'age', 25),
                     "occupation": getattr(target_user, 'occupation', ''),
                     "location": getattr(target_user, 'location', ''),
                     "bio": getattr(target_user, 'bio', ''),
-                    "interests": getattr(target_user, 'interests', []),
-                    "sceneType": str(action.action_type),
-                    "isAIRecommendation": True,
-                    "aiAnalysis": scene_context.get('aiAnalysis', {}),
+                    "interests": getattr(target_user, 'interests', []) if isinstance(getattr(target_user, 'interests', []), list) else [],
+                    "createdAt": action.created_at.isoformat() if action.created_at else "",
                     "matchScore": scene_context.get('aiAnalysis', {}).get('matchScore', 85),
-                    "recommendationReason": scene_context.get('aiAnalysis', {}).get('preferenceJudgement', '基于聊天内容智能推荐'),
-                    "createdAt": action.created_at.isoformat() if action.created_at else ""
+                    "recommendReason": scene_context.get('aiAnalysis', {}).get('preferenceJudgement', '基于聊天内容智能推荐')
                 }
                 
+                # 场景特定字段
                 if sceneType == "activity":
                     card_data.update({
                         "activityName": getattr(target_card, 'title', ''),
                         "activityTime": getattr(target_card, 'activity_time', ''),
                         "activityLocation": getattr(target_card, 'location', ''),
-                        "activityPrice": getattr(target_card, 'price', 0)
-                    })
-                elif sceneType == "social":
-                    card_data.update({
-                        "gender": getattr(target_user, 'gender', ''),
-                        "education": getattr(target_user, 'education', '')
+                        "activityPrice": getattr(target_card, 'price', 0),
+                        "activityType": getattr(target_card, 'activity_type', '')
                     })
                 
                 cards.append(card_data)
@@ -420,67 +418,49 @@ async def get_match_detail(
     db: Session = Depends(get_db)
 ):
     """
-    获取匹配推荐列表
+    获取匹配详情
     
-    统一使用 /api/v1/matches/recommendations 端点
+    根据匹配ID获取单个匹配的详细信息
     """
-    print("=== Match Recommendations API Called ===")
-    print(f"URL: /api/v1/matches/recommendations")
-    print(f"Parameters: sceneType={sceneType}, roleType={roleType}, status={status}, page={page}, pageSize={pageSize}, limit={limit}")
+    print("=== Match Detail API Called ===")
+    print(f"URL: /api/v1/matches/{match_id}")
+    print(f"Match ID: {match_id}")
     
-    # 处理兼容参数
-    if limit is not None and pageSize == 10:  # 如果提供了limit且pageSize是默认值
-        pageSize = limit
-    
-    # 如果提供了status参数，使用获取用户匹配列表的逻辑
-    if status is not None:
-        try:
-            from app.services.match_service import MatchService
-            match_service = MatchService(db)
-            
-            # 获取当前用户ID
-            if isinstance(current_user, dict):
-                user_id = str(current_user.get('id', ''))
-            else:
-                user_id = str(current_user.id)
-            
-            # 获取用户匹配列表
-            matches_data = match_service.get_user_matches(
-                user_id=user_id,
-                status=status,
-                page=page,
-                page_size=pageSize
-            )
-            
+    try:
+        match_service = MatchService(db)
+        
+        # 获取当前用户ID
+        if isinstance(current_user, dict):
+            user_id = str(current_user.get('id', ''))
+        else:
+            user_id = str(current_user.id)
+        
+        # 获取匹配详情
+        match_detail = match_service.get_match_detail(
+            match_id=match_id,
+            user_id=user_id
+        )
+        
+        if not match_detail:
             return BaseResponse(
-                code=0,
-                message="success",
-                data={
-                    "matches": matches_data.get("matches", []),
-                    "pagination": {
-                        "page": page,
-                        "pageSize": pageSize,
-                        "total": matches_data.get("total", 0),
-                        "totalPages": (matches_data.get("total", 0) + pageSize - 1) // pageSize
-                    }
-                }
-            )
-            
-        except Exception as e:
-            print(f"获取用户匹配列表异常: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return BaseResponse(
-                code=500,
-                message=f"获取用户匹配列表失败: {str(e)}",
+                code=404,
+                message="匹配记录不存在",
                 data=None
             )
-    
-    # 检查必需参数
-    if sceneType is None or roleType is None:
+        
         return BaseResponse(
-            code=422,
-            message="参数错误：sceneType和roleType是必需的参数",
+            code=0,
+            message="success",
+            data=match_detail
+        )
+        
+    except Exception as e:
+        print(f"获取匹配详情异常: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return BaseResponse(
+            code=500,
+            message=f"获取匹配详情失败: {str(e)}",
             data=None
         )
     

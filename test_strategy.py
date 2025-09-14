@@ -9,28 +9,33 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('ENVIRONMENT', 'development')
 
-from app.services.match_card_strategy import match_card_strategy
+from app.services.match_service.card_strategy import MatchCardStrategy
 
 def test_match_card_strategy():
     """测试匹配卡片策略"""
     print("🧪 测试匹配卡片策略...")
     
+    from app.database import SessionLocal
+    db = SessionLocal()
+    strategy = MatchCardStrategy(db)
+    
     # 测试参数
     test_cases = [
-        {"match_type": "dating", "user_role": "seeker", "page": 1, "page_size": 5},
-        {"match_type": "housing", "user_role": "seeker", "page": 1, "page_size": 5},
-        {"match_type": "housing", "user_role": "provider", "page": 1, "page_size": 5},
-        {"match_type": "activity", "user_role": "participant", "page": 1, "page_size": 5},
-        {"match_type": "activity", "user_role": "organizer", "page": 1, "page_size": 5},
+        {"scene_type": "dating", "role_type": "seeker", "page": 1, "page_size": 5},
+        {"scene_type": "housing", "role_type": "seeker", "page": 1, "page_size": 5},
+        {"scene_type": "housing", "role_type": "provider", "page": 1, "page_size": 5},
+        {"scene_type": "activity", "role_type": "participant", "page": 1, "page_size": 5},
+        {"scene_type": "activity", "role_type": "organizer", "page": 1, "page_size": 5},
     ]
     
     for case in test_cases:
         try:
-            result = match_card_strategy.get_match_cards(
-                match_type=case["match_type"],
-                user_role=case["user_role"],
+            result = strategy.get_match_cards(
+                scene_type=case["scene_type"],
+                role_type=case["role_type"],
                 page=case["page"],
-                page_size=case["page_size"]
+                page_size=case["page_size"],
+                current_user={"id": "test_user_001"}
             )
             
             print(f"✅ {case['match_type']}-{case['user_role']}: 成功")

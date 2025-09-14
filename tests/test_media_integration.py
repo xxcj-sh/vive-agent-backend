@@ -6,7 +6,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app.services.match_card_strategy import match_card_strategy
+from app.services.match_service.card_strategy import MatchCardStrategy
 
 def test_housing_cards_with_media():
     """测试房源卡片的多媒体数据"""

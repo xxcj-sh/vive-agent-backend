@@ -3,7 +3,7 @@
 测试数据库集成的匹配卡片策略
 """
 
-from app.services.match_card_strategy import match_card_strategy
+from app.services.match_service.card_strategy import MatchCardStrategy
 
 def test_database_integration():
     """测试数据库集成功能"""
