@@ -61,19 +61,33 @@ class MatchCardStrategy:
             包含卡片列表和分页信息的字典
         """
         try:
+            print(f"MatchCardStrategy.get_match_cards - 参数: match_type={match_type}, user_role={user_role}, page={page}, page_size={page_size}")
+            if current_user:
+                print(f"MatchCardStrategy: 当前用户ID={current_user.get('id')}, nickName={current_user.get('nickName')}")
+            else:
+                print("MatchCardStrategy: 无当前用户信息")
+                
             # 根据匹配类型选择不同的策略
             if match_type == "housing":
-                return self._get_housing_cards(user_role, page, page_size, current_user)
+                print("MatchCardStrategy: 选择房源匹配策略")
+                result = self._get_housing_cards(user_role, page, page_size, current_user)
             elif match_type == "dating":
-                return self._get_dating_cards(user_role, page, page_size, current_user)
+                print("MatchCardStrategy: 选择交友匹配策略")
+                result = self._get_dating_cards(user_role, page, page_size, current_user)
             elif match_type == "activity":
-                return self._get_activity_cards(user_role, page, page_size, current_user)
+                print("MatchCardStrategy: 选择活动匹配策略")
+                result = self._get_activity_cards(user_role, page, page_size, current_user)
             else:
-                # 默认策略
-                return self._get_default_cards(match_type, user_role, page, page_size, current_user)
+                print(f"MatchCardStrategy: 选择默认策略 match_type={match_type}")
+                result = self._get_default_cards(match_type, user_role, page, page_size, current_user)
+            
+            print(f"MatchCardStrategy: 返回结果 - 总数={result.get('total', 0)}, 列表长度={len(result.get('list', []))}, 策略={result.get('strategy', 'unknown')}")
+            return result
                 
         except Exception as e:
             print(f"匹配卡片策略执行失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
             # 降级到基础数据服务
             return data_service.get_cards(match_type, user_role, page, page_size)
     
@@ -245,6 +259,8 @@ class MatchCardStrategy:
     def _get_dating_cards_from_db(self, page: int, page_size: int, current_user: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """从数据库获取交友卡片"""
         try:
+            print(f"_get_dating_cards_from_db: 开始查询交友卡片, page={page}, page_size={page_size}")
+            
             # 获取数据库会话
             db = next(get_db())
             
@@ -254,18 +270,27 @@ class MatchCardStrategy:
                 UserCard.visibility == 'public'
             )
             
+            print(f"_get_dating_cards_from_db: 基础查询条件 - UserCard.scene_type='dating', visibility='public'")
+            
             # 排除当前用户
             if current_user and current_user.get('id'):
                 dating_query = dating_query.filter(User.id != current_user['id'])
+                print(f"_get_dating_cards_from_db: 排除当前用户 user_id={current_user.get('id')}")
+            
+            # 打印查询SQL
+            print(f"_get_dating_cards_from_db: 查询SQL: {str(dating_query.statement)}")
             
             # 分页查询
             offset = (page - 1) * page_size
             dating_users = dating_query.offset(offset).limit(page_size).all()
             total_count = dating_query.count()
             
+            print(f"_get_dating_cards_from_db: 查询结果 - 总数={total_count}, 当前页数量={len(dating_users)}")
+            
             # 转换为卡片数据
             cards = []
-            for user in dating_users:
+            for i, user in enumerate(dating_users):
+                print(f"_get_dating_cards_from_db: 处理第{i+1}个用户 user_id={user.id}")
                 card_data = self._convert_user_to_dating_card(user)
                 # 添加多媒体数据
                 card_data = self._enrich_card_with_media(card_data, str(user.id))

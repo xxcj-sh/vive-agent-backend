@@ -10,12 +10,12 @@ from datetime import datetime
 
 def check_match_actions():
     """检查 MatchAction 表中的数据"""
-    db_path = 'vmatch_dev.db'
+    db_path = 'vmatch.db'
     if not os.path.exists(db_path):
-        print(f"开发数据库文件 {db_path} 不存在，尝试检查主数据库...")
-        db_path = 'vmatch.db'
+        print(f"主数据库文件 {db_path} 不存在，尝试检查开发数据库...")
+        db_path = 'vmatch_dev.db'
         if not os.path.exists(db_path):
-            print(f"主数据库文件 {db_path} 也不存在")
+            print(f"开发数据库文件 {db_path} 也不存在")
             return
     
     try:

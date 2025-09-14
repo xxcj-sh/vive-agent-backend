@@ -302,13 +302,18 @@ class MatchService:
             包含卡片列表和分页信息的字典
         """
         try:
+            print(f"MatchService.get_recommendation_cards - 参数: user_id={user_id}, scene_type={scene_type}, user_role={user_role}, page={page}, page_size={page_size}")
+            
             from app.services.match_card_strategy import match_card_strategy
             from app.models.user import User
             
             # 获取当前用户信息
             current_user = self.db.query(User).filter(User.id == user_id).first()
             if not current_user:
+                print(f"MatchService: 找不到用户 user_id={user_id}")
                 return {"cards": [], "total": 0}
+            
+            print(f"MatchService: 找到用户 nick_name={getattr(current_user, 'nick_name', None)}")
             
             # 构建当前用户信息字典
             current_user_dict = {
@@ -325,6 +330,7 @@ class MatchService:
             }
             
             # 使用匹配卡片策略获取推荐卡片
+            print(f"MatchService: 调用match_card_strategy.get_match_cards...")
             result = match_card_strategy.get_match_cards(
                 match_type=scene_type,
                 user_role=user_role,
@@ -332,6 +338,8 @@ class MatchService:
                 page_size=page_size,
                 current_user=current_user_dict
             )
+            
+            print(f"MatchService: 获取到 {len(result.get('list', []))} 张卡片, 总数={result.get('total', 0)}")
             
             # 转换返回格式
             cards = result.get("list", [])

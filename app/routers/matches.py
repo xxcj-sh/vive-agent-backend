@@ -94,7 +94,7 @@ async def get_match_cards(
         
         # 使用匹配卡片策略服务
         result = match_card_strategy.get_match_cards(
-            match_type=sceneType,
+            action_type=sceneType,
             user_role=userRole,
             page=page,
             page_size=pageSize,
@@ -220,7 +220,7 @@ async def get_match_actions_history(
         # 获取操作历史
         result = match_service.get_user_match_actions(
             user_id=user_id,
-            match_type=sceneType,
+            action_type=sceneType,
             page=page,
             page_size=pageSize
         )
@@ -269,31 +269,49 @@ async def get_match_recommendations(
         else:
             user_id = str(current_user.id)
         
+        print(f"=== 获取匹配推荐 - 调试信息 ===")
+        print(f"当前用户ID: {user_id}")
+        print(f"场景类型: {sceneType}")
+        print(f"用户角色: {roleType}")
+        print(f"分页: page={page}, pageSize={pageSize}")
+        
         # 先尝试获取AI推荐
+        print("正在查询AI推荐...")
         ai_recommend_actions = db.query(MatchAction).filter(
             and_(
                 MatchAction.target_user_id == user_id,
                 MatchAction.action_type == MatchActionType.AI_RECOMMEND_AFTER_USER_CHAT
             )
         ).order_by(MatchAction.created_at.desc())
+        
+        # 打印查询SQL
+        print(f"AI推荐查询SQL: {str(ai_recommend_actions.statement)}")
+        
         ai_total = ai_recommend_actions.count()
+        print(f"AI推荐总数: {ai_total}")
+        
         ai_actions = ai_recommend_actions.offset((page - 1) * pageSize).limit(pageSize).all()
-        print("ai_actions", ai_actions)
+        print(f"当前页AI推荐数量: {len(ai_actions)}")
+        
         if ai_total > 0:
             # 有AI推荐，返回AI推荐数据
             cards = []
-            for action in ai_actions:
+            print("开始处理AI推荐数据...")
+            for i, action in enumerate(ai_actions):
+                print(f"处理第{i+1}个AI推荐: action_id={action.id}, user_id={action.user_id}")
+                
                 target_user = db.query(User).filter(User.id == str(action.user_id)).first()
                 if not target_user:
+                    print(f"跳过: 找不到目标用户 user_id={action.user_id}")
                     continue
                     
                 target_card = db.query(UserCard).filter(
                     UserCard.user_id == str(action.user_id),
-                    UserCard.scene_type == sceneType,
                     UserCard.is_active == 1
                 ).first()
                 
                 if not target_card:
+                    print(f"跳过: 找不到目标卡片 user_id={action.user_id}, scene_type={sceneType}")
                     continue
                 
                 scene_context = {}
@@ -313,7 +331,7 @@ async def get_match_recommendations(
                     "location": getattr(target_user, 'location', ''),
                     "bio": getattr(target_user, 'bio', ''),
                     "interests": getattr(target_user, 'interests', []),
-                    "sceneType": str(action.match_type),
+                    "sceneType": str(action.action_type),
                     "isAIRecommendation": True,
                     "aiAnalysis": scene_context.get('aiAnalysis', {}),
                     "matchScore": scene_context.get('aiAnalysis', {}).get('matchScore', 85),
@@ -352,10 +370,12 @@ async def get_match_recommendations(
             )
         else:
             # 没有AI推荐，使用普通匹配推荐
+            print("没有AI推荐，使用普通匹配推荐")
             from app.services.match_service import MatchService
             match_service = MatchService(db)
             
             # 获取匹配卡片
+            print(f"调用普通推荐服务: user_id={user_id}, scene_type={sceneType}, user_role={roleType}")
             cards_data = match_service.get_recommendation_cards(
                 user_id=user_id,
                 scene_type=sceneType,
@@ -364,16 +384,20 @@ async def get_match_recommendations(
                 page_size=pageSize
             )
             
+            total_cards = cards_data.get("total", 0)
+            cards_list = cards_data.get("cards", [])
+            print(f"普通推荐结果: 总数={total_cards}, 当前页数量={len(cards_list)}")
+            
             return BaseResponse(
                 code=0,
                 message="success",
                 data={
-                    "cards": cards_data.get("cards", []),
+                    "cards": cards_list,
                     "pagination": {
                         "page": page,
                         "pageSize": pageSize,
-                        "total": cards_data.get("total", 0),
-                        "totalPages": (cards_data.get("total", 0) + pageSize - 1) // pageSize
+                        "total": total_cards,
+                        "totalPages": (total_cards + pageSize - 1) // pageSize
                     },
                     "source": "regular_recommendations"
                 }
@@ -518,7 +542,7 @@ async def get_match_detail(
                     "location": getattr(target_user, 'location', ''),
                     "bio": getattr(target_user, 'bio', ''),
                     "interests": getattr(target_user, 'interests', []),
-                    "sceneType": str(action.match_type),
+                    "sceneType": str(action.action_type),
                     "isAIRecommendation": True,
                     "aiAnalysis": scene_context.get('aiAnalysis', {}),
                     "matchScore": scene_context.get('aiAnalysis', {}).get('matchScore', 85),
