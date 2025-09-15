@@ -74,7 +74,8 @@ async def get_match_cards(
     userRole: str = Query(...),
     page: int = Query(1),
     pageSize: int = Query(10),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db_session: Session = Depends(get_db)
 ):
     """获取匹配卡片"""
     try:
@@ -92,7 +93,7 @@ async def get_match_cards(
             }
         
         # 创建匹配卡片策略服务实例
-        match_card_strategy = MatchCardStrategy(db)
+        match_card_strategy = MatchCardStrategy(db_session)
         
         # 使用匹配卡片策略服务
         result = match_card_strategy.get_match_cards(

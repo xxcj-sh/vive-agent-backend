@@ -79,9 +79,19 @@ class MatchCardStrategy:
             total = query.count()
             users = query.order_by(User.created_at.desc()).offset(offset).limit(page_size).all()
             
+            # 导入匹配操作模型
+            from app.models.match_action import MatchAction, MatchActionType
+            
             cards = []
             for user in users:
                 dating_profile = self.db.query(DatingProfile).filter(DatingProfile.user_id == user.id).first()
+                
+                # 检查对方是否已对当前用户表示兴趣
+                target_user_interest = self.db.query(MatchAction).filter(
+                    MatchAction.user_id == user.id,
+                    MatchAction.target_user_id == current_user["id"],
+                    MatchAction.action_type.in_([MatchActionType.AI_RECOMMEND_AFTER_USER_CHAT, MatchActionType.LIKE, MatchActionType.SUPER_LIKE])
+                ).first()
                 
                 card_data = {
                     "id": f"{user.id}_{int(datetime.utcnow().timestamp())}",
@@ -100,7 +110,9 @@ class MatchCardStrategy:
                     "gender": getattr(user, 'gender', 0),
                     "education": getattr(user, 'education', ''),
                     "height": getattr(user, 'height', 170),
-                    "relationshipStatus": getattr(dating_profile, 'relationship_status', 'single') if dating_profile else 'single'
+                    "relationshipStatus": getattr(dating_profile, 'relationship_status', 'single') if dating_profile else 'single',
+                    "hasInterestInMe": target_user_interest is not None,
+                    "mutualMatchAvailable": target_user_interest is not None
                 }
                 
                 cards.append(card_data)
@@ -125,8 +137,18 @@ class MatchCardStrategy:
             total = query.count()
             participants = query.order_by(User.created_at.desc()).offset(offset).limit(page_size).all()
             
+            # 导入匹配操作模型
+            from app.models.match_action import MatchAction, MatchActionType
+            
             cards = []
             for participant in participants:
+                # 检查对方是否已对当前用户表示兴趣
+                target_user_interest = self.db.query(MatchAction).filter(
+                    MatchAction.user_id == participant.id,
+                    MatchAction.target_user_id == current_user["id"],
+                    MatchAction.action_type.in_([MatchActionType.LIKE, MatchActionType.SUPER_LIKE])
+                ).first()
+                
                 cards.append({
                     "id": f"{participant.id}_{int(datetime.utcnow().timestamp())}",
                     "userId": str(participant.id),
@@ -143,7 +165,9 @@ class MatchCardStrategy:
                     "matchScore": self._calculate_match_score(current_user, participant),
                     "preferredActivity": "社交活动",
                     "budgetRange": "100-500",
-                    "availability": "周末"
+                    "availability": "周末",
+                    "hasInterestInMe": target_user_interest is not None,
+                    "mutualMatchAvailable": target_user_interest is not None
                 })
             
             return {"cards": cards, "total": total}
