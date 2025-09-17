@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any, Literal
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 # 用于填充不同类型 Card 的 preferences 字段
@@ -24,7 +24,7 @@ class ActivityOrganizerPreferences(BaseModel):
     require_verification: Optional[bool] = Field(False, description="是否要求参与者身份验证")
     
     # 匹配强度设置
-    match_strictness: Optional[Literal['loose', 'medium', 'strict']] = Field('medium', description="匹配严格程度")
+    match_strictness: Optional[str] = Field('medium', description="匹配严格程度: loose, medium, strict")
 
 
 class ActivityParticipantPreferences(BaseModel):
@@ -41,7 +41,7 @@ class ActivityParticipantPreferences(BaseModel):
     
     # 预算限制
     budget_range: Optional[Dict[str, int]] = Field(None, description="预算范围 {'min': int, 'max': int}")
-    cost_sharing_preference: Optional[Literal['equal', 'proportional', 'organizer_pays']] = Field('equal', description="费用分摊偏好")
+    cost_sharing_preference: Optional[str] = Field('equal', description="费用分摊偏好: equal, proportional, organizer_pays")
     
     # 时间偏好
     availability_schedule: Optional[Dict[str, Any]] = Field(None, description="可用时间配置")
@@ -52,7 +52,7 @@ class ActivityParticipantPreferences(BaseModel):
     
     # 参与者匹配设置
     allow_co_participants: Optional[bool] = Field(True, description="是否允许与认识的人一起参与")
-    match_strictness: Optional[Literal['loose', 'medium', 'strict']] = Field('medium', description="匹配严格程度")
+    match_strictness: Optional[str] = Field('medium', description="匹配严格程度: loose, medium, strict")
 
 
 class HouseSeekerPreferences(BaseModel):
@@ -69,7 +69,7 @@ class HouseSeekerPreferences(BaseModel):
     
     # 房屋配置要求
     required_facilities: Optional[List[str]] = Field(None, description="必需设施")
-    furniture_preference: Optional[Literal['fully_furnished', 'partially_furnished', 'unfurnished']] = Field(None, description="家具偏好")
+    furniture_preference: Optional[str] = Field(None, description="家具偏好: fully_furnished, partially_furnished, unfurnished")
     
     # 室友匹配偏好
     roommate_preferences: Optional[Dict[str, Any]] = Field(None, description="室友偏好")
@@ -84,7 +84,7 @@ class HouseSeekerPreferences(BaseModel):
     require_verification: Optional[bool] = Field(True, description="是否要求房源验证")
     
     # 匹配设置
-    match_strictness: Optional[Literal['loose', 'medium', 'strict']] = Field('medium', description="匹配严格程度")
+    match_strictness: Optional[str] = Field('medium', description="匹配严格程度: loose, medium, strict")
 
 
 class HousePreferences(BaseModel):
@@ -100,8 +100,8 @@ class HousePreferences(BaseModel):
     reference_check: Optional[bool] = Field(True, description="是否要求推荐信")
     
     # 租客行为偏好
-    smoking_policy: Optional[Literal['no_preference', 'non_smoking_only', 'smoking_allowed']] = Field('no_preference', description="吸烟政策")
-    pet_policy: Optional[Literal['no_preference', 'no_pets', 'pets_allowed']] = Field('no_preference', description="宠物政策")
+    smoking_policy: Optional[str] = Field('no_preference', description="吸烟政策: no_preference, non_smoking_only, smoking_allowed")
+    pet_policy: Optional[str] = Field('no_preference', description="宠物政策: no_preference, no_pets, pets_allowed")
     
     # 租约条款
     lease_term_preference: Optional[List[str]] = Field(None, description="偏好的租期")
@@ -111,7 +111,7 @@ class HousePreferences(BaseModel):
     preferred_move_in_period: Optional[Dict[str, str]] = Field(None, description="期望入住时间段")
     
     # 匹配设置
-    match_strictness: Optional[Literal['loose', 'medium', 'strict']] = Field('medium', description="匹配严格程度")
+    match_strictness: Optional[str] = Field('medium', description="匹配严格程度: loose, medium, strict")
     auto_approval: Optional[bool] = Field(False, description="是否自动批准符合条件的租客")
 
 
@@ -145,7 +145,7 @@ class DatingPreferences(BaseModel):
     lifestyle_requirements: Optional[Dict[str, Any]] = Field(None, description="生活方式要求")
     
     # 匹配设置
-    match_strictness: Optional[Literal['loose', 'medium', 'strict']] = Field('medium', description="匹配严格程度")
+    match_strictness: Optional[str] = Field('medium', description="匹配严格程度: loose, medium, strict")
     allow_different_intentions: Optional[bool] = Field(False, description="是否允许不同交友目的")
     
     # 安全和验证

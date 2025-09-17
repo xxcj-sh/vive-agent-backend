@@ -200,6 +200,61 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
         if not updated_user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        from app.models.schemas import BaseResponse
+        return BaseResponse(code=0, message="用户信息更新成功", data=process_user_image_urls(updated_user.__dict__))
+        
+    except Exception as e:
+        print(f"更新用户信息失败: {e}")
+        raise HTTPException(status_code=500, detail=f"更新用户信息失败: {str(e)}")
+
+@router.delete("/me")
+def delete_current_user(current_user: Dict[str, Any] = Depends(get_current_user), db: Session = Depends(get_db)):
+    """注销当前用户账户（软删除）"""
+    user_id = current_user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User not authenticated")
+    
+    try:
+        # 获取用户信息
+        user = db_service.get_user(db, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 检查用户是否已经被删除
+        if user.status == "deleted":
+            raise HTTPException(status_code=400, detail="User account already deleted")
+        
+        # 执行软删除操作
+        delete_data = {
+            "status": "deleted",  # 状态改为已删除
+            "nick_name": f"已注销用户_{user_id[:8]}",  # 匿名化昵称
+            "avatar_url": "",  # 清空头像
+            "phone": None,  # 清空手机号
+            "email": None,  # 清空邮箱
+            "wechat": None,  # 清空微信号
+            "bio": None,  # 清空个人简介
+            "occupation": None,  # 清空职业信息
+            "education": None,  # 清空教育信息
+            "location": None,  # 清空位置信息
+            "interests": None,  # 清空兴趣爱好
+            "is_active": False  # 设置为非活跃状态
+        }
+        
+        # 更新用户信息
+        updated_user = db_service.update_user(db, user_id, delete_data)
+        if not updated_user:
+            raise HTTPException(status_code=500, detail="Failed to delete user account")
+        
+        from app.models.schemas import BaseResponse
+        return BaseResponse(code=0, message="账户注销成功", data={"userId": user_id})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"注销用户账户失败: {e}")
+        raise HTTPException(status_code=500, detail=f"注销用户账户失败: {str(e)}")
+            raise HTTPException(status_code=404, detail="User not found")
+        
         # 将User对象转换为字典
         user_dict = {}
         if hasattr(updated_user, '__dict__'):

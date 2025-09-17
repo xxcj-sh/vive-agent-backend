@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List, Dict, Any, Literal
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 # 基础响应模型
@@ -48,8 +48,8 @@ class User(BaseModel):
     points: Optional[int] = Field(None, description="积分")
     last_login: Optional[datetime] = Field(None, description="最后登录时间")
     bio: Optional[str] = Field(None, description="个人简介")
-    match_type: Optional[Literal["housing", "activity", "dating"]] = Field(None, description="匹配类型")
-    user_role: Optional[Literal["seeker", "provider"]] = Field(None, description="用户角色")
+    match_type: Optional[str] = Field(None, description="匹配类型: housing, activity, dating")
+    user_role: Optional[str] = Field(None, description="用户角色: seeker, provider")
 
 # 分页模型
 class Pagination(BaseModel):
@@ -67,7 +67,7 @@ class MatchCard(BaseModel):
     distance: Optional[float] = Field(None, description="距离")
     interests: Optional[List[str]] = Field(None, description="兴趣爱好")
     preferences: Optional[List[str]] = Field(None, description="偏好")
-    match_type: Literal["housing", "activity", "dating"] = Field(..., description="匹配类型")
+    match_type: str = Field(..., description="匹配类型: housing, activity, dating")
     house_info: Optional[Dict[str, Any]] = Field(None, description="房屋信息")
 
 class MatchCardsResponse(BaseModel):
@@ -76,7 +76,7 @@ class MatchCardsResponse(BaseModel):
 
 class MatchActionRequest(BaseModel):
     card_id: str = Field(..., description="卡片ID")
-    action: Literal["like", "dislike", "superlike"] = Field(..., description="操作类型")
+    action: str = Field(..., description="操作类型: like, dislike, superlike")
     match_type: str = Field(..., description="匹配类型")
 
 class MatchActionResponse(BaseModel):
@@ -98,7 +98,7 @@ class MatchListResponse(BaseModel):
 class ChatMessage(BaseModel):
     id: str = Field(..., description="消息ID")
     content: str = Field(..., description="消息内容")
-    type: Literal["text", "image", "voice", "video", "file", "system"] = Field(..., description="消息类型")
+    type: str = Field(..., description="消息类型: text, image, voice, video, file, system")
     sender_id: str = Field(..., description="发送者ID")
     sender_avatar: str = Field(..., description="发送者头像")
     sender_name: str = Field(..., description="发送者名称")
@@ -106,7 +106,7 @@ class ChatMessage(BaseModel):
     timestamp: int = Field(..., description="时间戳")
     is_read: bool = Field(..., description="是否已读")
     read_at: Optional[int] = Field(None, description="阅读时间戳")
-    status: Literal["sent", "delivered", "read", "failed", "deleted"] = Field("sent", description="消息状态")
+    status: str = Field("sent", description="消息状态: sent, delivered, read, failed, deleted")
     media_url: Optional[str] = Field(None, description="媒体文件URL")
     media_size: Optional[int] = Field(None, description="文件大小（字节）")
     media_duration: Optional[int] = Field(None, description="语音/视频时长（秒）")
@@ -121,7 +121,7 @@ class ChatHistoryResponse(BaseModel):
 class SendMessageRequest(BaseModel):
     match_id: str = Field(..., description="匹配ID")
     content: str = Field(..., description="消息内容")
-    type: Literal["text", "image", "voice", "video", "file"] = Field(..., description="消息类型")
+    type: str = Field(..., description="消息类型: text, image, voice, video, file")
     media_url: Optional[str] = Field(None, description="媒体文件URL")
     media_size: Optional[int] = Field(None, description="文件大小（字节）")
     media_duration: Optional[int] = Field(None, description="语音/视频时长（秒）")
@@ -156,7 +156,7 @@ class ConversationListResponse(BaseModel):
 
 class DeleteMessageRequest(BaseModel):
     message_ids: List[str] = Field(..., description="要删除的消息ID列表")
-    delete_type: Literal["soft", "hard"] = Field("soft", description="删除类型：软删除或硬删除")
+    delete_type: str = Field("soft", description="删除类型：soft-软删除, hard-硬删除")
 
 class ChatMediaUploadResponse(BaseModel):
     url: str = Field(..., description="文件URL")
