@@ -29,9 +29,9 @@ class MatchService:
         """验证action数据"""
         card_id = action_data.get("cardId")
         action_type = action_data.get("action")
-        match_type = action_data.get("matchType")
+        scene_type = action_data.get("matchType")
         
-        if not all([card_id, action_type, match_type]):
+        if not all([card_id, action_type, scene_type]):
             raise ValueError("缺少必要参数: cardId, action, matchType")
             
         # 验证操作类型
@@ -58,7 +58,7 @@ class MatchService:
             
             card_id = str(action_data.get("cardId"))
             action_type = str(action_data.get("action"))
-            match_type = str(action_data.get("matchType"))
+            scene_type = str(action_data.get("matchType"))
             source = action_data.get("source", "user")
             metadata = action_data.get("metadata", {})
             scene_context = action_data.get("sceneContext")
@@ -66,7 +66,7 @@ class MatchService:
             # 确保参数类型正确
             card_id = str(card_id)
             action_type = str(action_type)
-            match_type = str(match_type)
+            scene_type = str(scene_type)
             
             # 验证操作类型
             valid_actions = [t.value for t in DBMatchActionType]
@@ -74,7 +74,7 @@ class MatchService:
                 raise ValueError(f"无效的操作类型: {action_type}")
             
             # 解析目标用户ID
-            target_user_id = self._extract_target_user_id(card_id, match_type)
+            target_user_id = self._extract_target_user_id(card_id, scene_type)
             if not target_user_id:
                 raise ValueError(f"无法从cardId {card_id} 中获取目标用户ID")
             
@@ -83,7 +83,7 @@ class MatchService:
                 MatchAction.user_id == user_id,
                 MatchAction.target_user_id == target_user_id,
                 MatchAction.target_card_id == card_id,
-                MatchAction.scene_type == match_type
+                MatchAction.scene_type == scene_type
             ).first()
             
             if existing_action:
@@ -101,7 +101,7 @@ class MatchService:
                 target_user_id=target_user_id,
                 target_card_id=card_id,
                 action_type=DBMatchActionType(action_type),
-                scene_type=match_type,
+                scene_type=scene_type,
                 scene_context=scene_context,
                 source=source,
                 extra=json.dumps(metadata) if metadata else None,
@@ -114,7 +114,7 @@ class MatchService:
             
             # 处理匹配逻辑
             is_match, match_id = self._process_match_logic(
-                user_id, target_user_id, card_id, match_type, str(match_action.id), action_type
+                user_id, target_user_id, card_id, scene_type, str(match_action.id), action_type
             )
             
             return MatchResult(
@@ -225,7 +225,7 @@ class MatchService:
                         "targetUserId": str(match.target_user_id),
                         "targetCardId": str(match.target_card_id),
                         "actionType": match.action_type.value,
-                        "matchType": match.match_type,
+                        "matchType": match.scene_type,
                         "sceneContext": match.scene_context,
                         "createdAt": match.created_at.isoformat(),
                         "targetUser": {
@@ -264,7 +264,7 @@ class MatchService:
                     DBMatchActionType.AI_RECOMMEND_AFTER_USER_CHAT,
                     DBMatchActionType.AI_RECOMMEND_BY_SYSTEM
                 ]),
-                MatchAction.match_type == scene_type,
+                MatchAction.scene_type == scene_type,
                 MatchAction.is_processed == False
             ).order_by(MatchAction.created_at.desc()).limit(limit).all()
             
@@ -402,20 +402,20 @@ class MatchService:
                 period=f"{days} days"
             )
     
-    def _check_existing_action(self, user_id: str, target_user_id: str, match_type: str):
+    def _check_existing_action(self, user_id: str, target_user_id: str, scene_type: str):
         """检查已存在的action"""
         return self.db.query(DBMatchAction).filter(
             DBMatchAction.user_id == user_id,
             DBMatchAction.target_user_id == target_user_id,
-            DBMatchAction.scene_type == match_type
+            DBMatchAction.scene_type == scene_type
         ).first()
     
-    def _check_mutual_match(self, user1_id: str, user2_id: str, match_type: str):
+    def _check_mutual_match(self, user1_id: str, user2_id: str, scene_type: str):
         """检查双向匹配"""
         return self.db.query(DBMatchAction).filter(
             DBMatchAction.user_id == user2_id,
             DBMatchAction.target_user_id == user1_id,
-            DBMatchAction.scene_type == match_type,
+            DBMatchAction.scene_type == scene_type,
             DBMatchAction.action_type.in_([DBMatchActionType.LIKE, DBMatchActionType.SUPER_LIKE])
         ).first()
     
@@ -457,7 +457,7 @@ class MatchService:
         return match_id
     
     def _process_match_logic(self, user1_id: str, user2_id: str, card_id: str, 
-                             match_type: str, action1_id: str, action_type: str) -> Tuple[bool, Optional[str]]:
+                             scene_type: str, action1_id: str, action_type: str) -> Tuple[bool, Optional[str]]:
         """
         处理匹配逻辑
         
@@ -465,7 +465,7 @@ class MatchService:
             user1_id: 用户1 ID
             user2_id: 用户2 ID
             card_id: 卡片ID
-            match_type: 匹配类型
+            scene_type: 匹配类型
             action1_id: 操作1 ID
             action_type: 操作类型
             
@@ -474,7 +474,7 @@ class MatchService:
         """
         try:
             # 检查用户2是否对用户1执行过操作
-            action2 = self._check_mutual_match(user2_id, user1_id, match_type)
+            action2 = self._check_mutual_match(user2_id, user1_id, scene_type)
             
             if action2 and action2.action_type in [DBMatchActionType.LIKE, DBMatchActionType.SUPER_LIKE]:
                 # 创建匹配记录
@@ -498,7 +498,7 @@ class MatchService:
     
 
     
-    def _extract_target_user_id(self, card_id: str, match_type: str) -> Optional[str]:
+    def _extract_target_user_id(self, card_id: str, scene_type: str) -> Optional[str]:
         """从卡片ID中提取目标用户ID"""
         try:
             # 统一处理所有卡片ID格式: user_id_suffix
