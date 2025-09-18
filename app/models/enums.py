@@ -465,27 +465,13 @@ class ConnectionType(str, enum.Enum):
 
 # 5. 系统枚举
 
-class MatchType(str, enum.Enum):
-    """匹配类型枚举"""
-    DATING = "dating"           # 交友
-    HOUSING = "housing"         # 房源
-    ACTIVITY = "activity"       # 活动
-    BUSINESS = "business"       # 商务
-    SOCIAL = "social"           # 社交
-
 class MatchStatus(str, enum.Enum):
     """匹配状态枚举"""
     PENDING = "pending"         # 待处理
     ACCEPTED = "accepted"       # 已接受
     REJECTED = "rejected"       # 已拒绝
     EXPIRED = "expired"         # 已过期
-    CANCELLED = "cancelled"     # 已取消
-
-class UserRole(str, enum.Enum):
-    """用户角色枚举"""
-    SEEKER = "seeker"          # 寻找者
-    PROVIDER = "provider"      # 提供者
-    BOTH = "both"              # 双重角色
+    CANCELLED = "cancelled"     # 已取消    # 双重角色
 
 class Gender(int, enum.Enum):
     """性别枚举"""

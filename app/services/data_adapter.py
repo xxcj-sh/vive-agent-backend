@@ -37,7 +37,10 @@ class DataService:
     def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """创建用户"""
         user = self._with_db(create_user, user_data)
-        return user.__dict__
+        # 移除SQLAlchemy内部字段并返回干净的字典
+        user_dict = user.__dict__.copy()
+        user_dict.pop('_sa_instance_state', None)
+        return user_dict
     
     def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
         """根据ID获取用户"""

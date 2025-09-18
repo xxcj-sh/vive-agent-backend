@@ -231,7 +231,7 @@ class EnhancedMatchService(MatchService):
                 return []
             
             # 获取用户角色
-            user_role = current_user_card.get('role_type', 'seeker')
+            user_role = current_user_card.get('role_type')
             
             # 根据角色获取候选用户
             candidates = self._get_match_candidates(user_id, match_type, user_role)

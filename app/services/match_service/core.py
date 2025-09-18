@@ -130,14 +130,14 @@ class MatchService:
             raise Exception(f"提交匹配操作失败: {str(e)}")
     
     def get_recommendation_cards(self, user_id: str, scene_type: str, 
-                               user_role: str, page: int = 1, page_size: int = 10) -> Dict[str, Any]:
+                               role_type: str, page: int = 1, page_size: int = 10) -> Dict[str, Any]:
         """
         获取匹配推荐卡片
         
         Args:
             user_id: 用户ID
             scene_type: 场景类型 (housing, dating, activity)
-            user_role: 用户角色 (seeker, provider, participant, organizer)
+            role_type: 用户角色 (seeker, provider, participant, organizer)
             page: 页码
             page_size: 每页数量
             
@@ -147,7 +147,7 @@ class MatchService:
         return self.card_strategy.get_recommendation_cards(
             user_id=user_id,
             scene_type=scene_type,
-            user_role=user_role,
+            role_type=role_type,
             page=page,
             page_size=page_size
         )

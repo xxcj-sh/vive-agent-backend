@@ -12,7 +12,7 @@ def delete_user_cards_by_phone(phone_number):
     """根据手机号删除用户卡片数据"""
     
     # 使用开发数据库
-    db_path = '../vmatch_dev.db'
+    db_path = 'vmatch_dev.db'
     
     if not os.path.exists(db_path):
         print(f"❌ 开发数据库文件 {db_path} 不存在")

@@ -201,7 +201,10 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
             raise HTTPException(status_code=404, detail="User not found")
         
         from app.models.schemas import BaseResponse
-        return BaseResponse(code=0, message="用户信息更新成功", data=process_user_image_urls(updated_user.__dict__))
+        # 移除SQLAlchemy内部字段并返回干净的用户数据
+        user_dict = updated_user.__dict__.copy()
+        user_dict.pop('_sa_instance_state', None)
+        return BaseResponse(code=0, message="用户信息更新成功", data=process_user_image_urls(user_dict))
         
     except Exception as e:
         print(f"更新用户信息失败: {e}")
@@ -253,19 +256,6 @@ def delete_current_user(current_user: Dict[str, Any] = Depends(get_current_user)
     except Exception as e:
         print(f"注销用户账户失败: {e}")
         raise HTTPException(status_code=500, detail=f"注销用户账户失败: {str(e)}")
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # 将User对象转换为字典
-        user_dict = {}
-        if hasattr(updated_user, '__dict__'):
-            user_dict = updated_user.__dict__.copy()
-            # 移除SQLAlchemy内部字段
-            user_dict.pop('_sa_instance_state', None)
-        
-        # 处理图片URL，确保包含完整前缀
-        processed_user = process_user_image_urls(user_dict)
-        from app.models.schemas import BaseResponse
-        return BaseResponse(code=0, message="success", data=processed_user)
         
     except ValueError as ve:
         print(f"ERROR: Validation error: {str(ve)}")
@@ -328,7 +318,7 @@ def get_current_user_cards(
     cards_response = UserCardService.get_user_all_cards_response(db, user_id)
     
     # 添加用户基础资料信息
-    cards_response_dict = cards_response.dict() if hasattr(cards_response, 'dict') else cards_response.__dict__
+    cards_response_dict = cards_response.model_dump() if hasattr(cards_response, 'model_dump') else cards_response.dict()
     cards_response_dict["user_basic_info"] = current_user
     
     return cards_response_dict

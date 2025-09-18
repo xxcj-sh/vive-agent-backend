@@ -58,11 +58,6 @@ SCENE_CONFIGS = {
                 key="social_interest",
                 label="兴趣社交",
                 description="基于共同兴趣的社交互动"
-            ),
-            "social_dating": SceneRole(
-                key="social_dating",
-                label="社交约会",
-                description="寻找恋爱关系和约会对象"
             )
         },
         CardFields=[

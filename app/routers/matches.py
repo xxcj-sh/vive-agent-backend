@@ -374,11 +374,11 @@ async def get_match_recommendation_cards(
             match_service = MatchService(db)
             
             # 获取匹配卡片
-            print(f"调用普通推荐服务: user_id={user_id}, scene_type={sceneType}, user_role={roleType}")
+            print(f"调用普通推荐服务: user_id={user_id}, scene_type={sceneType}, role_type={roleType}")
             cards_data = match_service.get_recommendation_cards(
                 user_id=user_id,
                 scene_type=sceneType,
-                user_role=roleType,
+                role_type=roleType,
                 page=page,
                 page_size=pageSize
             )
