@@ -807,7 +807,9 @@ class LLMService:
                     usage=response.usage,
                     duration=response.duration,
                     suggestions=[response.data],
-                    confidence=0.7
+                    confidence=0.7,
+                    is_meet_preference=False,
+                    preference_judgement=""
                 )
         
         return ConversationSuggestionResponse(
@@ -816,7 +818,9 @@ class LLMService:
             usage=response.usage,
             duration=response.duration,
             suggestions=[],
-            confidence=0
+            confidence=0,
+            is_meet_preference=False,
+            preference_judgement=""
         )
 
 # 导入asyncio用于模拟API

@@ -214,6 +214,74 @@ class MatchCardStrategy:
         
         return min(score, 100)
     
+    def get_universal_match_cards(self, page: int = 1, page_size: int = 10, 
+                                 current_user: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        获取通用匹配卡片（不区分场景）
+        
+        Args:
+            page: 页码
+            page_size: 每页数量
+            current_user: 当前用户信息
+            
+        Returns:
+            包含卡片列表和分页信息的字典
+        """
+        if not current_user or "id" not in current_user:
+            return {"list": [], "total": 0}
+        
+        try:
+            offset = (page - 1) * page_size
+            
+            # 应用性别筛选
+            preferences = current_user.get("preferences", {})
+            target_gender = preferences.get("target_gender")
+            if target_gender is not None:
+                query = query.filter(User.gender == target_gender)
+            
+            total = query.count()
+            users = query.order_by(User.created_at.desc()).offset(offset).limit(page_size).all()
+            
+            # 导入匹配操作模型
+            from app.models.match_action import MatchAction, MatchActionType
+            
+            cards = []
+            # 检查对方是否已对当前用户表示兴趣
+            target_user_interest = self.db.query(MatchAction).filter(
+                # MatchAction.target_user_id == current_user["id"]
+                # MatchAction.action_type.in_([MatchActionType.AI_RECOMMEND_AFTER_USER_CHAT, MatchActionType.LIKE, MatchActionType.SUPER_LIKE])
+            ).first()
+            print("target_user_interest", target_user_interest)
+            user = users[0]
+            card_data = {
+                "id": f"{user.id}_{int(datetime.utcnow().timestamp())}",
+                "userId": str(user.id),
+                "name": getattr(user, 'nick_name', None) or getattr(user, 'name', '匿名用户'),
+                "avatar": getattr(user, 'avatar_url', None),
+                "age": getattr(user, 'age', 25),
+                "occupation": getattr(user, 'occupation', ''),
+                "location": getattr(user, 'location', ''),
+                "bio": getattr(user, 'bio', ''),
+                "interests": getattr(user, 'interests', []),
+                "sceneType": "social",
+                "roleType": "social_business",
+                "createdAt": user.created_at.isoformat(),
+                "matchScore": self._calculate_match_score(current_user, user),
+                "gender": getattr(user, 'gender', 0),
+                "education": getattr(user, 'education', ''),
+                "height": getattr(user, 'height', 170),
+                "hasInterestInMe": target_user_interest is not None,
+                "mutualMatchAvailable": target_user_interest is not None
+            }
+            
+            cards.append(card_data)
+            
+            return {"list": cards, "total": total}
+            
+        except Exception as e:
+            print(f"获取通用匹配卡片失败: {str(e)}")
+            return {"list": [], "total": 0}
+
     def get_match_cards(self, scene_type: str, role_type: str, page: int = 1, 
                        page_size: int = 10, current_user: Dict[str, Any] = None) -> Dict[str, Any]:
         """

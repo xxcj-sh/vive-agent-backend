@@ -15,6 +15,7 @@ class UserCard(Base):
     display_name = Column(String, nullable=False)
     avatar_url = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
+    trigger_and_output = Column(Text, nullable=True)
     profile_data = Column(JSON, nullable=True)
     preferences = Column(JSON, nullable=True)
     visibility = Column(String, default="public")

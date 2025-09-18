@@ -101,5 +101,63 @@
 - 技术交流：技术分享、知识传播
 - 创业合作：寻找创业伙伴、顾问
 
+## UserCard新增trigger_and_output字段 (2024年12月19日)
+
+### 变更背景
+在 `/c:/Users/workk/workspace/code-repo/vmatch/vmatch-backend/app/models/user_card_db.py#L18-19` 中新增了 `trigger_and_output` 字段，需要将其应用到数据库和其余关联数据模型中，同时修改关联接口。
+
+### 实施内容
+
+#### 1. 数据库迁移
+- ✅ 创建新的迁移脚本 `add_new_columns.py`，使用原生SQLite连接
+- ✅ 成功添加 `trigger_and_output` 字段到 UserCard 表
+- ✅ 验证字段添加成功，数据库结构更新完成
+
+#### 2. 数据模型更新
+- ✅ 在 `user_card.py` 的 `Card` 模型中添加 `trigger_and_output` 字段（Optional[Dict[str, Any]]）
+- ✅ 在 `CardCreate` 模型中添加 `trigger_and_output` 字段
+- ✅ 在 `CardUpdate` 模型中添加 `trigger_and_output` 字段
+- ✅ 所有模型字段描述为"触发器和输出配置"
+
+#### 3. 服务层更新
+- ✅ 在 `user_card_service.py` 的 `create_card` 方法中添加 `trigger_and_output` 字段处理
+- ✅ 在查询结果构建中添加 `trigger_and_output` 字段返回
+- ✅ 在 `update_card` 方法中添加 `trigger_and_output` 字段更新支持
+
+#### 4. API接口更新
+- ✅ 在 `card.py` 的 `get_card_details` 接口中添加 `trigger_and_output` 字段返回
+- ✅ 在 `create_card` 接口中添加 `trigger_and_output` 字段返回
+- ✅ 在 `update_card` 接口中添加 `trigger_and_output` 字段返回
+- ✅ 确保所有卡片相关接口都包含新字段
+
+#### 5. 用户相关接口更新
+- ✅ 在 `users.py` 的 `update_user_profile` 接口中添加 `trigger_and_output` 字段返回
+- ✅ 在 `get_user_profile_by_role` 接口中添加 `trigger_and_output` 字段返回
+- ✅ 确保用户卡片相关接口都包含新字段
+
+#### 6. 测试验证
+- ✅ 创建测试脚本 `test_new_fields.py` 验证新字段功能
+- ✅ 测试创建卡片时新字段的正确存储
+- ✅ 测试更新卡片时新字段的正确更新
+- ✅ 测试数据清理和完整性
+- ✅ 所有测试通过，功能验证成功
+
+### 技术细节
+- 使用JSON类型存储复杂的触发器和输出配置
+- 保持向后兼容性，所有现有功能不受影响
+- 使用Optional类型确保字段可选性
+- 在API响应中始终返回字段（为空时返回{}）
+
+### 影响范围
+- UserCard数据模型：新增trigger_and_output字段
+- 所有卡片CRUD操作：支持新字段
+- 用户卡片管理：支持新字段
+- API响应格式：新增trigger_and_output字段
+
+### 风险评估
+- **低风险**：新增字段为可选，不影响现有数据
+- **零业务影响**：现有业务逻辑无需修改
+- **向后兼容**：现有API客户端无需更改即可继续运行
+
 ---
 日志结束时间：2024年12月19日

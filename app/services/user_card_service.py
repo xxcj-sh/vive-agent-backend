@@ -27,6 +27,7 @@ class UserCardService:
             display_name=card_data.display_name,
             avatar_url=card_data.avatar_url,
             bio=card_data.bio,
+            trigger_and_output=card_data.trigger_and_output,
             profile_data=card_data.profile_data,
             preferences=card_data.preferences,
             visibility=card_data.visibility or "public"
@@ -80,13 +81,14 @@ class UserCardService:
             "scene_type": card.scene_type,
             "display_name": card.display_name,
             "avatar_url": card.avatar_url,
+            "bio": card.bio or "",
+            "trigger_and_output": card.trigger_and_output or {},
             "profile_data": card.profile_data or {},
             "preferences": card.preferences or {},
             "visibility": card.visibility,
             "is_active": card.is_active,
             "created_at": card.created_at,
-            "updated_at": card.updated_at,
-            "bio": card.bio or ""
+            "updated_at": card.updated_at
         }
         
         # 添加基础用户信息
@@ -126,7 +128,7 @@ class UserCardService:
             
         # 更新允许修改的字段
         for field, value in update_data.items():
-            if field in ["bio", "profile_data", "preferences", "visibility"]:
+            if field in ["bio", "trigger_and_output", "profile_data", "preferences", "visibility"]:
                 setattr(card, field, value)
                 
         card.updated_at = datetime.now()

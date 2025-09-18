@@ -79,13 +79,22 @@ def update_table_structure():
                             default = "DEFAULT CURRENT_TIMESTAMP"
                     
                     # 构建 SQL 语句
-                    alter_sql = f"ALTER TABLE user_cards ADD COLUMN {column.name} {column_type} {nullable} {default}".strip()
+                    alter_sql = f"ALTER TABLE user_cards ADD COLUMN {column.name} {column_type} {nullable}"
+                    if default.strip():
+                        alter_sql += f" {default}"
                     
                     try:
                         connection.execute(alter_sql)
                         print(f"✅ 添加列 {column.name} 成功")
                     except Exception as e:
                         print(f"⚠️ 添加列 {column.name} 失败: {str(e)}")
+                        # 尝试更简单的版本
+                        try:
+                            simple_alter_sql = f"ALTER TABLE user_cards ADD COLUMN {column.name} {column_type}"
+                            connection.execute(simple_alter_sql)
+                            print(f"✅ 添加列 {column.name} 成功（简化版本）")
+                        except Exception as e2:
+                            print(f"⚠️ 简化版本也失败: {str(e2)}")
             
             print("✅ UserCard 表结构检查完成")
         

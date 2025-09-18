@@ -27,17 +27,24 @@ class MatchService:
     
     def _validate_action_data(self, action_data: Dict[str, Any]) -> bool:
         """验证action数据"""
+        from app.models.enums import SceneType
+        
         card_id = action_data.get("cardId")
         action_type = action_data.get("action")
-        scene_type = action_data.get("matchType")
+        scene_type = action_data.get("sceneType")  # Changed from matchType to sceneType
         
         if not all([card_id, action_type, scene_type]):
-            raise ValueError("缺少必要参数: cardId, action, matchType")
+            raise ValueError("缺少必要参数: cardId, action, sceneType")  # Updated error message
             
         # 验证操作类型
         valid_actions = [t.value for t in DBMatchActionType]
         if str(action_type) not in valid_actions:
             raise ValueError(f"无效的操作类型: {action_type}")
+        
+        # 验证场景类型
+        valid_scenes = [t.value for t in SceneType]
+        if str(scene_type) not in valid_scenes:
+            raise ValueError(f"无效的匹配类型: {scene_type}")
             
         return True
     
@@ -47,7 +54,7 @@ class MatchService:
         
         Args:
             user_id: 当前用户ID
-            action_data: 操作数据，包含cardId, action, matchType等
+            action_data: 操作数据，包含cardId, action, sceneType
             
         Returns:
             MatchResult: 匹配结果
@@ -58,7 +65,7 @@ class MatchService:
             
             card_id = str(action_data.get("cardId"))
             action_type = str(action_data.get("action"))
-            scene_type = str(action_data.get("matchType"))
+            scene_type = str(action_data.get("sceneType"))
             source = action_data.get("source", "user")
             metadata = action_data.get("metadata", {})
             scene_context = action_data.get("sceneContext")
@@ -182,12 +189,24 @@ class MatchService:
                         ])
                     )
                 elif status == "matched":
-                    query = query.filter(
-                        MatchAction.action_type == DBMatchActionType.MUTUAL_MATCH
-                    )
+                    # 匹配状态通过匹配结果表来判断，而不是操作类型
+                    matched_user_ids = self.db.query(DBMatchResult.user2_id).filter(
+                        DBMatchResult.user1_id == user_id,
+                        DBMatchResult.status == DBMatchStatus.MATCHED
+                    ).union(
+                        self.db.query(DBMatchResult.user1_id).filter(
+                            DBMatchResult.user2_id == user_id,
+                            DBMatchResult.status == DBMatchStatus.MATCHED
+                        )
+                    ).all()
+                    matched_user_ids = [uid[0] for uid in matched_user_ids]
+                    if matched_user_ids:
+                        query = query.filter(MatchAction.target_user_id.in_(matched_user_ids))
+                    else:
+                        query = query.filter(False)  # 返回空结果
                 elif status == "rejected":
                     query = query.filter(
-                        MatchAction.action_type == DBMatchActionType.REJECT
+                        MatchAction.action_type == DBMatchActionType.DISLIKE
                     )
                 elif status == "expired":
                     cutoff_date = datetime.utcnow() - timedelta(days=7)
@@ -404,19 +423,19 @@ class MatchService:
     
     def _check_existing_action(self, user_id: str, target_user_id: str, scene_type: str):
         """检查已存在的action"""
-        return self.db.query(DBMatchAction).filter(
-            DBMatchAction.user_id == user_id,
-            DBMatchAction.target_user_id == target_user_id,
-            DBMatchAction.scene_type == scene_type
+        return self.db.query(MatchAction).filter(
+            MatchAction.user_id == user_id,
+            MatchAction.target_user_id == target_user_id,
+            MatchAction.scene_type == scene_type
         ).first()
     
     def _check_mutual_match(self, user1_id: str, user2_id: str, scene_type: str):
         """检查双向匹配"""
-        return self.db.query(DBMatchAction).filter(
-            DBMatchAction.user_id == user2_id,
-            DBMatchAction.target_user_id == user1_id,
-            DBMatchAction.scene_type == scene_type,
-            DBMatchAction.action_type.in_([DBMatchActionType.LIKE, DBMatchActionType.SUPER_LIKE])
+        return self.db.query(MatchAction).filter(
+            MatchAction.user_id == user2_id,
+            MatchAction.target_user_id == user1_id,
+            MatchAction.scene_type == scene_type,
+            MatchAction.action_type.in_([DBMatchActionType.LIKE, DBMatchActionType.SUPER_LIKE])
         ).first()
     
     def _create_match_action(self, user_id: str, target_user_id: str, action_data: Dict[str, Any], existing_action=None):
@@ -426,13 +445,13 @@ class MatchService:
             self.db.commit()
             return existing_action
         else:
-            action = DBMatchAction(
+            action = MatchAction(
                 id=str(uuid.uuid4()),
                 user_id=user_id,
                 target_user_id=target_user_id,
                 target_card_id=action_data["cardId"],
                 action_type=DBMatchActionType(action_data["action"]),
-                scene_type=action_data["matchType"],
+                scene_type=action_data["sceneType"],
                 created_at=datetime.utcnow()
             )
             self.db.add(action)
@@ -480,12 +499,14 @@ class MatchService:
                 # 创建匹配记录
                 match_id = self._create_match_record(user1_id, user2_id, action1_id, str(action2.id))
                 
-                # 更新操作为相互匹配
-                action1 = self.db.query(DBMatchAction).filter(DBMatchAction.id == action1_id).first()
+                # 更新操作为相互匹配（使用现有的操作类型）
+                action1 = self.db.query(MatchAction).filter(MatchAction.id == action1_id).first()
                 if action1:
-                    action1.action_type = DBMatchActionType.MUTUAL_MATCH
+                    action1.is_processed = True
+                    action1.processed_at = datetime.utcnow()
                 
-                action2.action_type = DBMatchActionType.MUTUAL_MATCH
+                action2.is_processed = True
+                action2.processed_at = datetime.utcnow()
                 
                 self.db.commit()
                 return True, match_id
@@ -497,6 +518,237 @@ class MatchService:
             raise Exception(f"处理匹配逻辑失败: {str(e)}")
     
 
+    
+    def collect_card(self, user_id: str, card_id: str, scene_type: str) -> Dict[str, Any]:
+        """
+        收藏卡片
+        
+        Args:
+            user_id: 用户ID
+            card_id: 卡片ID
+            scene_type: 场景类型
+            
+        Returns:
+            操作结果
+        """
+        try:
+            # 解析目标用户ID
+            target_user_id = self._extract_target_user_id(card_id, scene_type)
+            if not target_user_id:
+                return {
+                    "success": False,
+                    "message": "无法解析卡片ID"
+                }
+            
+            # 检查是否已经收藏过
+            existing_action = self.db.query(MatchAction).filter(
+                MatchAction.user_id == user_id,
+                MatchAction.target_user_id == target_user_id,
+                MatchAction.target_card_id == card_id,
+                MatchAction.scene_type == scene_type,
+                MatchAction.action_type == DBMatchActionType.COLLECT_CARD
+            ).first()
+            
+            if existing_action:
+                return {
+                    "success": False,
+                    "message": "已经收藏过该卡片"
+                }
+            
+            # 创建收藏记录
+            collect_action = MatchAction(
+                id=str(uuid.uuid4()),
+                user_id=user_id,
+                target_user_id=target_user_id,
+                target_card_id=card_id,
+                action_type=DBMatchActionType.COLLECT_CARD,
+                scene_type=scene_type,
+                created_at=datetime.utcnow()
+            )
+            
+            self.db.add(collect_action)
+            self.db.commit()
+            
+            return {
+                "success": True,
+                "message": "收藏成功",
+                "actionId": str(collect_action.id)
+            }
+            
+        except Exception as e:
+            self.db.rollback()
+            print(f"收藏卡片失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "message": f"收藏失败: {str(e)}"
+            }
+    
+    def get_collected_cards(self, user_id: str, scene_type: Optional[str] = None, 
+                           page: int = 1, page_size: int = 10) -> Dict[str, Any]:
+        """
+        获取用户收藏的卡片列表
+        
+        Args:
+            user_id: 用户ID
+            scene_type: 场景类型筛选（可选）
+            page: 页码
+            page_size: 每页数量
+            
+        Returns:
+            包含收藏卡片列表和分页信息的字典
+        """
+        try:
+            # 基础查询：获取用户的收藏操作
+            query = self.db.query(MatchAction).filter(
+                MatchAction.user_id == user_id,
+                MatchAction.action_type == DBMatchActionType.COLLECT_CARD
+            )
+            
+            # 如果指定了场景类型，添加筛选条件
+            if scene_type:
+                query = query.filter(MatchAction.scene_type == scene_type)
+            
+            # 获取总数
+            total = query.count()
+            
+            # 获取分页数据
+            collected_actions = query.order_by(
+                MatchAction.created_at.desc()
+            ).offset((page - 1) * page_size).limit(page_size).all()
+            
+            # 构建卡片数据
+            cards = []
+            for action in collected_actions:
+                # 获取目标用户信息
+                target_user = self.db.query(User).filter(
+                    User.id == action.target_user_id
+                ).first()
+                
+                if not target_user:
+                    continue
+                
+                # 获取目标用户的卡片信息
+                from app.models.user_card_db import UserCard
+                target_card = self.db.query(UserCard).filter(
+                    UserCard.user_id == action.target_user_id,
+                    UserCard.scene_type == action.scene_type,
+                    UserCard.is_active == 1
+                ).first()
+                
+                # 构建卡片数据
+                card_data = {
+                    "id": str(action.id),
+                    "userId": str(target_user.id),
+                    "name": getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
+                    "avatar": getattr(target_user, 'avatar_url', None),
+                    "age": getattr(target_user, 'age', 25),
+                    "occupation": getattr(target_user, 'occupation', ''),
+                    "location": getattr(target_user, 'location', ''),
+                    "education": getattr(target_user, 'education', ''),
+                    "bio": getattr(target_user, 'bio', ''),
+                    "interests": getattr(target_user, 'interests', []),
+                    "sceneType": action.scene_type,
+                    "collectedAt": action.created_at.isoformat() if action.created_at else "",
+                    "isCollected": True
+                }
+                
+                # 根据场景类型添加特定信息
+                if target_card:
+                    if action.scene_type == "housing":
+                        card_data.update({
+                            "houseInfo": {
+                                "title": getattr(target_card, 'title', ''),
+                                "price": getattr(target_card, 'price', 0),
+                                "location": getattr(target_card, 'location', ''),
+                                "description": getattr(target_card, 'description', ''),
+                                "images": getattr(target_card, 'images', [])
+                            }
+                        })
+                    elif action.scene_type == "activity":
+                        card_data.update({
+                            "activityInfo": {
+                                "title": getattr(target_card, 'title', ''),
+                                "time": getattr(target_card, 'activity_time', ''),
+                                "location": getattr(target_card, 'location', ''),
+                                "price": getattr(target_card, 'price', 0),
+                                "description": getattr(target_card, 'description', ''),
+                                "images": getattr(target_card, 'images', [])
+                            }
+                        })
+                
+                cards.append(card_data)
+            
+            return {
+                "cards": cards,
+                "pagination": {
+                    "page": page,
+                    "pageSize": page_size,
+                    "total": total,
+                    "totalPages": (total + page_size - 1) // page_size
+                }
+            }
+            
+        except Exception as e:
+            print(f"获取收藏卡片列表失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "cards": [],
+                "pagination": {
+                    "page": page,
+                    "pageSize": page_size,
+                    "total": 0,
+                    "totalPages": 0
+                }
+            }
+    
+    def cancel_collect_card(self, user_id: str, card_id: str, scene_type: str) -> Dict[str, Any]:
+        """
+        取消收藏卡片
+        
+        Args:
+            user_id: 用户ID
+            card_id: 卡片ID
+            scene_type: 场景类型
+            
+        Returns:
+            操作结果
+        """
+        try:
+            # 查找收藏记录
+            collect_action = self.db.query(MatchAction).filter(
+                MatchAction.user_id == user_id,
+                MatchAction.target_card_id == card_id,
+                MatchAction.scene_type == scene_type,
+                MatchAction.action_type == DBMatchActionType.COLLECT_CARD
+            ).first()
+            
+            if not collect_action:
+                return {
+                    "success": False,
+                    "message": "未找到收藏记录"
+                }
+            
+            # 删除收藏记录
+            self.db.delete(collect_action)
+            self.db.commit()
+            
+            return {
+                "success": True,
+                "message": "取消收藏成功"
+            }
+            
+        except Exception as e:
+            self.db.rollback()
+            print(f"取消收藏卡片失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "message": f"取消收藏失败: {str(e)}"
+            }
     
     def _extract_target_user_id(self, card_id: str, scene_type: str) -> Optional[str]:
         """从卡片ID中提取目标用户ID"""

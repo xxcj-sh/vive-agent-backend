@@ -5,6 +5,7 @@ from app.models.schemas import BaseResponse
 from app.utils.auth import get_current_user
 from app.models.user import User
 from app.models.enums import Gender
+from app.services.match_service.models import MatchActionType
 from app.services.match_service.card_strategy import MatchCardStrategy
 from app.services.match_service.core import MatchService
 from app.database import get_db
@@ -70,8 +71,8 @@ async def get_matches(
 
 @router.get("/cards")
 async def get_match_cards(
-    sceneType: str = Query(...),
-    userRole: str = Query(...),
+    sceneType: Optional[str] = Query(None),
+    userRole: Optional[str] = Query(None),
     page: int = Query(1),
     pageSize: int = Query(10),
     current_user: User = Depends(get_current_user),
@@ -95,14 +96,23 @@ async def get_match_cards(
         # 创建匹配卡片策略服务实例
         match_card_strategy = MatchCardStrategy(db_session)
         
-        # 使用匹配卡片策略服务
-        result = match_card_strategy.get_match_cards(
-            scene_type=sceneType,
-            role_type=userRole,
-            page=page,
-            page_size=pageSize,
-            current_user=current_user_dict
-        )
+        # 如果 sceneType 或 userRole 参数不可用，返回不区分场景的通用卡片
+        if not sceneType or not userRole:
+            # 获取通用匹配卡片（不区分场景）
+            result = match_card_strategy.get_universal_match_cards(
+                page=page,
+                page_size=pageSize,
+                current_user=current_user_dict
+            )
+        else:
+            # 使用匹配卡片策略服务
+            result = match_card_strategy.get_match_cards(
+                scene_type=sceneType,
+                role_type=userRole,
+                page=page,
+                page_size=pageSize,
+                current_user=current_user_dict
+            )
         
         return BaseResponse(
             code=0, 
@@ -462,6 +472,142 @@ async def get_match_detail(
         return BaseResponse(
             code=500,
             message=f"获取匹配详情失败: {str(e)}",
+            data=None
+        )
+
+# 收藏卡片相关API
+@router.post("/collect")
+async def collect_card(
+    card_id: str = Query(..., description="卡片ID"),
+    scene_type: str = Query(..., description="场景类型"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """收藏卡片"""
+    try:
+        # 获取当前用户ID
+        if isinstance(current_user, dict):
+            user_id = str(current_user.get('id', ''))
+        else:
+            user_id = str(current_user.id)
+        
+        # 创建匹配服务实例
+        match_service = MatchService(db)
+        
+        # 提交收藏操作
+        result = match_service.submit_match_action(
+            user_id=user_id,
+            action_data={
+                "cardId": card_id,
+                "action": MatchActionType.COLLECTION.value,
+                "sceneType": scene_type,
+                "source": "user"
+            }
+        )
+        
+        return BaseResponse(
+            code=0,
+            message="收藏成功",
+            data=result
+        )
+        
+    except ValueError as e:
+        return BaseResponse(
+            code=400,
+            message=str(e),
+            data=None
+        )
+    except Exception as e:
+        print(f"收藏卡片异常: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return BaseResponse(
+            code=500,
+            message=f"收藏卡片失败: {str(e)}",
+            data=None
+        )
+
+@router.get("/collected")
+async def get_collected_cards(
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(10, ge=1, le=50),
+    scene_type: Optional[str] = Query(None, description="场景类型筛选"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取用户收藏的卡片列表"""
+    try:
+        # 获取当前用户ID
+        if isinstance(current_user, dict):
+            user_id = str(current_user.get('id', ''))
+        else:
+            user_id = str(current_user.id)
+        
+        # 创建匹配服务实例
+        match_service = MatchService(db)
+        
+        # 获取收藏的卡片
+        result = match_service.get_collected_cards(
+            user_id=user_id,
+            scene_type=scene_type,
+            page=page,
+            page_size=pageSize
+        )
+        
+        return BaseResponse(
+            code=0,
+            message="success",
+            data=result
+        )
+        
+    except Exception as e:
+        print(f"获取收藏卡片列表异常: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return BaseResponse(
+            code=500,
+            message=f"获取收藏卡片列表失败: {str(e)}",
+            data=None
+        )
+
+@router.delete("/collect/{card_id}")
+async def cancel_collect_card(
+    card_id: str,
+    scene_type: str = Query(..., description="场景类型"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """取消收藏卡片"""
+    try:
+        # 获取当前用户ID
+        if isinstance(current_user, dict):
+            user_id = str(current_user.get('id', ''))
+        else:
+            user_id = str(current_user.id)
+        
+        # 创建匹配服务实例
+        match_service = MatchService(db)
+        
+        # 取消收藏
+        result = match_service.cancel_collect_card(
+            user_id=user_id,
+            card_id=card_id,
+            scene_type=scene_type
+        )
+        
+        return BaseResponse(
+            code=0,
+            message="取消收藏成功",
+            data=result
+        )
+        
+    except Exception as e:
+        print(f"取消收藏卡片异常: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return BaseResponse(
+            code=500,
+            message=f"取消收藏卡片失败: {str(e)}",
             data=None
         )
     

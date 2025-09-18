@@ -13,6 +13,7 @@ class MatchActionType(str, enum.Enum):
     PASS = "pass"              # 跳过
     AI_RECOMMEND_AFTER_USER_CHAT = "ai_recommend_after_user_chat"  # 聊天后 AI 引荐
     AI_RECOMMEND_BY_SYSTEM = "ai_recommend_by_system"  # 系统主动 AI 引荐
+    COLLECTION = "collection"  # 收藏卡片
 
 class MatchResultStatus(str, enum.Enum):
     """匹配结果状态枚举"""
@@ -31,7 +32,7 @@ class MatchAction(Base):
     target_user_id = Column(String, ForeignKey("users.id"), nullable=False)  # 目标用户ID
     target_card_id = Column(String, nullable=False)  # 目标卡片ID
     action_type = Column(Enum(MatchActionType), nullable=False)  # 操作类型
-    scene_type = Column(String, nullable=False)  # 匹配场景类型 (housing/dating/activity)
+    scene_type = Column(String, nullable=False)  # 匹配场景类型 (socail/activity)
     scene_context = Column(Text, nullable=True)  # 场景上下文信息（扩展为Text类型）
     source = Column(String, default="user")  # 操作来源：user/system/ai
     is_processed = Column(Boolean, default=False)  # 是否已处理（用于异步任务）
