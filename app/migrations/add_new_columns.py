@@ -25,13 +25,15 @@ def add_new_columns():
         columns = [column[1] for column in cursor.fetchall()]
         
         if 'trigger_and_output' not in columns:
-            cursor.execute("ALTER TABLE user_cards ADD COLUMN trigger_and_output TEXT")
+            # 使用 JSON 类型而不是 TEXT 类型
+            cursor.execute("ALTER TABLE user_cards ADD COLUMN trigger_and_output JSON")
             print("✅ 添加 trigger_and_output 字段成功")
         else:
             print("trigger_and_output 字段已存在")
             
         if 'profile_data' not in columns:
-            cursor.execute("ALTER TABLE user_cards ADD COLUMN profile_data TEXT")
+            # 使用 JSON 类型而不是 TEXT 类型
+            cursor.execute("ALTER TABLE user_cards ADD COLUMN profile_data JSON")
             print("✅ 添加 profile_data 字段成功")
         else:
             print("profile_data 字段已存在")

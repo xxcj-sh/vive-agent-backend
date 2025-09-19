@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+import json
 from .card_preferences import CardPreferences
 from .card_profiles import (
     ActivityOrganizerProfile,
@@ -27,7 +28,7 @@ class CardCreate(BaseModel):
     display_name: str = Field(..., description="显示名称")
     avatar_url: Optional[str] = Field(None, description="头像URL")
     bio: Optional[str] = Field(None, description="个人简介")
-    trigger_and_output: Optional[Dict[str, Any]] = Field(None, description="触发器和输出配置")
+    trigger_and_output: Optional[List[Dict[str, Any]]] = Field(None, description="触发器和输出配置")
     profile_data: Optional[Dict[str, Any]] = Field(None, description="角色特定数据")
     preferences: Optional[Dict[str, Any]] = Field(None, description="偏好设置")
     visibility: Optional[str] = Field("public", description="可见性")
@@ -38,7 +39,7 @@ class CardUpdate(BaseModel):
     display_name: Optional[str] = Field(None, description="显示名称")
     avatar_url: Optional[str] = Field(None, description="头像URL")
     bio: Optional[str] = Field(None, description="个人简介")
-    trigger_and_output: Optional[Dict[str, Any]] = Field(None, description="触发器和输出配置")
+    trigger_and_output: Optional[List[Dict[str, Any]]] = Field(None, description="触发器和输出配置")
     profile_data: Optional[Dict[str, Any]] = Field(None, description="卡片描述数据")
     preferences: Optional[Dict[str, Any]] = Field(None, description="收卡人条件偏好")
     visibility: Optional[str] = Field(None, description="可见性")
@@ -51,11 +52,44 @@ class Card(CardBase):
     display_name: str = Field(..., description="显示名称")
     avatar_url: Optional[str] = Field(None, description="卡片封面 URL")
     bio: Optional[str] = Field(None, description="卡片简介")
-    trigger_and_output: Optional[Dict[str, Any]] = Field(None, description="触发器和输出配置")
+    trigger_and_output: Optional[List[Dict[str, Any]]] = Field(None, description="触发器和输出配置")
     profile_data: Optional[Dict[str, Any]] = Field(None, description="卡片特定数据")
     preferences: Optional[Dict[str, Any]] = Field(None, description="卡片匹配偏好")
     visibility: Optional[str] = Field("public", description="可见性")
     is_active: Optional[int] = Field(None, description="是否激活")
+
+    @validator('trigger_and_output', pre=True)
+    def validate_trigger_and_output(cls, v):
+        """验证trigger_and_output字段"""
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, list) else []
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return v if isinstance(v, list) else []
+    
+    @validator('profile_data', pre=True)
+    def validate_profile_data(cls, v):
+        """验证profile_data字段"""
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, dict) else {}
+            except (json.JSONDecodeError, TypeError):
+                return {}
+        return v if isinstance(v, dict) else {}
+    
+    @validator('preferences', pre=True)
+    def validate_preferences(cls, v):
+        """验证preferences字段"""
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, dict) else {}
+            except (json.JSONDecodeError, TypeError):
+                return {}
+        return v if isinstance(v, dict) else {}
 
     class Config:
         from_attributes = True

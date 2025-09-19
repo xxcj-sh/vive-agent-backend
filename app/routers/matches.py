@@ -322,7 +322,8 @@ async def get_match_recommendation_cards(
                     UserCard.user_id == str(action.user_id),
                     UserCard.is_active == 1
                 ).first()
-                
+                target_card_id = action.target_card_id
+                print("extra",action.extra)
                 if not target_card:
                     print(f"跳过: 找不到目标卡片 user_id={action.user_id}, scene_type={sceneType}")
                     continue
@@ -349,7 +350,8 @@ async def get_match_recommendation_cards(
                     "interests": getattr(target_user, 'interests', []) if isinstance(getattr(target_user, 'interests', []), list) else [],
                     "createdAt": action.created_at.isoformat() if action.created_at else "",
                     "matchScore": scene_context.get('aiAnalysis', {}).get('matchScore', 85),
-                    "recommendReason": scene_context.get('aiAnalysis', {}).get('preferenceJudgement', '基于聊天内容智能推荐')
+                    "recommendReason": scene_context.get('aiAnalysis', {}).get('preferenceJudgement', '基于聊天内容智能推荐'),
+                    "targetCardId": str(target_card_id),  # 添加targetCardId字段
                 }
                 
                 # 场景特定字段

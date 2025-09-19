@@ -19,6 +19,29 @@ class UserCardService:
         """创建用户角色卡片"""
         card_id = f"card_{card_data.scene_type}_{card_data.role_type}_{uuid.uuid4().hex[:8]}"
         
+        # 处理 JSON 字段，确保正确序列化
+        # SQLite 需要 JSON 字符串而不是 Python 对象
+        trigger_and_output = card_data.trigger_and_output
+        if trigger_and_output is not None:
+            if isinstance(trigger_and_output, (list, dict)):
+                trigger_and_output = json.dumps(trigger_and_output, ensure_ascii=False)
+            else:
+                trigger_and_output = json.dumps([], ensure_ascii=False)
+        else:
+            trigger_and_output = json.dumps([], ensure_ascii=False)
+        
+        profile_data = card_data.profile_data
+        if profile_data is not None and isinstance(profile_data, dict):
+            profile_data = json.dumps(profile_data, ensure_ascii=False)
+        else:
+            profile_data = json.dumps({}, ensure_ascii=False)
+            
+        preferences = card_data.preferences
+        if preferences is not None and isinstance(preferences, dict):
+            preferences = json.dumps(preferences, ensure_ascii=False)
+        else:
+            preferences = json.dumps({}, ensure_ascii=False)
+        
         db_card = UserCard(
             id=card_id,
             user_id=user_id,
@@ -27,9 +50,9 @@ class UserCardService:
             display_name=card_data.display_name,
             avatar_url=card_data.avatar_url,
             bio=card_data.bio,
-            trigger_and_output=card_data.trigger_and_output,
-            profile_data=card_data.profile_data,
-            preferences=card_data.preferences,
+            trigger_and_output=trigger_and_output,
+            profile_data=profile_data,
+            preferences=preferences,
             visibility=card_data.visibility or "public"
         )
         
@@ -74,6 +97,22 @@ class UserCardService:
         user = db.query(User).filter(User.id == user_id).first()
         
         # 构建基础card信息
+        # 解析 JSON 字符串
+        try:
+            trigger_and_output = json.loads(card.trigger_and_output) if card.trigger_and_output else []
+        except (json.JSONDecodeError, TypeError):
+            trigger_and_output = []
+            
+        try:
+            profile_data = json.loads(card.profile_data) if card.profile_data else {}
+        except (json.JSONDecodeError, TypeError):
+            profile_data = {}
+            
+        try:
+            preferences = json.loads(card.preferences) if card.preferences else {}
+        except (json.JSONDecodeError, TypeError):
+            preferences = {}
+        
         result = {
             "id": card.id,
             "user_id": card.user_id,
@@ -82,9 +121,9 @@ class UserCardService:
             "display_name": card.display_name,
             "avatar_url": card.avatar_url,
             "bio": card.bio or "",
-            "trigger_and_output": card.trigger_and_output or {},
-            "profile_data": card.profile_data or {},
-            "preferences": card.preferences or {},
+            "trigger_and_output": trigger_and_output,
+            "profile_data": profile_data,
+            "preferences": preferences,
             "visibility": card.visibility,
             "is_active": card.is_active,
             "created_at": card.created_at,
@@ -129,6 +168,25 @@ class UserCardService:
         # 更新允许修改的字段
         for field, value in update_data.items():
             if field in ["bio", "trigger_and_output", "profile_data", "preferences", "visibility"]:
+                # 对 JSON 字段进行序列化
+                if field in ["trigger_and_output", "profile_data", "preferences"]:
+                    if value is not None:
+                        if field == "trigger_and_output" and isinstance(value, (list, dict)):
+                            value = json.dumps(value, ensure_ascii=False)
+                        elif field in ["profile_data", "preferences"] and isinstance(value, dict):
+                            value = json.dumps(value, ensure_ascii=False)
+                        else:
+                            # 如果不是预期的类型，使用默认值
+                            if field == "trigger_and_output":
+                                value = json.dumps([], ensure_ascii=False)
+                            else:
+                                value = json.dumps({}, ensure_ascii=False)
+                    else:
+                        # 空值使用默认值
+                        if field == "trigger_and_output":
+                            value = json.dumps([], ensure_ascii=False)
+                        else:
+                            value = json.dumps({}, ensure_ascii=False)
                 setattr(card, field, value)
                 
         card.updated_at = datetime.now()
@@ -177,17 +235,49 @@ class UserCardService:
                 scenes_dict[scene] = []
             scenes_dict[scene].append(card)
         
+        # 处理卡片数据，确保字段类型正确
+        processed_cards = []
+        for card in all_cards:
+            # 确保 JSON 字段正确解析
+            if isinstance(card.trigger_and_output, str):
+                try:
+                    card.trigger_and_output = json.loads(card.trigger_and_output)
+                except (json.JSONDecodeError, TypeError):
+                    card.trigger_and_output = []
+            
+            if isinstance(card.profile_data, str):
+                try:
+                    card.profile_data = json.loads(card.profile_data)
+                except (json.JSONDecodeError, TypeError):
+                    card.profile_data = {}
+            
+            if isinstance(card.preferences, str):
+                try:
+                    card.preferences = json.loads(card.preferences)
+                except (json.JSONDecodeError, TypeError):
+                    card.preferences = {}
+            
+            processed_cards.append(card)
+        
+        # 重新按场景分组处理后的卡片
+        scenes_dict_processed = {}
+        for card in processed_cards:
+            scene = card.scene_type
+            if scene not in scenes_dict_processed:
+                scenes_dict_processed[scene] = []
+            scenes_dict_processed[scene].append(card)
+        
         by_scene = [
             CardsByScene(scene_type=scene, profiles=cards)
-            for scene, cards in scenes_dict.items()
+            for scene, cards in scenes_dict_processed.items()
         ]
         
         return AllCardsResponse(
             user_id=user_id,
-            total_count=len(all_cards),
-            active_count=len(active_cards),
+            total_count=len(processed_cards),
+            active_count=len([c for c in processed_cards if c.is_active == 1]),
             by_scene=by_scene,
-            all_cards=all_cards
+            all_cards=processed_cards
         )
     
     @staticmethod

@@ -35,7 +35,7 @@ class UserStatsService:
             message_stats = self._get_message_stats(user_id)
             
             # 3. 获取收藏统计（这里用喜欢数量代替）
-            favorite_stats = self._get_favorite_stats(user_id)
+            favorite_stats = self._get_collect_stats(user_id)
             
             return {
                 "matchCount": match_stats["total_matches"],
@@ -114,10 +114,10 @@ class UserStatsService:
             "unread_messages": unread_messages
         }
     
-    def _get_favorite_stats(self, user_id: str) -> Dict[str, int]:
-        """获取收藏/喜欢统计
+    def _get_collect_stats(self, user_id: str) -> Dict[str, int]:
+        """获取收藏统计
         
-        注意：由于系统架构，这里使用用户的喜欢操作数量作为收藏统计
+        注意：由于系统架构，这里使用用户的收藏操作数量作为收藏统计
         实际收藏功能可能需要额外的收藏表
         """
         from app.models.match_action import MatchAction, MatchActionType
@@ -125,7 +125,7 @@ class UserStatsService:
         # 用户的喜欢操作数量
         total_favorites = self.db.query(MatchAction).filter(
             MatchAction.user_id == user_id,
-            MatchAction.action_type == MatchActionType.LIKE
+            MatchAction.action_type == MatchActionType.COLLECTION
         ).count()
         
         return {
