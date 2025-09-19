@@ -51,16 +51,12 @@ class DataService:
                 user_dict = user.__dict__.copy()
                 # 移除SQLAlchemy内部字段
                 user_dict.pop('_sa_instance_state', None)
-                
+                print("user_dict:", user_dict)
                 # 字段映射：数据库字段名 -> 前端字段名
                 reverse_mapping = {
                     'nick_name': 'nickName',
-                    'avatar_url': 'avatarUrl',
-                    'match_type': 'matchType',
-                    'user_role': 'userRole',
-                    'join_date': 'joinDate'
+                    'avatar_url': 'avatarUrl'
                 }
-                
                 # 应用反向映射
                 mapped_dict = {}
                 for db_field, value in user_dict.items():

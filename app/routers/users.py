@@ -188,12 +188,20 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
                 # 如果同时存在两种命名，优先使用下划线命名的值
                 update_dict[new_field] = update_dict.pop(old_field)
         
-        # 处理location字段：如果是字符串，转换为数组
-        if "location" in update_dict and isinstance(update_dict["location"], str):
-            location_str = update_dict["location"]
-            # 按空格分割，过滤空字符串
-            location_parts = [part.strip() for part in location_str.split() if part.strip()]
-            update_dict["location"] = location_parts
+        # 处理location字段：支持字符串和数组格式
+        if "location" in update_dict:
+            if isinstance(update_dict["location"], str):
+                location_str = update_dict["location"]
+                # 按空格分割，过滤空字符串
+                location_parts = [part.strip() for part in location_str.split() if part.strip()]
+                update_dict["location"] = location_parts
+            elif isinstance(update_dict["location"], list):
+                # 如果已经是数组格式，确保数组元素都是字符串且过滤空值
+                location_parts = [str(part).strip() for part in update_dict["location"] if part and str(part).strip()]
+                update_dict["location"] = location_parts
+            else:
+                # 其他格式转换为空数组
+                update_dict["location"] = []
         print("user_id", user_id, "update_dict", update_dict)
         # 更新用户基础资料
         updated_user = db_service.update_user(db, user_id, update_dict)

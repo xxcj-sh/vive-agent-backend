@@ -335,8 +335,9 @@ async def get_match_recommendation_cards(
                         pass
                 
                 card_data = {
-                    "id": str(action.id),
+                    "id": str(action.target_card_id),  # 使用目标卡片ID而不是动作记录ID
                     "userId": str(target_user.id),
+                    "cardId": str(action.target_card_id),  # 添加cardId字段供前端使用
                     "sceneType": sceneType,
                     "userRole": roleType,
                     "name": getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
@@ -660,7 +661,8 @@ async def cancel_collect_card(
                         pass
                 
                 card_data = {
-                    "id": str(action.id),
+                    "id": str(action.target_card_id),  # 使用目标卡片ID而不是动作记录ID
+                    "cardId": str(action.target_card_id),  # 添加cardId字段供前端使用
                     "userId": str(target_user.id),
                     "name": getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
                     "avatar": getattr(target_user, 'avatar_url', None),

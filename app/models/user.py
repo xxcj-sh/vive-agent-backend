@@ -24,11 +24,11 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     occupation = Column(String(100), nullable=True)  # 职业
-    location = Column(Text, nullable=True)  # 位置（JSON格式存储数组）
+    location = Column(JSON, nullable=True)  # 位置（JSON格式存储数组）
     education = Column(String(100), nullable=True)  # 教育
     
     # 新增字段
-    interests = Column(Text, nullable=True)  # 兴趣爱好（JSON格式存储数组）
+    interests = Column(JSON, nullable=True)  # 兴趣爱好（JSON格式存储数组）
     wechat = Column(String(100), nullable=True)  # 微信号
     email = Column(String(255), nullable=True)  # 邮箱
     status = Column(String(20), default='pending')  # 用户状态: pending(待激活), active(正常), suspended(暂停), deleted(已删除)

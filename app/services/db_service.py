@@ -43,10 +43,7 @@ def update_user(db: Session, user_id: str, user_data: Dict[str, Any]) -> Optiona
         # 字段映射：前端字段名 -> 数据库字段名
         field_mapping = {
             'nickName': 'nick_name',
-            'avatarUrl': 'avatar_url',
-            'matchType': 'match_type',
-            'userRole': 'user_role',
-            'joinDate': 'join_date'
+            'avatarUrl': 'avatar_url'
         }
         
         for key, value in user_data.items():
