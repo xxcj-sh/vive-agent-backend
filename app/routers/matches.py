@@ -8,6 +8,7 @@ from app.models.enums import Gender
 from app.services.match_service.models import MatchActionType
 from app.services.match_service.card_strategy import MatchCardStrategy
 from app.services.match_service.core import MatchService
+from app.services.user_card_service import UserCardService
 from app.database import get_db
 from pydantic import BaseModel
 from typing import Optional
@@ -290,9 +291,15 @@ async def get_match_recommendation_cards(
         
         # 先尝试获取AI推荐
         print("正在查询AI推荐...")
+        # ai_recommend_actions = db.query(MatchAction).filter(
+        #     and_(
+        #         MatchAction.target_user_id == user_id,
+        #         MatchAction.action_type == MatchActionType.AI_RECOMMEND_AFTER_USER_CHAT
+        #     )
+        # ).order_by(MatchAction.created_at.desc())
+        #DEBUG
         ai_recommend_actions = db.query(MatchAction).filter(
             and_(
-                MatchAction.target_user_id == user_id,
                 MatchAction.action_type == MatchActionType.AI_RECOMMEND_AFTER_USER_CHAT
             )
         ).order_by(MatchAction.created_at.desc())
@@ -323,7 +330,18 @@ async def get_match_recommendation_cards(
                     UserCard.is_active == 1
                 ).first()
                 target_card_id = action.target_card_id
-                print("extra",action.extra)
+                card_title = ''
+                
+                # 使用UserCardService获取卡片标题信息
+                try:
+                    # 获取用户所有卡片，然后找到对应的卡片标题
+                    user_card = UserCardService.get_card_by_id(db, target_card_id)
+                    print(f"获取到的卡片 ID: {target_card_id}")
+                    if user_card:
+                        card_title = getattr(target_card, 'display_name', '')   
+                except Exception as e:
+                    print(f"获取卡片标题失败: {e}")
+
                 if not target_card:
                     print(f"跳过: 找不到目标卡片 user_id={action.user_id}, scene_type={sceneType}")
                     continue
@@ -352,12 +370,12 @@ async def get_match_recommendation_cards(
                     "matchScore": scene_context.get('aiAnalysis', {}).get('matchScore', 85),
                     "recommendReason": scene_context.get('aiAnalysis', {}).get('preferenceJudgement', '基于聊天内容智能推荐'),
                     "targetCardId": str(target_card_id),  # 添加targetCardId字段
+                    "cardTitle": str(card_title)
                 }
                 
                 # 场景特定字段
                 if sceneType == "activity":
                     card_data.update({
-                        "activityName": getattr(target_card, 'title', ''),
                         "activityTime": getattr(target_card, 'activity_time', ''),
                         "activityLocation": getattr(target_card, 'location', ''),
                         "activityPrice": getattr(target_card, 'price', 0),
@@ -425,64 +443,11 @@ async def get_match_recommendation_cards(
             data=None
         )
 
-@router.get("/{match_id}")
-async def get_match_detail(
-    match_id: str, 
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    获取匹配详情
-    
-    根据匹配ID获取单个匹配的详细信息
-    """
-    print("=== Match Detail API Called ===")
-    print(f"URL: /api/v1/matches/{match_id}")
-    print(f"Match ID: {match_id}")
-    
-    try:
-        match_service = MatchService(db)
-        
-        # 获取当前用户ID
-        if isinstance(current_user, dict):
-            user_id = str(current_user.get('id', ''))
-        else:
-            user_id = str(current_user.id)
-        
-        # 获取匹配详情
-        match_detail = match_service.get_match_detail(
-            match_id=match_id,
-            user_id=user_id
-        )
-        
-        if not match_detail:
-            return BaseResponse(
-                code=404,
-                message="匹配记录不存在",
-                data=None
-            )
-        
-        return BaseResponse(
-            code=0,
-            message="success",
-            data=match_detail
-        )
-        
-    except Exception as e:
-        print(f"获取匹配详情异常: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return BaseResponse(
-            code=500,
-            message=f"获取匹配详情失败: {str(e)}",
-            data=None
-        )
 
 # 收藏卡片相关API
 @router.post("/collect")
 async def collect_card(
     card_id: str = Query(..., description="卡片ID"),
-    scene_type: str = Query(..., description="场景类型"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -503,7 +468,6 @@ async def collect_card(
             action_data={
                 "cardId": card_id,
                 "action": MatchActionType.COLLECTION.value,
-                "sceneType": scene_type,
                 "source": "user"
             }
         )
@@ -534,7 +498,6 @@ async def collect_card(
 async def get_collected_cards(
     page: int = Query(1, ge=1),
     pageSize: int = Query(10, ge=1, le=50),
-    scene_type: Optional[str] = Query(None, description="场景类型筛选"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -552,7 +515,6 @@ async def get_collected_cards(
         # 获取收藏的卡片
         result = match_service.get_collected_cards(
             user_id=user_id,
-            scene_type=scene_type,
             page=page,
             page_size=pageSize
         )
@@ -613,7 +575,59 @@ async def cancel_collect_card(
             message=f"取消收藏卡片失败: {str(e)}",
             data=None
         )
+
+@router.get("/{match_id}")
+async def get_match_detail(
+    match_id: str, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    获取匹配详情
     
+    根据匹配ID获取单个匹配的详细信息
+    """
+    print("=== Match Detail API Called ===")
+    print(f"URL: /api/v1/matches/{match_id}")
+    print(f"Match ID: {match_id}")
+    
+    try:
+        match_service = MatchService(db)
+        
+        # 获取当前用户ID
+        if isinstance(current_user, dict):
+            user_id = str(current_user.get('id', ''))
+        else:
+            user_id = str(current_user.id)
+        
+        # 获取匹配详情
+        match_detail = match_service.get_match_detail(
+            match_id=match_id,
+            user_id=user_id
+        )
+        
+        if not match_detail:
+            return BaseResponse(
+                code=404,
+                message="匹配记录不存在",
+                data=None
+            )
+        
+        return BaseResponse(
+            code=0,
+            message="success",
+            data=match_detail
+        )
+        
+    except Exception as e:
+        print(f"获取匹配详情异常: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return BaseResponse(
+            code=500,
+            message=f"获取匹配详情失败: {str(e)}",
+            data=None
+        )
     try:
         # 优先获取AI推荐
         from sqlalchemy import and_

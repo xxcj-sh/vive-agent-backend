@@ -130,7 +130,6 @@ class MatchCardStrategy:
             offset = (page - 1) * page_size
             # 组织者看参与者卡片
             query = self.db.query(User).filter(
-                User.user_type == "participant",
                 User.id != current_user["id"]
             )
             scene_type = role_type.split("_")[0]

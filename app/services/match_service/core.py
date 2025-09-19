@@ -31,20 +31,16 @@ class MatchService:
         
         card_id = action_data.get("cardId")
         action_type = action_data.get("action")
-        scene_type = action_data.get("sceneType")  # Changed from matchType to sceneType
         
-        if not all([card_id, action_type, scene_type]):
-            raise ValueError("缺少必要参数: cardId, action, sceneType")  # Updated error message
+        if not all([card_id, action_type]):
+            raise ValueError("缺少必要参数: cardId, action")  # Updated error message
             
         # 验证操作类型
         valid_actions = [t.value for t in DBMatchActionType]
         if str(action_type) not in valid_actions:
             raise ValueError(f"无效的操作类型: {action_type}")
         
-        # 验证场景类型
-        valid_scenes = [t.value for t in SceneType]
-        if str(scene_type) not in valid_scenes:
-            raise ValueError(f"无效的匹配类型: {scene_type}")
+
             
         return True
     
@@ -546,7 +542,7 @@ class MatchService:
                 MatchAction.target_user_id == target_user_id,
                 MatchAction.target_card_id == card_id,
                 MatchAction.scene_type == scene_type,
-                MatchAction.action_type == DBMatchActionType.COLLECT_CARD
+                MatchAction.action_type == DBMatchActionType.COLLECTION
             ).first()
             
             if existing_action:
@@ -561,7 +557,7 @@ class MatchService:
                 user_id=user_id,
                 target_user_id=target_user_id,
                 target_card_id=card_id,
-                action_type=DBMatchActionType.COLLECT_CARD,
+                action_type=DBMatchActionType.COLLECTION,
                 scene_type=scene_type,
                 created_at=datetime.utcnow()
             )
@@ -602,8 +598,8 @@ class MatchService:
         try:
             # 基础查询：获取用户的收藏操作
             query = self.db.query(MatchAction).filter(
-                MatchAction.user_id == user_id,
-                MatchAction.action_type == DBMatchActionType.COLLECT_CARD
+                # MatchAction.user_id == user_id, #DEBUG
+                MatchAction.action_type == DBMatchActionType.COLLECTION
             )
             
             # 如果指定了场景类型，添加筛选条件
@@ -612,6 +608,7 @@ class MatchService:
             
             # 获取总数
             total = query.count()
+            print(f"用户 {user_id} 收藏卡片总数: {total}")
             
             # 获取分页数据
             collected_actions = query.order_by(
@@ -632,51 +629,32 @@ class MatchService:
                 # 获取目标用户的卡片信息
                 from app.models.user_card_db import UserCard
                 target_card = self.db.query(UserCard).filter(
-                    UserCard.user_id == action.target_user_id,
-                    UserCard.scene_type == action.scene_type,
+                    UserCard.user_id == action.user_id,
                     UserCard.is_active == 1
                 ).first()
                 
-                # 构建卡片数据
+                if not target_card:
+                    continue
+                
+                # 构建卡片数据 - 将SQLAlchemy对象转换为字典
                 card_data = {
-                    "id": str(action.id),
+                    "id": str(target_card.id),
                     "userId": str(target_user.id),
-                    "name": getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
-                    "avatar": getattr(target_user, 'avatar_url', None),
+                    "name": getattr(target_card, 'display_name', None) or getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
+                    "avatar": getattr(target_card, 'avatar_url', None),
                     "age": getattr(target_user, 'age', 25),
                     "occupation": getattr(target_user, 'occupation', ''),
                     "location": getattr(target_user, 'location', ''),
                     "education": getattr(target_user, 'education', ''),
                     "bio": getattr(target_user, 'bio', ''),
                     "interests": getattr(target_user, 'interests', []),
-                    "sceneType": action.scene_type,
-                    "collectedAt": action.created_at.isoformat() if action.created_at else "",
-                    "isCollected": True
+                    "sceneType": target_card.scene_type,
+                    "roleType": target_card.role_type,
+                    "displayName": target_card.display_name,
+                    "bio": target_card.bio,
+                    "createdAt": target_card.created_at.isoformat() if target_card.created_at else ""
                 }
                 
-                # 根据场景类型添加特定信息
-                if target_card:
-                    if action.scene_type == "housing":
-                        card_data.update({
-                            "houseInfo": {
-                                "title": getattr(target_card, 'title', ''),
-                                "price": getattr(target_card, 'price', 0),
-                                "location": getattr(target_card, 'location', ''),
-                                "description": getattr(target_card, 'description', ''),
-                                "images": getattr(target_card, 'images', [])
-                            }
-                        })
-                    elif action.scene_type == "activity":
-                        card_data.update({
-                            "activityInfo": {
-                                "title": getattr(target_card, 'title', ''),
-                                "time": getattr(target_card, 'activity_time', ''),
-                                "location": getattr(target_card, 'location', ''),
-                                "price": getattr(target_card, 'price', 0),
-                                "description": getattr(target_card, 'description', ''),
-                                "images": getattr(target_card, 'images', [])
-                            }
-                        })
                 
                 cards.append(card_data)
             
@@ -704,6 +682,84 @@ class MatchService:
                 }
             }
     
+    def get_match_detail(self, match_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        获取匹配详情
+        
+        Args:
+            match_id: 匹配ID
+            user_id: 用户ID
+            
+        Returns:
+            匹配详情或None
+        """
+        try:
+            # 从MatchAction表中查找匹配记录
+            from app.models.match_action import MatchAction
+            
+            match_action = self.db.query(MatchAction).filter(
+                MatchAction.id == match_id,
+                MatchAction.user_id == user_id
+            ).first()
+            
+            if not match_action:
+                return None
+            
+            # 获取目标用户信息
+            target_user = self.db.query(User).filter(
+                User.id == match_action.target_user_id
+            ).first()
+            
+            if not target_user:
+                return None
+            
+            # 获取目标用户的卡片信息
+            from app.models.user_card_db import UserCard
+            target_card = self.db.query(UserCard).filter(
+                UserCard.user_id == match_action.target_user_id,
+                UserCard.scene_type == match_action.scene_type,
+                UserCard.is_active == 1
+            ).first()
+            
+            # 构建匹配详情数据
+            match_detail = {
+                "id": str(match_action.id),
+                "userId": str(target_user.id),
+                "name": getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
+                "avatar": getattr(target_user, 'avatar_url', None),
+                "age": getattr(target_user, 'age', 25),
+                "occupation": getattr(target_user, 'occupation', ''),
+                "location": getattr(target_user, 'location', ''),
+                "education": getattr(target_user, 'education', ''),
+                "bio": getattr(target_user, 'bio', ''),
+                "interests": getattr(target_user, 'interests', []),
+                "sceneType": match_action.scene_type,
+                "actionType": match_action.action_type,
+                "createdAt": match_action.created_at.isoformat() if match_action.created_at else "",
+                "isRead": match_action.is_read if hasattr(match_action, 'is_read') else False,
+                "isCollected": False  # 默认未收藏
+            }
+            
+            # 检查是否已收藏
+            collect_action = self.db.query(MatchAction).filter(
+                MatchAction.user_id == user_id,
+                MatchAction.target_user_id == target_user.id,
+                MatchAction.action_type == DBMatchActionType.COLLECTION,
+                MatchAction.scene_type == match_action.scene_type
+            ).first()
+            
+            if collect_action:
+                match_detail["isCollected"] = True
+                match_detail["collectedAt"] = collect_action.created_at.isoformat() if collect_action.created_at else ""
+            
+            return match_detail
+            
+        except Exception as e:
+            print(f"获取匹配详情失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def cancel_collect_card(self, user_id: str, card_id: str, scene_type: str) -> Dict[str, Any]:
         """
         取消收藏卡片
@@ -722,7 +778,7 @@ class MatchService:
                 MatchAction.user_id == user_id,
                 MatchAction.target_card_id == card_id,
                 MatchAction.scene_type == scene_type,
-                MatchAction.action_type == DBMatchActionType.COLLECT_CARD
+                MatchAction.action_type == DBMatchActionType.COLLECTION
             ).first()
             
             if not collect_action:
@@ -753,11 +809,29 @@ class MatchService:
     def _extract_target_user_id(self, card_id: str, scene_type: str) -> Optional[str]:
         """从卡片ID中提取目标用户ID"""
         try:
+            # 首先尝试调用卡片服务获取准确的卡片信息
+            from app.services.user_card_service import UserCardService
+            card = UserCardService.get_card_by_id(self.db, card_id)
+            
+            if card:
+                # 如果找到卡片，返回卡片所属的用户ID
+                return card.user_id
+            
+            # 如果卡片服务没有找到卡片，退回到字符串解析（保持向后兼容性）
+            # 处理 None 或空输入
+            if not card_id:
+                return None
+                
+            card_id_str = str(card_id).strip()
+            
             # 统一处理所有卡片ID格式: user_id_suffix
-            if "_" in card_id:
-                return card_id.split("_")[0]
+            if "_" in card_id_str:
+                # 分割成两部分：user_id 和 suffix
+                parts = card_id_str.split("_", 1)
+                return parts[0] if parts else card_id_str
             else:
-                return card_id
+                return card_id_str
+                
         except (IndexError, AttributeError):
             return None
     
