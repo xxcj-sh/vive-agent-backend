@@ -51,7 +51,7 @@ def get_card_details(
             "location": getattr(user, 'location', None) if user else None,
             "education": getattr(user, 'education', None) if user else None,
             "interests": getattr(user, 'interests', []) if user else [],
-            "phone": user.phone if user else None
+            "avatar_url": user.avatar_url if user else None
         } if user else None
     }
     

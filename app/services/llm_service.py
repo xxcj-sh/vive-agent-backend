@@ -710,6 +710,7 @@ class LLMService:
         
         # 从 Card ID 获取匹配信息，然后获取对方用户的卡片偏好
         card_owner_preferences = {}
+        cart_trigger_and_output = {}
         try:
             from app.models.user_card_db import UserCard
             from app.services.user_card_service import UserCardService
@@ -718,36 +719,18 @@ class LLMService:
             
             # 根据card_id获取卡片信息
             user_card = UserCardService.get_card_by_id(self.db, card_id)
-            
             if user_card and hasattr(user_card, 'preferences') and user_card.preferences:
                 # 如果卡片直接有preferences字段，则直接使用
                 card_owner_preferences = user_card.preferences
-            else:
-                # 尝试从match中获取更多信息
-                # 先获取当前用户与卡片主人的匹配关系
-                match = self.db.query(Match).filter(
-                    or_(
-                        (Match.user_id == user_id) & (Match.target_user_id == user_card.user_id),
-                        (Match.user_id == user_card.user_id) & (Match.target_user_id == user_id)
-                    )
-                ).first()
-                
-                # 如果找到了匹配关系，尝试获取对方用户的所有活跃卡片
-                if match and hasattr(match, 'target_user_id'):
-                    other_user_cards = self.db.query(UserCard).filter(
-                        UserCard.user_id == match.target_user_id,
-                        UserCard.is_active == 1
-                    ).all()
-                    
-                    # 遍历对方用户的所有活跃卡片，收集偏好信息
-                    for card in other_user_cards:
-                        if hasattr(card, 'preferences') and card.preferences:
-                            card_owner_preferences = card.preferences
-                            break  # 找到第一个有preferences的卡片就使用
+            
+            if user_card and hasattr(user_card, 'trigger_and_output') and user_card.trigger_and_output:
+                cart_trigger_and_output = user_card.trigger_and_output
         except Exception as e:
-            logger.error(f"获取卡片主人偏好信息失败: {str(e)}")
-            # 继续执行，即使获取失败也不影响主要功能
+            logger.error(f"获取卡片主人偏好和触发信息失败: {str(e)}")
+
+        # 继续执行，即使获取失败也不影响主要功能
         print("card_owner_preferences:", card_owner_preferences)
+        print("cart_trigger_and_output:", cart_trigger_and_output)
         # 构建提示词
         prompt = f"""
         请根据以下信息生成对话建议：
@@ -757,6 +740,7 @@ class LLMService:
         聊天记录: {json.dumps(chatHistory, ensure_ascii=False)}
         建议类型: {suggestionType}
         卡片主人偏好信息: {json.dumps(card_owner_preferences, ensure_ascii=False)}
+        聊天隐藏触发条件和输出信息: {json.dumps(cart_trigger_and_output, ensure_ascii=False)}
         
         请生成{maxSuggestions}条适合当前对话情境的回复建议，要求：
         1. 符合用户性格特点
@@ -765,14 +749,19 @@ class LLMService:
         4. 每条建议是独立完整的回复
         5. 如果卡片主人偏好信息不为空，建议内容应适当引导用户回答问题，
            以帮助判断用户是否满足卡片主人的偏好要求
+        6. 根据用户配置的触发条件，引导用户回答问题，判断用户是否满足卡片主人的偏好要求，在满足触发条件时也视为满足卡片主人的偏好要求，根据用户配置的输出信息，生成建议回复消息
         
-        请以JSON格式回复，包含suggestions（建议列表）和confidence（置信度）字段，is_meet_preference（是否满足卡片主人偏好的布尔类型）字段，preference_judgement（满足偏好的判断论述）字段，参考如下格式
+        请以JSON格式回复，包含suggestions（建议列表）和confidence（置信度）字段，is_meet_preference（是否满足卡片主人偏好的布尔类型）字段，
+        preference_judgement（满足偏好的判断论述）字段，trigger_output（触发条件后的输出信息）字段
+        
+        参考如下格式
         """ + """
         {
             "confidence": 0.92,
             "suggestions": ["欢迎参加活动", "您可以参加活动"],
             "is_meet_preference": true,
-            "preference_judgement": "用户的兴趣爱好与卡片主人的偏好相符，用户的生活方式与卡片主人的偏好相符"
+            "preference_judgement": "用户的兴趣爱好与卡片主人的偏好相符，用户的生活方式与卡片主人的偏好相符",
+            "trigger_output": "欢迎加我微信联系，记得备注来源哦"
         }
         """
         
