@@ -101,6 +101,7 @@ async def login_by_phone(
             }
         )
     except Exception as e:
+        raise e
         return BaseResponse(code=1002, message=str(e), data={})
 
 @router.post("/sms-codes", response_model=BaseResponse, status_code=201)

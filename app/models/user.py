@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON
+import os
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.utils.db_config import Base
-from app.models.enums import UserStatus
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime

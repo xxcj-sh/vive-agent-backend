@@ -743,7 +743,7 @@ class LLMService:
         聊天隐藏触发条件和输出信息: {json.dumps(cart_trigger_and_output, ensure_ascii=False)}
         
         请生成{maxSuggestions}条适合当前对话情境的回复建议，要求：
-        1. 符合用户性格特点
+        1. 符合卡片主人性格设定，以用户本人的身份对话
         2. 自然流畅，符合对话上下文
         3. 内容积极友好
         4. 每条建议是独立完整的回复
