@@ -512,6 +512,7 @@ class UserRoleType(str, enum.Enum):
     SOCIAL_CAREER = "social_career"
     SOCIAL_INTEREST = "social_interest"
     SOCIAL_DATING = "social_dating"
+    SOCIAL_BASIC = "social_basic"
     
 
 class SimplifiedRole(str, enum.Enum):

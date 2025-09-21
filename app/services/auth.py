@@ -46,17 +46,6 @@ class AuthService:
     @staticmethod
     def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
         """从token获取用户信息"""
-        
-        # 测试模式：使用测试token
-        if token == "test_token_001":
-            return {
-                "id": "test_user_001",
-                "nickName": "测试用户",
-                "avatarUrl": "https://picsum.photos/200/200?random=test",
-                "gender": 1,
-                "phone": "13800138000"
-            }
-        
         # 尝试从token解析用户ID
         try:
             from jose import jwt

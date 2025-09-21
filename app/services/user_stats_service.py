@@ -6,9 +6,10 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from typing import Dict, Any
-from app.models.match_action import MatchResult, MatchResultStatus
+from app.models.match_action import MatchResult, MatchResultStatus, MatchAction, MatchActionType
 from app.models.chat_message import ChatMessage
 from app.models.user import User
+from app.models.user_card_db import UserCard
 
 
 class UserStatsService:
@@ -28,34 +29,29 @@ class UserStatsService:
             统计数据字典
         """
         try:
-            # 1. 获取匹配统计
-            match_stats = self._get_match_stats(user_id)
+            # 1. 获取用户卡片统计
+            card_stats = self._get_card_stats(user_id)
             
-            # 2. 获取消息统计
-            message_stats = self._get_message_stats(user_id)
-            
-            # 3. 获取收藏统计（这里用喜欢数量代替）
-            favorite_stats = self._get_collect_stats(user_id)
+            # 2. 获取收藏的名片统计
+            favorite_stats = self._get_favorite_stats(user_id)
             
             return {
-                "matchCount": match_stats["total_matches"],
-                "messageCount": message_stats["total_messages"],
-                "favoriteCount": favorite_stats["total_favorites"],
-                "newMatches": match_stats["new_matches"],
-                "unreadMessages": message_stats["unread_messages"],
-                "activeMatches": match_stats["active_matches"]
+                "cardCount": card_stats["total_cards"],
+                "activeCardCount": card_stats["active_cards"],
+                "favoriteCardCount": favorite_stats["favorite_cards"],
+                "totalCardsCreated": card_stats["total_created"],
+                "recentCards": card_stats["recent_cards"]
             }
             
         except Exception as e:
             # 发生错误时返回默认值
             print(f"获取用户统计数据失败: {str(e)}")
             return {
-                "matchCount": 0,
-                "messageCount": 0,
-                "favoriteCount": 0,
-                "newMatches": 0,
-                "unreadMessages": 0,
-                "activeMatches": 0
+                "cardCount": 0,
+                "activeCardCount": 0,
+                "favoriteCardCount": 0,
+                "totalCardsCreated": 0,
+                "recentCards": 0
             }
     
     def _get_match_stats(self, user_id: str) -> Dict[str, int]:
@@ -114,6 +110,56 @@ class UserStatsService:
             "unread_messages": unread_messages
         }
     
+    def _get_card_stats(self, user_id: str) -> Dict[str, int]:
+        """获取用户卡片统计"""
+        from app.models.user_card_db import UserCard
+        from datetime import datetime, timedelta
+        
+        # 总卡片数（未删除的）
+        total_cards = self.db.query(UserCard).filter(
+            UserCard.user_id == user_id,
+            UserCard.is_deleted == 0
+        ).count()
+        
+        # 激活卡片数
+        active_cards = self.db.query(UserCard).filter(
+            UserCard.user_id == user_id,
+            UserCard.is_deleted == 0,
+            UserCard.is_active == 1
+        ).count()
+        
+        # 总创建数（包括已删除的）
+        total_created = self.db.query(UserCard).filter(
+            UserCard.user_id == user_id
+        ).count()
+        
+        # 最近7天创建的卡片数
+        recent_cards = self.db.query(UserCard).filter(
+            UserCard.user_id == user_id,
+            UserCard.created_at >= datetime.utcnow() - timedelta(days=7)
+        ).count()
+        
+        return {
+            "total_cards": total_cards,
+            "active_cards": active_cards,
+            "total_created": total_created,
+            "recent_cards": recent_cards
+        }
+    
+    def _get_favorite_stats(self, user_id: str) -> Dict[str, int]:
+        """获取收藏的名片统计"""
+        from app.models.match_action import MatchAction, MatchActionType
+        
+        # 用户收藏的名片数量（COLLECTION操作）
+        favorite_cards = self.db.query(MatchAction).filter(
+            MatchAction.user_id == user_id,
+            MatchAction.action_type == MatchActionType.COLLECTION
+        ).count()
+        
+        return {
+            "favorite_cards": favorite_cards
+        }
+    
     def _get_collect_stats(self, user_id: str) -> Dict[str, int]:
         """获取收藏统计
         
@@ -152,14 +198,41 @@ class UserStatsService:
                 from datetime import datetime
                 account_age_days = (datetime.utcnow() - user_info.created_at).days
             
+            # 获取场景分布统计
+            scene_stats = self._get_scene_stats(user_id)
+            
             return {
                 **basic_stats,
                 "accountAgeDays": account_age_days,
                 "profileCompletion": self._calculate_profile_completion(user_info),
-                "lastActivity": user_info.updated_at.isoformat() if user_info.updated_at else None
+                "lastActivity": user_info.updated_at.isoformat() if user_info.updated_at else None,
+                "sceneDistribution": scene_stats
             }
         
         return basic_stats
+    
+    def _get_scene_stats(self, user_id: str) -> Dict[str, int]:
+        """获取用户卡片的场景分布统计"""
+        from app.models.user_card_db import UserCard
+        from sqlalchemy import func
+        
+        # 查询每个场景的卡片数量
+        scene_distribution = self.db.query(
+            UserCard.scene_type,
+            func.count(UserCard.id).label('count')
+        ).filter(
+            UserCard.user_id == user_id,
+            UserCard.is_deleted == 0
+        ).group_by(
+            UserCard.scene_type
+        ).all()
+        
+        # 转换为字典格式
+        scene_stats = {}
+        for scene_type, count in scene_distribution:
+            scene_stats[scene_type] = count
+            
+        return scene_stats
     
     def _calculate_profile_completion(self, user: User) -> float:
         """计算用户资料完成度"""

@@ -13,6 +13,8 @@ from app.models.user_card import (
     CardCreate, CardUpdate, Card as CardSchema,
     AllCardsResponse
 )
+from app.models.user_card import CardCreate
+from app.models.enums import SceneType, UserRoleType
 
 router = APIRouter(
     prefix="/users",
@@ -127,7 +129,30 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     user_data.pop("password")
     user_data["hashed_password"] = hashed_password
     
-    return db_service.create_user(db=db, user_data=user_data)
+    # 创建用户
+    new_user = db_service.create_user(db=db, user_data=user_data)
+    
+    # 用户注册成功后，自动创建一张 SOCIAL_BASIC 身份卡片
+    try:
+        # 构建 SOCIAL_BASIC 卡片数据
+        social_basic_card = CardCreate(
+            role_type=UserRoleType.SOCIAL_BASIC.value,
+            scene_type=SceneType.SOCIAL.value,
+            display_name=new_user.nick_name or f"用户{new_user.id[:8]}",
+            avatar_url=new_user.avatar_url or "https://picsum.photos/200/200?random=default",
+            bio=new_user.bio or "",
+            visibility="public"
+        )
+        
+        # 创建卡片
+        UserCardService.create_card(db, new_user.id, social_basic_card)
+        print(f"自动创建 SOCIAL_BASIC 卡片成功，用户ID: {new_user.id}")
+        
+    except Exception as e:
+        # 如果卡片创建失败，只记录日志，不影响用户注册流程
+        print(f"自动创建 SOCIAL_BASIC 卡片失败，用户ID: {new_user.id}, 错误: {str(e)}")
+    
+    return new_user
 
 @router.get("/", response_model=List[User])
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -207,6 +232,38 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
         updated_user = db_service.update_user(db, user_id, update_dict)
         if not updated_user:
             raise HTTPException(status_code=404, detail="User not found")
+        
+        # 检查是否需要自动创建 SOCIAL_BASIC 卡片
+        # 当用户首次完善基础信息（如昵称、头像、简介等）时创建
+        has_basic_info = bool(
+            updated_user.nick_name or 
+            updated_user.avatar_url or 
+            updated_user.bio
+        )
+        
+        if has_basic_info:
+            # 检查用户是否已存在 SOCIAL_BASIC 卡片
+            existing_card = UserCardService.get_user_card_by_role(db, user_id, SceneType.SOCIAL.value, UserRoleType.SOCIAL_BASIC)
+            
+            if not existing_card:
+                try:
+                    # 构建 SOCIAL_BASIC 卡片数据
+                    social_basic_card = CardCreate(
+                        role_type=UserRoleType.SOCIAL_BASIC.value,
+                        scene_type=SceneType.SOCIAL.value,
+                        display_name=updated_user.nick_name or f"用户{updated_user.id[:8]}",
+                        avatar_url=updated_user.avatar_url or "https://picsum.photos/200/200?random=default",
+                        bio=updated_user.bio or "",
+                        visibility="public"
+                    )
+                    
+                    # 创建卡片
+                    UserCardService.create_card(db, user_id, social_basic_card)
+                    print(f"用户更新信息后自动创建 SOCIAL_BASIC 卡片成功，用户ID: {user_id}")
+                    
+                except Exception as e:
+                    # 如果卡片创建失败，只记录日志，不影响用户更新流程
+                    print(f"用户更新信息后自动创建 SOCIAL_BASIC 卡片失败，用户ID: {user_id}, 错误: {str(e)}")
         
         from app.models.schemas import BaseResponse
         # 移除SQLAlchemy内部字段并返回干净的用户数据
@@ -303,12 +360,11 @@ def get_current_user_stats(
             "code": 500,
             "message": f"获取统计信息失败: {str(e)}",
             "data": {
-                "matchCount": 0,
-                "messageCount": 0,
-                "favoriteCount": 0,
-                "newMatches": 0,
-                "unreadMessages": 0,
-                "activeMatches": 0
+                "cardCount": 0,
+                "activeCardCount": 0,
+                "favoriteCardCount": 0,
+                "totalCardsCreated": 0,
+                "recentCards": 0
             }
         }
 
