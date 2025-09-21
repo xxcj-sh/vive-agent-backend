@@ -23,6 +23,7 @@ class UserCard(Base):
     is_deleted = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    search_code = Column(String, nullable=True, index=True)
     
     # 关系
     user = relationship("User", back_populates="cards")

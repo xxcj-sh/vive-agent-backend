@@ -79,19 +79,25 @@ def update_table_structure():
                             default = "DEFAULT CURRENT_TIMESTAMP"
                     
                     # 构建 SQL 语句
-                    alter_sql = f"ALTER TABLE user_cards ADD COLUMN {column.name} {column_type} {nullable}"
+                    alter_sql = f"ALTER TABLE user_cards ADD COLUMN {column.name} {column_type}"
+                    if not column.nullable:
+                        alter_sql += " NOT NULL"
                     if default.strip():
                         alter_sql += f" {default}"
                     
                     try:
-                        connection.execute(alter_sql)
+                        # 使用 text() 函数包装 SQL 语句
+                        from sqlalchemy import text
+                        connection.execute(text(alter_sql))
+                        connection.commit()  # 提交更改
                         print(f"✅ 添加列 {column.name} 成功")
                     except Exception as e:
                         print(f"⚠️ 添加列 {column.name} 失败: {str(e)}")
                         # 尝试更简单的版本
                         try:
                             simple_alter_sql = f"ALTER TABLE user_cards ADD COLUMN {column.name} {column_type}"
-                            connection.execute(simple_alter_sql)
+                            connection.execute(text(simple_alter_sql))
+                            connection.commit()  # 提交更改
                             print(f"✅ 添加列 {column.name} 成功（简化版本）")
                         except Exception as e2:
                             print(f"⚠️ 简化版本也失败: {str(e2)}")

@@ -53,7 +53,8 @@ class UserCardService:
             trigger_and_output=trigger_and_output,
             profile_data=profile_data,
             preferences=preferences,
-            visibility=card_data.visibility or "public"
+            visibility=card_data.visibility or "public",
+            search_code=card_data.search_code
         )
         
         db.add(db_card)
@@ -126,6 +127,7 @@ class UserCardService:
             "preferences": preferences,
             "visibility": card.visibility,
             "is_active": card.is_active,
+            "search_code": card.search_code,
             "created_at": card.created_at,
             "updated_at": card.updated_at
         }
@@ -167,7 +169,7 @@ class UserCardService:
             
         # 更新允许修改的字段
         for field, value in update_data.items():
-            if field in ["bio", "trigger_and_output", "profile_data", "preferences", "visibility"]:
+            if field in ["bio", "trigger_and_output", "profile_data", "preferences", "visibility", "search_code"]:
                 # 对 JSON 字段进行序列化
                 if field in ["trigger_and_output", "profile_data", "preferences"]:
                     if value is not None:

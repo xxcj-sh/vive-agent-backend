@@ -33,6 +33,7 @@ class CardCreate(BaseModel):
     preferences: Optional[Dict[str, Any]] = Field(None, description="偏好设置")
     visibility: Optional[str] = Field("public", description="可见性")
     tags: Optional[List[str]] = Field(None, description="标签列表")
+    search_code: Optional[str] = Field(None, description="搜索代码")
 
 class CardUpdate(BaseModel):
     """更新用户角色卡片模型"""
@@ -44,6 +45,7 @@ class CardUpdate(BaseModel):
     preferences: Optional[Dict[str, Any]] = Field(None, description="收卡人条件偏好")
     visibility: Optional[str] = Field(None, description="可见性")
     is_active: Optional[int] = Field(None, description="是否激活")
+    search_code: Optional[str] = Field(None, description="搜索代码")
 
 class Card(CardBase):
     """用户角色卡片响应模型"""
@@ -57,6 +59,7 @@ class Card(CardBase):
     preferences: Optional[Dict[str, Any]] = Field(None, description="卡片匹配偏好")
     visibility: Optional[str] = Field("public", description="可见性")
     is_active: Optional[int] = Field(None, description="是否激活")
+    search_code: Optional[str] = Field(None, description="搜索代码")
 
     @validator('trigger_and_output', pre=True)
     def validate_trigger_and_output(cls, v):
