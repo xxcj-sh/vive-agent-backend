@@ -1,0 +1,25 @@
+# 测试依赖包
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+pytest-timeout>=2.1.0
+pytest-env>=0.8.0
+pytest-xdist>=3.0.0
+
+# 模拟和测试工具
+faker>=15.0.0
+freezegun>=1.2.0
+responses>=0.22.0
+httpx>=0.23.0
+
+# 代码质量
+black>=22.0.0
+flake8>=5.0.0
+mypy>=0.991
+
+# 数据库测试
+sqlalchemy>=1.4.0
+alembic>=1.8.0
+
+# 其他工具
+python-dotenv>=0.19.0
