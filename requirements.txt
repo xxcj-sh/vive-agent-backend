@@ -10,7 +10,7 @@ httpx==0.28.1
 idna==3.10
 openai==1.108.1
 pydantic==2.10.6
-pydantic-settings==2.10.1
+pydantic-settings==2.8.1
 pydantic_core==2.33.2
 python-dotenv==1.1.1
 python-multipart==0.0.6
