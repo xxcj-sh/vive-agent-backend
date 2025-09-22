@@ -209,4 +209,4 @@ class SceneConfig(BaseModel):
     tags: List[str] = Field(..., description="标签列表")
 
 class SceneConfigResponse(BaseModel):
-    scenes = Field(..., description="场景配置字典")
+    scenes: Dict[str, SceneConfig] = Field(..., description="场景配置字典")
