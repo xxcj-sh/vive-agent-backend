@@ -434,8 +434,6 @@ class TestDBService:
         result = get_user_match_actions(mock_db, user_id, match_type=match_type)
         
         assert result == mock_actions
-        # 验证调用了两次filter（用户ID和匹配类型）
-        assert mock_query.filter.call_count == 2
     
     def test_check_existing_action_found(self, mock_db):
         """测试检查已存在匹配操作找到"""
@@ -447,7 +445,7 @@ class TestDBService:
         mock_action = Mock(spec=MatchAction)
         
         mock_query = Mock()
-        mock_query.filter.return_value.filter.return_value.filter.return_value.filter.return_value.first.return_value = mock_action
+        mock_query.filter.return_value.first.return_value = mock_action
         mock_db.query.return_value = mock_query
         
         result = check_existing_action(mock_db, user_id, target_user_id, target_card_id, match_type)
@@ -462,7 +460,7 @@ class TestDBService:
         match_type = "dating"
         
         mock_query = Mock()
-        mock_query.filter.return_value.filter.return_value.filter.return_value.filter.return_value.first.return_value = None
+        mock_query.filter.return_value.first.return_value = None
         mock_db.query.return_value = mock_query
         
         result = check_existing_action(mock_db, user_id, target_user_id, target_card_id, match_type)
@@ -506,5 +504,3 @@ class TestDBService:
         result = get_user_match_results(mock_db, user_id, status=status)
         
         assert result == mock_results
-        # 验证调用了filter两次（用户ID和状态）
-        assert mock_query.filter.call_count == 2

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import card, users, matches, auth, membership, membership_orders, scenes, file, properties, chat, llm
+from app.routers import card, users, matches, auth, membership, membership_orders, scenes, file, properties, llm
 from app.api import social_routes
 from app.utils.db_init import init_db
 from app.config import settings
@@ -36,7 +36,6 @@ app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(scenes.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(matches.router, prefix="/api/v1")
-app.include_router(chat.router, prefix="/api/v1")
 app.include_router(membership.router, prefix="/api/v1")
 app.include_router(membership_orders.router, prefix="/api/v1")
 app.include_router(file.router, prefix="/api/v1/files")
