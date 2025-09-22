@@ -3,9 +3,8 @@
 .pytest_cache
 .env.example
 uploads/
-__pycache__
 .env
-
+__pycache__/
 # Docker相关
 docker-compose.override.yml
 *.log
