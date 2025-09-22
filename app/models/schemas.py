@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
