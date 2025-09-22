@@ -4,7 +4,7 @@
 .env.example
 uploads/
 .env
-__pycache__/
+__pycache__
 # Docker相关
 docker-compose.override.yml
 *.log
