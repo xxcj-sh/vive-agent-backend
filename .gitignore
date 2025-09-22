@@ -5,3 +5,14 @@
 uploads/
 __pycache__
 .env
+
+# Docker相关
+docker-compose.override.yml
+*.log
+vmatch_production.db
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db

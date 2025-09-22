@@ -62,6 +62,15 @@ def api_info():
         }
     }
 
+@app.get("/health")
+def health_check():
+    """健康检查端点"""
+    return {
+        "status": "healthy",
+        "service": "vmatch-backend",
+        "timestamp": "2024-01-01T00:00:00Z"
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
