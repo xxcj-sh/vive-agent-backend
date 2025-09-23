@@ -11,8 +11,8 @@ def main():
     print("🚀 启动 VMatch Backend 服务...")
     print("📱 支持微信小程序登录注册")
     print("🔐 开发阶段固定验证码: 123456")
-    print("🌐 服务地址: http://localhost:8000")
-    print("📚 API文档: http://localhost:8000/docs")
+    print("🌐 服务地址: http://0.0.0.0:8000")
+    print("📚 API文档: http://0.0.0.0:8000/docs")
     # 添加当前目录到Python路径
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, current_dir)

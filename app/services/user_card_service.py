@@ -169,7 +169,7 @@ class UserCardService:
             
         # 更新允许修改的字段
         for field, value in update_data.items():
-            if field in ["bio", "trigger_and_output", "profile_data", "preferences", "visibility", "search_code"]:
+            if field in ["bio", "trigger_and_output", "profile_data", "preferences", "visibility", "search_code", "avatar_url"]:
                 # 对 JSON 字段进行序列化
                 if field in ["trigger_and_output", "profile_data", "preferences"]:
                     if value is not None:
@@ -231,7 +231,7 @@ class UserCardService:
         
         # 按场景分组
         scenes_dict = {}
-        for card in all_cards:
+        for card in active_cards:
             scene = card.scene_type
             if scene not in scenes_dict:
                 scenes_dict[scene] = []
@@ -239,7 +239,7 @@ class UserCardService:
         
         # 处理卡片数据，确保字段类型正确
         processed_cards = []
-        for card in all_cards:
+        for card in active_cards:
             # 确保 JSON 字段正确解析
             if isinstance(card.trigger_and_output, str):
                 try:
