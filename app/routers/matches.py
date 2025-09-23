@@ -19,7 +19,7 @@ router = APIRouter(prefix="/matches", tags=["匹配页面"])
 class MatchActionRequest(BaseModel):
     cardId: str
     action: str  # like, dislike, super_like, pass
-    sceneType: str  # housing, dating, activity
+    sceneType: Optional[str] = None  # housing, dating, activity
     sceneContext: Optional[str] = None
 
 class SwipeRequest(BaseModel):
@@ -196,8 +196,7 @@ async def swipe_card(
         # 构建操作数据
         action_data = MatchActionRequest(
             cardId=swipe_data.cardId,
-            action=action,
-            sceneType=swipe_data.sceneType or "dating"
+            action=action
         )
         
         # 复用匹配操作逻辑
