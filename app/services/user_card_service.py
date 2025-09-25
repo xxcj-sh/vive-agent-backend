@@ -168,7 +168,7 @@ class UserCardService:
             
         # 更新允许修改的字段
         for field, value in update_data.items():
-            if field in ["bio", "trigger_and_output", "profile_data", "preferences", "visibility", "search_code", "avatar_url"]:
+            if field in ["bio", "trigger_and_output", "profile_data", "preferences", "visibility", "search_code", "avatar_url", "display_name"]:
                 # 对 JSON 字段进行序列化
                 if field in ["trigger_and_output", "profile_data", "preferences"]:
                     if value is not None:
