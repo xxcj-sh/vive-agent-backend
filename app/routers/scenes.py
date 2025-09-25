@@ -23,6 +23,11 @@ SCENE_CONFIGS = {
                 key="activity_organizer",
                 label="组织者",
                 description="组织活动的组织者"
+            ),
+            "activity_recorder": SceneRole(
+                key="activity_recorder",
+                label="活动记录者",
+                description="记录活动"
             )
         },
         CardFields=["interests", "skillLevel", "availableTime", "groupSize", "budget"],
@@ -44,6 +49,16 @@ SCENE_CONFIGS = {
         iconActive="/images/social-active.svg",
         description="商务社交与职业发展",
         roles={
+            "social_identity": SceneRole(
+                key="social_identity",
+                label="社会身份",
+                description="介绍你的社会身份"
+            ),
+            "social_business": SceneRole(
+                key="social_business",
+                label="商务拓展",
+                description="寻找商务合作、投资机会"
+            ),
             "social_business": SceneRole(
                 key="social_business",
                 label="商务拓展",
