@@ -68,7 +68,7 @@ class UserCardService:
         query = db.query(UserCard).filter(UserCard.user_id == user_id)
         
         if active_only:
-            query = query.filter(UserCard.is_active == 1)
+            query = query.filter(UserCard.is_deleted == 0)
             
         return query.order_by(UserCard.created_at.desc()).all()
     
@@ -87,7 +87,7 @@ class UserCardService:
                 UserCard.user_id == user_id,
                 UserCard.scene_type == scene_type,
                 UserCard.role_type == role_type,
-                UserCard.is_active == 1
+                UserCard.is_deleted == 0
             )
         ).first()
         
@@ -144,8 +144,7 @@ class UserCardService:
                 "location": getattr(user, 'location', None),
                 "phone": user.phone,
                 "education": getattr(user, 'education', None),
-                "interests": getattr(user, 'interests', []) or [],
-
+                "interests": getattr(user, 'interests', []) or []
             })
         
         return result
@@ -204,7 +203,7 @@ class UserCardService:
         if not card:
             return False
             
-        card.is_active = 0
+        card.is_deleted = 1
         card.updated_at = datetime.now()
         db.commit()
         
@@ -227,7 +226,7 @@ class UserCardService:
     def get_user_all_cards_response(db: Session, user_id: str) -> AllCardsResponse:
         """获取用户所有角色卡片的完整响应"""
         all_cards = UserCardService.get_user_cards(db, user_id)
-        active_cards = [c for c in all_cards if c.is_active == 1]
+        active_cards = [c for c in all_cards if c.is_deleted == 0]
         
         # 按场景分组
         scenes_dict = {}
@@ -277,7 +276,7 @@ class UserCardService:
         return AllCardsResponse(
             user_id=user_id,
             total_count=len(processed_cards),
-            active_count=len([c for c in processed_cards if c.is_active == 1]),
+            active_count=len([c for c in processed_cards if c.is_deleted == 0]),
             by_scene=by_scene,
             all_cards=processed_cards
         )
