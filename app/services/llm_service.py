@@ -725,6 +725,9 @@ class LLMService:
             
             if user_card and hasattr(user_card, 'trigger_and_output') and user_card.trigger_and_output:
                 cart_trigger_and_output = user_card.trigger_and_output
+            
+            if user_card and hasattr(user_card, 'bio') and user_card.bio:
+                card_bio = user_card.bio
         except Exception as e:
             logger.error(f"获取卡片主人偏好和触发信息失败: {str(e)}")
 
@@ -740,10 +743,11 @@ class LLMService:
         聊天记录: {json.dumps(chatHistory, ensure_ascii=False)}
         建议类型: {suggestionType}
         卡片主人偏好信息: {json.dumps(card_owner_preferences, ensure_ascii=False)}
+        卡片简介信息（仅作为回答问题时的参考）: {card_bio}
         聊天隐藏触发条件和输出信息: {json.dumps(cart_trigger_and_output, ensure_ascii=False)}
         
         请生成{maxSuggestions}条适合当前对话情境的回复建议，要求：
-        1. 符合卡片主人性格设定，以用户本人的身份对话
+        1. 符合卡片主人性格设定，以用户的身份对话，避免出现身份混淆和不符合逻辑事实的情况
         2. 自然流畅，符合对话上下文
         3. 内容积极友好
         4. 每条建议是独立完整的回复
