@@ -8,7 +8,6 @@ __pycache__
 # Docker相关
 docker-compose.override.yml
 *.log
-vmatch_production.db
 
 # 临时文件
 *.tmp
