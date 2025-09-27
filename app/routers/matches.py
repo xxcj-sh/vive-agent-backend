@@ -297,10 +297,7 @@ async def get_match_recommendation_cards(
                 UserCard.user_id != user_id  # 排除用户自己创建的卡片
             )
         )
-        
-        # 如果指定了场景类型，添加筛选条件
-        if sceneType:
-            card_query = card_query.filter(UserCard.scene_type == sceneType)
+    
         
         # 获取总数
         total_cards = card_query.count()
@@ -344,22 +341,6 @@ async def get_match_recommendation_cards(
                 "targetCardId": str(user_card.id),
                 "cardTitle": str(user_card.display_name) if hasattr(user_card, 'display_name') else '未命名卡片'
             }
-            
-            # 根据场景类型添加特定字段
-            if user_card.scene_type == "activity" or sceneType == "activity":
-                card_data.update({
-                    "activityTime": getattr(user_card, 'activity_time', ''),
-                    "activityLocation": getattr(user_card, 'location', ''),
-                    "activityPrice": getattr(user_card, 'price', 0),
-                    "activityType": getattr(user_card, 'activity_type', '')
-                })
-            elif user_card.scene_type == "housing" or sceneType == "housing":
-                card_data.update({
-                    "houseType": getattr(user_card, 'house_type', ''),
-                    "rent": getattr(user_card, 'rent', 0),
-                    "area": getattr(user_card, 'area', ''),
-                    "location": getattr(user_card, 'location', '')
-                })
             
             cards.append(card_data)
         
