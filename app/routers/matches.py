@@ -192,7 +192,7 @@ async def swipe_card(
         }
         
         action = direction_to_action.get(swipe_data.direction, "dislike")
-        print("action", action)
+        print("swipe direction:", swipe_data)
         # 构建操作数据
         action_data = MatchActionRequest(
             cardId=swipe_data.cardId,
@@ -389,7 +389,7 @@ async def collect_card(
         
         # 创建匹配服务实例
         match_service = MatchService(db)
-        
+        print("收藏动作", user_id, card_id)
         # 提交收藏操作
         result = match_service.submit_match_action(
             user_id=user_id,

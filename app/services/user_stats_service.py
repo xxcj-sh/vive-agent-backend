@@ -150,11 +150,11 @@ class UserStatsService:
         """获取收藏的名片统计"""
         from app.models.match_action import MatchAction, MatchActionType
         
-        # 用户收藏的名片数量（COLLECTION操作）
-        favorite_cards = self.db.query(MatchAction).filter(
+        # 用户收藏的名片数量（COLLECTION操作）- 根据target_card_id去重
+        favorite_cards = self.db.query(MatchAction.target_card_id).filter(
             MatchAction.user_id == user_id,
             MatchAction.action_type == MatchActionType.COLLECTION
-        ).count()
+        ).distinct().count()
         
         return {
             "favorite_cards": favorite_cards
@@ -168,11 +168,11 @@ class UserStatsService:
         """
         from app.models.match_action import MatchAction, MatchActionType
         
-        # 用户的喜欢操作数量
-        total_favorites = self.db.query(MatchAction).filter(
+        # 用户的收藏操作数量（根据target_card_id去重）
+        total_favorites = self.db.query(MatchAction.target_card_id).filter(
             MatchAction.user_id == user_id,
             MatchAction.action_type == MatchActionType.COLLECTION
-        ).count()
+        ).distinct().count()
         
         return {
             "total_favorites": total_favorites
