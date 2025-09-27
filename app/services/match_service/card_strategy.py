@@ -106,7 +106,6 @@ class MatchCardStrategy:
                     "sceneType": "dating",
                     "roleType": role_type,
                     "createdAt": user.created_at.isoformat(),
-                    "matchScore": self._calculate_match_score(current_user, user),
                     "gender": getattr(user, 'gender', 0),
                     "education": getattr(user, 'education', ''),
                     "height": getattr(user, 'height', 170),
@@ -161,7 +160,6 @@ class MatchCardStrategy:
                     "sceneType": scene_type,
                     "roleType": role_type,
                     "createdAt": participant.created_at.isoformat(),
-                    "matchScore": self._calculate_match_score(current_user, participant),
                     "preferredActivity": "社交活动",
                     "budgetRange": "100-500",
                     "availability": "周末",
@@ -189,29 +187,6 @@ class MatchCardStrategy:
             "avatarUrl": getattr(user, 'avatar_url', None),
             "preferences": getattr(user, 'preferences', {})
         }
-    
-    def _calculate_match_score(self, current_user: Dict[str, Any], target_user: User) -> int:
-        """计算匹配分数"""
-        score = 50  # 基础分数
-        
-        # 地理位置匹配
-        if current_user.get("location") and target_user.location:
-            if current_user["location"] in target_user.location or target_user.location in current_user["location"]:
-                score += 20
-        
-        # 兴趣匹配
-        current_interests = set(current_user.get("interests", []))
-        target_interests = set(getattr(target_user, 'interests', []))
-        if current_interests and target_interests:
-            common_interests = current_interests.intersection(target_interests)
-            score += min(len(common_interests) * 5, 20)
-        
-        # 年龄匹配
-        age_diff = abs(current_user.get("age", 25) - getattr(target_user, 'age', 25))
-        if age_diff <= 5:
-            score += 10
-        
-        return min(score, 100)
     
     def get_universal_match_cards(self, page: int = 1, page_size: int = 10, 
                                  current_user: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -245,16 +220,6 @@ class MatchCardStrategy:
                 UserCard.visibility == "public"  # 公开可见的卡片
             )
             
-            # 获取基础用户信息用于性别筛选
-            current_user_obj = self.db.query(User).filter(User.id == current_user["id"]).first()
-            if current_user_obj:
-                # 从当前用户字典获取偏好设置
-                preferences = current_user.get("preferences", {})
-                target_gender = preferences.get("target_gender")
-                if target_gender is not None:
-                    # 需要关联 user 表进行性别筛选
-                    query = query.join(User, UserCard.user_id == User.id).filter(User.gender == target_gender)
-            
             total = query.count()
             cards = query.order_by(UserCard.created_at.desc()).offset(offset).limit(page_size).all()
             
@@ -264,13 +229,7 @@ class MatchCardStrategy:
                 user = self.db.query(User).filter(User.id == card.user_id).first()
                 if not user:
                     continue
-                
-                # 检查对方是否已对当前用户表示兴趣
-                target_user_interest = self.db.query(MatchAction).filter(
-                    MatchAction.user_id == card.user_id,
-                    MatchAction.target_user_id == current_user["id"],
-                    MatchAction.action_type.in_([MatchActionType.LIKE, MatchActionType.SUPER_LIKE])
-                ).first()
+            
                 
                 # 解析 JSON 字段
                 try:
@@ -280,12 +239,13 @@ class MatchCardStrategy:
                 except (json.JSONDecodeError, TypeError):
                     profile_data = {}
                     preferences_data = {}
-                print("card", card)
+                print("card.avatar_url", card.avatar_url)
                 card_data = {
                     "id": card.id,
                     "userId": card.user_id,
                     "name": card.display_name,
                     "avatar": card.avatar_url,
+                    "avatarUrl": card.avatar_url,
                     "age": profile_data.get('age', getattr(user, 'age', 25)),
                     "occupation": profile_data.get('occupation', getattr(user, 'occupation', '')),
                     "location": profile_data.get('location', getattr(user, 'location', '')),
@@ -294,12 +254,9 @@ class MatchCardStrategy:
                     "sceneType": card.scene_type,
                     "roleType": card.role_type,
                     "createdAt": card.created_at.isoformat(),
-                    "matchScore": self._calculate_match_score(current_user, user) if user else 50,
                     "gender": getattr(user, 'gender', 0),
                     "education": profile_data.get('education', getattr(user, 'education', '')),
                     "height": profile_data.get('height', getattr(user, 'height', 170)),
-                    "hasInterestInMe": target_user_interest is not None,
-                    "mutualMatchAvailable": target_user_interest is not None,
                     # 额外的卡片特定字段
                     "triggerAndOutput": card.trigger_and_output,
                     "preferences": preferences_data,
@@ -311,6 +268,7 @@ class MatchCardStrategy:
             return {"list": result_cards, "total": total}
             
         except Exception as e:
+            raise e
             print(f"获取通用匹配卡片失败: {str(e)}")
             return {"list": [], "total": 0}
 
