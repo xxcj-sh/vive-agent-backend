@@ -169,8 +169,8 @@ class AuthService:
             create_user_func, get_user_by_phone_func, get_user_func = get_db_services()
             db_user = get_user_by_phone_func(db, phone)
             if db_user:
-                # 检查用户是否为新用户（没有创建任何资料）
-                is_new_user = False if hasattr(db_user, 'register_at') and db_user.register_at else True
+                # 检查用户是否为新用户：如果用户已存在且有注册时间，则为老用户
+                is_new_user = not (hasattr(db_user, 'register_at') and db_user.register_at)
                 user_dict = {
                     "id": db_user.id,
                     "phone": db_user.phone,
@@ -277,7 +277,7 @@ class AuthService:
             
             if db_user:
                 # 用户已存在，更新微信信息
-                is_new_user = False if hasattr(db_user, 'register_at') and db_user.register_at else True
+                is_new_user = not (hasattr(db_user, 'register_at') and db_user.register_at)
                 
                 # 如果有用户信息，更新用户资料
                 if user_info:
