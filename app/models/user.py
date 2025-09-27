@@ -36,7 +36,7 @@ class User(Base):
     last_login = Column(DateTime(timezone=True), nullable=True)  # 最后登录时间
     level = Column(Integer, default=1)  # 用户等级
     points = Column(Integer, default=0)  # 积分
-    register_at = Column(DateTime(timezone=True), nullable=True)  # 用户注册成功时间
+    register_at = Column(DateTime(timezone=True), nullable=True, server_default=func.now())  # 用户注册成功时间
         
     # 关系
     matches = relationship("Match", back_populates="user")
