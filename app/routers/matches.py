@@ -97,23 +97,13 @@ async def get_match_cards(
         # 创建匹配卡片策略服务实例
         match_card_strategy = MatchCardStrategy(db_session)
         
-        # 如果 sceneType 或 userRole 参数不可用，返回不区分场景的通用卡片
-        if not sceneType or not userRole:
-            # 获取通用匹配卡片（不区分场景）
-            result = match_card_strategy.get_universal_match_cards(
-                page=page,
-                page_size=pageSize,
-                current_user=current_user_dict
-            )
-        else:
-            # 使用匹配卡片策略服务
-            result = match_card_strategy.get_match_cards(
-                scene_type=sceneType,
-                role_type=userRole,
-                page=page,
-                page_size=pageSize,
-                current_user=current_user_dict
-            )
+        # 获取通用匹配卡片（不区分场景）
+        result = match_card_strategy.get_universal_match_cards(
+            page=page,
+            page_size=pageSize,
+            current_user=current_user_dict
+        )
+
         
         return BaseResponse(
             code=0, 

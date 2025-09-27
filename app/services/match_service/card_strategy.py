@@ -217,6 +217,7 @@ class MatchCardStrategy:
                                  current_user: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         获取通用匹配卡片（不区分场景）
+        直接从 user_card 表获取所有非测试的可用卡片
         
         Args:
             page: 页码
@@ -232,50 +233,82 @@ class MatchCardStrategy:
         try:
             offset = (page - 1) * page_size
             
-            # 应用性别筛选
-            preferences = current_user.get("preferences", {})
-            target_gender = preferences.get("target_gender")
-            if target_gender is not None:
-                query = query.filter(User.gender == target_gender)
-            
-            total = query.count()
-            users = query.order_by(User.created_at.desc()).offset(offset).limit(page_size).all()
-            
-            # 导入匹配操作模型
+            # 导入 UserCard 模型
+            from app.models.user_card_db import UserCard
             from app.models.match_action import MatchAction, MatchActionType
             
-            cards = []
-            # 检查对方是否已对当前用户表示兴趣
-            target_user_interest = self.db.query(MatchAction).filter(
-                # MatchAction.target_user_id == current_user["id"]
-                # MatchAction.action_type.in_([MatchActionType.AI_RECOMMEND_AFTER_USER_CHAT, MatchActionType.LIKE, MatchActionType.SUPER_LIKE])
-            ).first()
-            print("target_user_interest", target_user_interest)
-            user = users[0]
-            card_data = {
-                "id": f"{user.id}_{int(datetime.utcnow().timestamp())}",
-                "userId": str(user.id),
-                "name": getattr(user, 'nick_name', None) or getattr(user, 'name', '匿名用户'),
-                "avatar": getattr(user, 'avatar_url', None),
-                "age": getattr(user, 'age', 25),
-                "occupation": getattr(user, 'occupation', ''),
-                "location": getattr(user, 'location', ''),
-                "bio": getattr(user, 'bio', ''),
-                "interests": getattr(user, 'interests', []),
-                "sceneType": "social",
-                "roleType": "social_business",
-                "createdAt": user.created_at.isoformat(),
-                "matchScore": self._calculate_match_score(current_user, user),
-                "gender": getattr(user, 'gender', 0),
-                "education": getattr(user, 'education', ''),
-                "height": getattr(user, 'height', 170),
-                "hasInterestInMe": target_user_interest is not None,
-                "mutualMatchAvailable": target_user_interest is not None
-            }
+            # 从 user_card 表查询非测试的可用卡片
+            query = self.db.query(UserCard).filter(
+                UserCard.user_id != current_user["id"],  # 排除当前用户
+                UserCard.is_active == 1,  # 激活的卡片
+                UserCard.is_deleted == 0,   # 未删除的卡片
+                UserCard.visibility == "public"  # 公开可见的卡片
+            )
             
-            cards.append(card_data)
+            # 获取基础用户信息用于性别筛选
+            current_user_obj = self.db.query(User).filter(User.id == current_user["id"]).first()
+            if current_user_obj:
+                # 从当前用户字典获取偏好设置
+                preferences = current_user.get("preferences", {})
+                target_gender = preferences.get("target_gender")
+                if target_gender is not None:
+                    # 需要关联 user 表进行性别筛选
+                    query = query.join(User, UserCard.user_id == User.id).filter(User.gender == target_gender)
             
-            return {"list": cards, "total": total}
+            total = query.count()
+            cards = query.order_by(UserCard.created_at.desc()).offset(offset).limit(page_size).all()
+            
+            result_cards = []
+            for card in cards:
+                # 获取卡片对应的用户信息
+                user = self.db.query(User).filter(User.id == card.user_id).first()
+                if not user:
+                    continue
+                
+                # 检查对方是否已对当前用户表示兴趣
+                target_user_interest = self.db.query(MatchAction).filter(
+                    MatchAction.user_id == card.user_id,
+                    MatchAction.target_user_id == current_user["id"],
+                    MatchAction.action_type.in_([MatchActionType.LIKE, MatchActionType.SUPER_LIKE])
+                ).first()
+                
+                # 解析 JSON 字段
+                try:
+                    import json
+                    profile_data = json.loads(card.profile_data) if card.profile_data else {}
+                    preferences_data = json.loads(card.preferences) if card.preferences else {}
+                except (json.JSONDecodeError, TypeError):
+                    profile_data = {}
+                    preferences_data = {}
+                
+                card_data = {
+                    "id": card.id,
+                    "userId": card.user_id,
+                    "name": card.display_name or getattr(user, 'nick_name', None) or getattr(user, 'name', '匿名用户'),
+                    "avatar": card.avatar_url or getattr(user, 'avatar_url', None),
+                    "age": profile_data.get('age', getattr(user, 'age', 25)),
+                    "occupation": profile_data.get('occupation', getattr(user, 'occupation', '')),
+                    "location": profile_data.get('location', getattr(user, 'location', '')),
+                    "bio": card.bio or getattr(user, 'bio', ''),
+                    "interests": profile_data.get('interests', getattr(user, 'interests', [])),
+                    "sceneType": card.scene_type,
+                    "roleType": card.role_type,
+                    "createdAt": card.created_at.isoformat(),
+                    "matchScore": self._calculate_match_score(current_user, user) if user else 50,
+                    "gender": getattr(user, 'gender', 0),
+                    "education": profile_data.get('education', getattr(user, 'education', '')),
+                    "height": profile_data.get('height', getattr(user, 'height', 170)),
+                    "hasInterestInMe": target_user_interest is not None,
+                    "mutualMatchAvailable": target_user_interest is not None,
+                    # 额外的卡片特定字段
+                    "triggerAndOutput": card.trigger_and_output,
+                    "preferences": preferences_data,
+                    "visibility": card.visibility
+                }
+                
+                result_cards.append(card_data)
+            
+            return {"list": result_cards, "total": total}
             
         except Exception as e:
             print(f"获取通用匹配卡片失败: {str(e)}")
