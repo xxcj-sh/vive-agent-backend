@@ -278,20 +278,6 @@ CREATE INDEX idx_social_preferences_user_id ON social_preferences(user_id);
 CREATE INDEX idx_social_profiles_user_id ON social_profiles(user_id);
 CREATE INDEX idx_social_match_criteria_user_id ON social_match_criteria(user_id);
 
--- 插入默认数据
-INSERT INTO users (id, phone, nick_name, avatar_url, age, bio, occupation, location, status, is_active) VALUES 
-('admin_user_001', '13800138000', '系统管理员', 'https://example.com/avatar/admin.jpg', 30, '系统管理员账户', '系统管理员', '北京', 'active', 1);
-
--- 插入测试用户数据
-INSERT INTO users (id, phone, nick_name, avatar_url, age, bio, occupation, location, status, is_active, created_at, updated_at) VALUES 
-('test_user_001', '13800138001', '测试用户1', 'https://example.com/avatar/user1.jpg', 25, '这是一个测试用户', '软件工程师', '上海', 'active', 1, datetime('now'), datetime('now')),
-('test_user_002', '13800138002', '测试用户2', 'https://example.com/avatar/user2.jpg', 28, '这是另一个测试用户', '产品经理', '北京', 'active', 1, datetime('now'), datetime('now'));
-
--- 插入测试卡片数据
-INSERT INTO user_cards (id, user_id, role_type, scene_type, display_name, avatar_url, bio, is_active, created_at, updated_at) VALUES 
-('card_001', 'test_user_001', 'dating_provider', 'dating', '寻找真爱', 'https://example.com/avatar/card1.jpg', '真诚交友，寻找人生伴侣', 1, datetime('now'), datetime('now')),
-('card_002', 'test_user_002', 'activity_organizer', 'activity', '周末爬山活动', 'https://example.com/avatar/card2.jpg', '组织周末户外爬山活动，欢迎加入', 1, datetime('now'), datetime('now'));
-
 -- 创建视图（可选）
 -- 用户统计视图
 CREATE VIEW user_statistics AS

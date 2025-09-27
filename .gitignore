@@ -15,4 +15,4 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 __pycache__/
-vmatch_dev.db
+vmatch.db
