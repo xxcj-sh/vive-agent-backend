@@ -280,7 +280,7 @@ class MatchCardStrategy:
                 except (json.JSONDecodeError, TypeError):
                     profile_data = {}
                     preferences_data = {}
-                
+                print("card", card)
                 card_data = {
                     "id": card.id,
                     "userId": card.user_id,
