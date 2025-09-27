@@ -598,7 +598,7 @@ class MatchService:
         try:
             # 基础查询：获取用户的收藏操作
             query = self.db.query(MatchAction).filter(
-                # MatchAction.user_id == user_id, #DEBUG
+                MatchAction.user_id == user_id,
                 MatchAction.action_type == DBMatchActionType.COLLECTION
             )
             
