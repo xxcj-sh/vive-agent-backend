@@ -30,6 +30,7 @@ class User(Base):
     # 新增字段
     interests = Column(JSON, nullable=True)  # 兴趣爱好（JSON格式存储数组）
     wechat = Column(String(100), nullable=True)  # 微信号
+    wechat_open_id = Column(String(100), nullable=True)  # 微信openid
     email = Column(String(255), nullable=True)  # 邮箱
     status = Column(String(20), default='pending')  # 用户状态: pending(待激活), active(正常), suspended(暂停), deleted(已删除)
     last_login = Column(DateTime(timezone=True), nullable=True)  # 最后登录时间
@@ -47,6 +48,7 @@ class User(Base):
 class UserBase(BaseModel):
     phone: Optional[str] = None
     nick_name: Optional[str] = None
+    wechat_open_id: Optional[str] = None
     avatar_url: Optional[str] = None
     gender: Optional[int] = None
     age: Optional[int] = None

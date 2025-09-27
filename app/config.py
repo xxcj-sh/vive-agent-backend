@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     LLM_TIMEOUT: int = int(os.getenv("LLM_TIMEOUT", 30))
     LLM_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("LLM_RATE_LIMIT_PER_MINUTE", 60))
     
+    # 微信小程序配置
+    WECHAT_APP_ID: str = os.getenv("WECHAT_APP_ID", "")
+    WECHAT_APP_SECRET: str = os.getenv("WECHAT_APP_SECRET", "")
+    
     class Config:
         env_file = ".env"
 

@@ -71,6 +71,57 @@ async def login(
     except Exception as e:
         return BaseResponse(code=1001, message=str(e), data={})
 
+@router.post("/sessions/wechat-phone", response_model=BaseResponse, status_code=201)
+async def login_by_wechat_phone(
+    request: Request,
+    db: Session = Depends(get_db),
+    auth_service = Depends(get_auth_service)
+):
+    """微信一键登录（获取手机号）"""
+    try:
+        body = await request.json()
+        code = body.get("code")
+        phone_code = body.get("phoneCode")
+        user_info = body.get("userInfo")
+        
+        if not code or not phone_code:
+            return BaseResponse(code=422, message="缺少必要参数", data={})
+        
+        # Create user_info if provided
+        user_info_obj = None
+        if user_info and isinstance(user_info, dict):
+            try:
+                user_info_obj = UserInfo(
+                    nick_name=user_info.get("nickName"),
+                    avatar_url=user_info.get("avatarUrl"),
+                    gender=user_info.get("gender")
+                )
+            except:
+                pass
+        
+        # 调用微信一键登录服务
+        login_result = auth_service.login_by_wechat_phone(
+            code=code,
+            phone_code=phone_code,
+            user_info=user_info_obj,
+            db=db
+        )
+        
+        return BaseResponse(
+            code=0,
+            message="success",
+            data={
+                "token": login_result["token"],
+                "expiresIn": login_result["expiresIn"],
+                "isNewUser": login_result.get("isNewUser", False),
+                "userInfo": login_result["userInfo"]
+            }
+        )
+    except ValueError as e:
+        return BaseResponse(code=422, message=str(e), data={})
+    except Exception as e:
+        return BaseResponse(code=1006, message=f"微信一键登录失败: {str(e)}", data={})
+
 @router.post("/sessions/phone", response_model=BaseResponse, status_code=201)
 async def login_by_phone(
     request: Request,
