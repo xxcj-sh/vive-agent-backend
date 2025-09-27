@@ -20,7 +20,7 @@ def init_database(db_path=None, sql_script_path=None):
     
     # 设置默认路径
     if db_path is None:
-        db_path = Path(__file__).parent.parent / "vmatch.db"
+        db_path = Path(__file__).parent.parent / "vmatch_dev.db"
     
     if sql_script_path is None:
         sql_script_path = Path(__file__).parent / "init_sqlite_db.sql"
