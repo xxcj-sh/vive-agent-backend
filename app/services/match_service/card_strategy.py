@@ -284,8 +284,8 @@ class MatchCardStrategy:
                 card_data = {
                     "id": card.id,
                     "userId": card.user_id,
-                    "name": card.display_name or getattr(user, 'nick_name', None) or getattr(user, 'name', '匿名用户'),
-                    "avatar": card.avatar_url or getattr(user, 'avatar_url', None),
+                    "name": card.display_name,
+                    "avatar": card.avatar_url,
                     "age": profile_data.get('age', getattr(user, 'age', 25)),
                     "occupation": profile_data.get('occupation', getattr(user, 'occupation', '')),
                     "location": profile_data.get('location', getattr(user, 'location', '')),
