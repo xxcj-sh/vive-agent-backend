@@ -13,6 +13,7 @@ from sqlalchemy import func, and_, or_
 from app.models.match_action import MatchAction, MatchActionType as DBMatchActionType
 from app.models.match_action import MatchResult as DBMatchResult, MatchResultStatus as DBMatchStatus
 from app.models.user import User
+from app.models.user_card_db import UserCard
 from .models import MatchResult, MatchActionType, MatchStatistics, AIRecommendation
 from datetime import timedelta
 from .card_strategy import MatchCardStrategy
@@ -608,7 +609,7 @@ class MatchService:
             
             # 获取总数
             total = query.count()
-            print(f"用户 {user_id} 收藏卡片总数: {total}")
+            print(f"用户 {user_id} 收藏行为记录总数: {total}")
             
             # 获取分页数据
             collected_actions = query.order_by(
@@ -617,43 +618,58 @@ class MatchService:
             
             # 构建卡片数据
             cards = []
-            for action in collected_actions:
+            for action in collected_actions:                
+                # 获取目标用户的卡片信息
+                print(f"获取卡片 {action.target_card_id} 信息")
+                target_card = self.db.query(UserCard).filter(
+                    UserCard.id == action.target_card_id
+                ).first()
+                
+                if not target_card:
+                    print(f"警告: 收藏记录 {action.id} 指向不存在的卡片 {action.target_card_id}")
+                    continue
+                
                 # 获取目标用户信息
                 target_user = self.db.query(User).filter(
                     User.id == action.target_user_id
                 ).first()
                 
+                # 如果目标用户不存在，使用默认值
                 if not target_user:
-                    continue
-                
-                # 获取目标用户的卡片信息
-                from app.models.user_card_db import UserCard
-                target_card = self.db.query(UserCard).filter(
-                    UserCard.user_id == action.user_id,
-                    UserCard.is_active == 1
-                ).first()
-                
-                if not target_card:
-                    continue
-                
-                # 构建卡片数据 - 将SQLAlchemy对象转换为字典
-                card_data = {
-                    "id": str(target_card.id),
-                    "userId": str(target_user.id),
-                    "name": getattr(target_card, 'display_name', None) or getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
-                    "avatar": getattr(target_card, 'avatar_url', None),
-                    "age": getattr(target_user, 'age', 25),
-                    "occupation": getattr(target_user, 'occupation', ''),
-                    "location": getattr(target_user, 'location', ''),
-                    "education": getattr(target_user, 'education', ''),
-                    "bio": getattr(target_user, 'bio', ''),
-                    "interests": getattr(target_user, 'interests', []),
-                    "sceneType": target_card.scene_type,
-                    "roleType": target_card.role_type,
-                    "displayName": target_card.display_name,
-                    "bio": target_card.bio,
-                    "createdAt": target_card.created_at.isoformat() if target_card.created_at else ""
-                }
+                    card_data = {
+                        "id": str(target_card.id),
+                        "userId": str(target_card.user_id),
+                        "name": getattr(target_card, 'display_name', '匿名用户'),
+                        "avatar": getattr(target_card, 'avatar_url', None),
+                        "age": 25,
+                        "occupation": '',
+                        "location": '',
+                        "education": '',
+                        "bio": target_card.bio or '',
+                        "interests": [],
+                        "sceneType": target_card.scene_type,
+                        "roleType": target_card.role_type,
+                        "displayName": target_card.display_name,
+                        "createdAt": target_card.created_at.isoformat() if target_card.created_at else ""
+                    }
+                else:
+                    # 构建卡片数据 - 将SQLAlchemy对象转换为字典
+                    card_data = {
+                        "id": str(target_card.id),
+                        "userId": str(target_card.user_id),
+                        "name": getattr(target_card, 'display_name', None) or getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
+                        "avatar": getattr(target_card, 'avatar_url', None),
+                        "age": getattr(target_user, 'age', 25),
+                        "occupation": getattr(target_user, 'occupation', ''),
+                        "location": getattr(target_user, 'location', ''),
+                        "education": getattr(target_user, 'education', ''),
+                        "bio": getattr(target_user, 'bio', target_card.bio or ''),
+                        "interests": getattr(target_user, 'interests', []),
+                        "sceneType": target_card.scene_type,
+                        "roleType": target_card.role_type,
+                        "displayName": target_card.display_name,
+                        "createdAt": target_card.created_at.isoformat() if target_card.created_at else ""
+                    }
                 
                 
                 cards.append(card_data)

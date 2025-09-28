@@ -97,23 +97,13 @@ async def get_match_cards(
         # 创建匹配卡片策略服务实例
         match_card_strategy = MatchCardStrategy(db_session)
         
-        # 如果 sceneType 或 userRole 参数不可用，返回不区分场景的通用卡片
-        if not sceneType or not userRole:
-            # 获取通用匹配卡片（不区分场景）
-            result = match_card_strategy.get_universal_match_cards(
-                page=page,
-                page_size=pageSize,
-                current_user=current_user_dict
-            )
-        else:
-            # 使用匹配卡片策略服务
-            result = match_card_strategy.get_match_cards(
-                scene_type=sceneType,
-                role_type=userRole,
-                page=page,
-                page_size=pageSize,
-                current_user=current_user_dict
-            )
+        # 获取通用匹配卡片（不区分场景）
+        result = match_card_strategy.get_universal_match_cards(
+            page=page,
+            page_size=pageSize,
+            current_user=current_user_dict
+        )
+
         
         return BaseResponse(
             code=0, 
@@ -192,7 +182,7 @@ async def swipe_card(
         }
         
         action = direction_to_action.get(swipe_data.direction, "dislike")
-        print("action", action)
+        print("swipe direction:", swipe_data)
         # 构建操作数据
         action_data = MatchActionRequest(
             cardId=swipe_data.cardId,
@@ -297,10 +287,7 @@ async def get_match_recommendation_cards(
                 UserCard.user_id != user_id  # 排除用户自己创建的卡片
             )
         )
-        
-        # 如果指定了场景类型，添加筛选条件
-        if sceneType:
-            card_query = card_query.filter(UserCard.scene_type == sceneType)
+    
         
         # 获取总数
         total_cards = card_query.count()
@@ -328,38 +315,21 @@ async def get_match_recommendation_cards(
             card_data = {
                 "id": str(user_card.id),
                 "userId": str(card_creator.id),
-                "cardId": str(user_card.id),
                 "sceneType": user_card.scene_type or sceneType,
                 "userRole": roleType,
-                "name": getattr(card_creator, 'nick_name', None) or getattr(card_creator, 'name', '匿名用户'),
-                "avatar": getattr(card_creator, 'avatar_url', None) or "",
-                "age": getattr(card_creator, 'age', 25),
-                "occupation": getattr(card_creator, 'occupation', ''),
-                "location": getattr(card_creator, 'location', ''),
-                "bio": getattr(card_creator, 'bio', ''),
-                "interests": getattr(card_creator, 'interests', []) if isinstance(getattr(card_creator, 'interests', []), list) else [],
+                "creatorName": getattr(user_card, 'display_name', None) or getattr(card_creator, 'name', '匿名用户'),
+                "avatar": getattr(user_card, 'avatar_url', None) or "",
+                "creatorAvatar": getattr(card_creator, 'avatar_url', None) or "",
+                "creatorAge": getattr(card_creator, 'age', 25),
+                "creatorOccupation": getattr(card_creator, 'occupation', ''),
+                "location": getattr(user_card, 'location', ''),
+                "bio": getattr(user_card, 'bio', ''),
+                "creatorInterests": getattr(card_creator, 'interests', []) if isinstance(getattr(card_creator, 'interests', []), list) else [],
                 "createdAt": user_card.created_at.isoformat() if user_card.created_at else "",
-                "matchScore": 75,  # 默认匹配分数
                 "recommendReason": '系统推荐',
-                "targetCardId": str(user_card.id),
-                "cardTitle": str(user_card.display_name) if hasattr(user_card, 'display_name') else '未命名卡片'
+                "cardTitle": str(user_card.display_name),
+                "displayName": getattr(user_card, 'display_name', None)
             }
-            
-            # 根据场景类型添加特定字段
-            if user_card.scene_type == "activity" or sceneType == "activity":
-                card_data.update({
-                    "activityTime": getattr(user_card, 'activity_time', ''),
-                    "activityLocation": getattr(user_card, 'location', ''),
-                    "activityPrice": getattr(user_card, 'price', 0),
-                    "activityType": getattr(user_card, 'activity_type', '')
-                })
-            elif user_card.scene_type == "housing" or sceneType == "housing":
-                card_data.update({
-                    "houseType": getattr(user_card, 'house_type', ''),
-                    "rent": getattr(user_card, 'rent', 0),
-                    "area": getattr(user_card, 'area', ''),
-                    "location": getattr(user_card, 'location', '')
-                })
             
             cards.append(card_data)
         
@@ -408,7 +378,7 @@ async def collect_card(
         
         # 创建匹配服务实例
         match_service = MatchService(db)
-        
+        print("收藏动作", user_id, card_id)
         # 提交收藏操作
         result = match_service.submit_match_action(
             user_id=user_id,
@@ -573,139 +543,5 @@ async def get_match_detail(
         return BaseResponse(
             code=500,
             message=f"获取匹配详情失败: {str(e)}",
-            data=None
-        )
-    try:
-        # 优先获取AI推荐
-        from sqlalchemy import and_
-        from app.models.match_action import MatchAction, MatchActionType
-        from app.models.user import User
-        from app.models.user_card_db import UserCard
-        
-        # 获取当前用户ID
-        if isinstance(current_user, dict):
-            user_id = str(current_user.get('id', ''))
-        else:
-            user_id = str(current_user.id)
-        
-        # 先尝试获取AI推荐
-        ai_recommend_actions = db.query(MatchAction).filter(
-            and_(
-                MatchAction.target_user_id == user_id,
-                MatchAction.action_type == MatchActionType.AI_RECOMMEND_AFTER_USER_CHAT
-            )
-        ).order_by(MatchAction.created_at.desc())
-        
-        ai_total = ai_recommend_actions.count()
-        ai_actions = ai_recommend_actions.offset((page - 1) * pageSize).limit(pageSize).all()
-        
-        if ai_total > 0:
-            # 有AI推荐，返回AI推荐数据
-            cards = []
-            for action in ai_actions:
-                target_user = db.query(User).filter(User.id == str(action.user_id)).first()
-                if not target_user:
-                    continue
-                    
-                target_card = db.query(UserCard).filter(
-                    UserCard.user_id == str(action.user_id),
-                    UserCard.scene_type == sceneType,
-                    UserCard.is_active == 1
-                ).first()
-                
-                if not target_card:
-                    continue
-                
-                scene_context = {}
-                if action.scene_context:
-                    try:
-                        scene_context = json.loads(action.scene_context)
-                    except:
-                        pass
-                
-                card_data = {
-                    "id": str(action.target_card_id),  # 使用目标卡片ID而不是动作记录ID
-                    "cardId": str(action.target_card_id),  # 添加cardId字段供前端使用
-                    "userId": str(target_user.id),
-                    "name": getattr(target_user, 'nick_name', None) or getattr(target_user, 'name', '匿名用户'),
-                    "avatar": getattr(target_user, 'avatar_url', None),
-                    "age": getattr(target_user, 'age', 25),
-                    "occupation": getattr(target_user, 'occupation', ''),
-                    "location": getattr(target_user, 'location', ''),
-                    "bio": getattr(target_user, 'bio', ''),
-                    "interests": getattr(target_user, 'interests', []),
-                    "sceneType": str(action.action_type),
-                    "isAIRecommendation": True,
-                    "aiAnalysis": scene_context.get('aiAnalysis', {}),
-                    "matchScore": scene_context.get('aiAnalysis', {}).get('matchScore', 85),
-                    "recommendationReason": scene_context.get('aiAnalysis', {}).get('preferenceJudgement', '基于聊天内容智能推荐'),
-                    "createdAt": action.created_at.isoformat() if action.created_at else ""
-                }
-                
-                if sceneType == "activity":
-                    card_data.update({
-                        "activityName": getattr(target_card, 'title', ''),
-                        "activityTime": getattr(target_card, 'activity_time', ''),
-                        "activityLocation": getattr(target_card, 'location', ''),
-                        "activityPrice": getattr(target_card, 'price', 0)
-                    })
-                elif sceneType == "social":
-                    card_data.update({
-                        "gender": getattr(target_user, 'gender', ''),
-                        "education": getattr(target_user, 'education', '')
-                    })
-                
-                cards.append(card_data)
-            
-            return BaseResponse(
-                code=0,
-                message="success",
-                data={
-                    "cards": cards,
-                    "pagination": {
-                        "page": page,
-                        "pageSize": pageSize,
-                        "total": ai_total,
-                        "totalPages": (ai_total + pageSize - 1) // pageSize
-                    },
-                    "source": "ai_recommendations"
-                }
-            )
-        else:
-            # 没有AI推荐，使用普通匹配推荐
-            from app.services.match_service import MatchService
-            match_service = MatchService(db)
-            
-            # 获取匹配卡片
-            cards_data = match_service.get_recommendation_cards(
-                user_id=user_id,
-                scene_type=sceneType,
-                user_role=roleType,
-                page=page,
-                page_size=pageSize
-            )
-            
-            return BaseResponse(
-                code=0,
-                message="success",
-                data={
-                    "cards": cards_data.get("cards", []),
-                    "pagination": {
-                        "page": page,
-                        "pageSize": pageSize,
-                        "total": cards_data.get("total", 0),
-                        "totalPages": (cards_data.get("total", 0) + pageSize - 1) // pageSize
-                    },
-                    "source": "regular_recommendations"
-                }
-            )
-            
-    except Exception as e:
-        print(f"获取匹配推荐异常: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return BaseResponse(
-            code=500,
-            message=f"获取匹配推荐失败: {str(e)}",
             data=None
         )

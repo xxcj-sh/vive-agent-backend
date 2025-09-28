@@ -26,7 +26,7 @@ SCENE_CONFIGS = {
             ),
             "activity_recorder": SceneRole(
                 key="activity_recorder",
-                label="活动记录者",
+                label="活动记录",
                 description="记录活动"
             )
         },
