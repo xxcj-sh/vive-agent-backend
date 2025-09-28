@@ -48,6 +48,7 @@ def identify_test_cards(conn):
         "LOWER(bio) LIKE '%test%'",
         # 条件6: 搜索代码包含测试字样
         "search_code LIKE '%test%'",
+        "avatar_url LIKE '%http://%'",
         # 条件7: 用户ID可能是测试用户（包含test或测试）
         "user_id IN (SELECT id FROM users WHERE nick_name LIKE '%测试%' OR LOWER(nick_name) LIKE '%test%')"
     ]

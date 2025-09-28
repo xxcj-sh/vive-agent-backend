@@ -14,20 +14,25 @@ SCENE_CONFIGS = {
         iconActive="/images/interest-active.svg",
         description="寻找活动伙伴",
         roles={
-            "activity_participant": SceneRole(
-                key="activity_participant",
-                label="参与者",
-                description="寻找活动伙伴"
-            ),
-            "activity_organizer": SceneRole(
-                key="activity_organizer",
-                label="组织者",
-                description="组织活动的组织者"
-            ),
+            # "activity_participant": SceneRole(
+            #     key="activity_participant",
+            #     label="参与者",
+            #     description="寻找活动伙伴"
+            # ),
+            # "activity_organizer": SceneRole(
+            #     key="activity_organizer",
+            #     label="组织者",
+            #     description="组织活动的组织者"
+            # ),
             "activity_recorder": SceneRole(
                 key="activity_recorder",
                 label="活动记录",
                 description="记录活动"
+            ),
+            "activity_situation_puzzle": SceneRole(
+                key="activity_situation_puzzle",
+                label="海龟汤",
+                description="分析提问，完成故事拼图"
             )
         },
         CardFields=["interests", "skillLevel", "availableTime", "groupSize", "budget"],
