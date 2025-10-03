@@ -2,10 +2,10 @@
 -- 用于创建所有必要的表结构
 
 -- 创建数据库（如果不存在）
-CREATE DATABASE IF NOT EXISTS vmatch CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS vmatch_dev CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- 使用数据库
-USE vmatch;
+USE vmatch_dev;
 
 -- 用户表
 CREATE TABLE IF NOT EXISTS users (
