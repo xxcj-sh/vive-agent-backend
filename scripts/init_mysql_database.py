@@ -181,6 +181,7 @@ def main():
         
         if reset_mysql_database():
             print("数据库重置完成")
+            return
         else:
             print("数据库重置失败")
             return
