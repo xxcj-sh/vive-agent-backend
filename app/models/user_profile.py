@@ -17,8 +17,8 @@ class UserProfile(Base):
     """用户画像数据表"""
     __tablename__ = "user_profiles"
     
-    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, nullable=False, index=True, comment="用户ID")
+    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), nullable=False, index=True, comment="用户ID")
     
     # 用户偏好数据
     preferences = Column(JSON, nullable=True, comment="用户偏好设置")
@@ -42,11 +42,11 @@ class UserProfile(Base):
     match_preferences = Column(JSON, nullable=True, comment="匹配偏好")
     
     # 数据来源和置信度
-    data_source = Column(String, nullable=True, comment="数据来源")
+    data_source = Column(String(100), nullable=True, comment="数据来源")
     confidence_score = Column(Integer, nullable=True, comment="置信度评分(0-100)")
     
     # 更新时间信息
-    update_reason = Column(String, nullable=True, comment="更新原因")
+    update_reason = Column(String(255), nullable=True, comment="更新原因")
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), comment="更新时间")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="创建时间")
     

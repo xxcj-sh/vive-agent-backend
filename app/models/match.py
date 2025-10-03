@@ -88,8 +88,8 @@ class Region(str, enum.Enum):
 class Match(Base):
     __tablename__ = "matches"
 
-    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id"))
+    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"))
     match_type = Column(Enum(MatchType))
     status = Column(Enum(MatchStatus))
     score = Column(Float, default=0.0)
@@ -104,9 +104,9 @@ class MatchDetail(Base):
     __tablename__ = "match_details"
     
     id = Column(Integer, primary_key=True, index=True)
-    match_id = Column(String, ForeignKey("matches.id"))  # 改为String类型匹配match ID
-    detail_type = Column(String)
-    detail_value = Column(String)
+    match_id = Column(String(36), ForeignKey("matches.id"))  # 改为String类型匹配match ID
+    detail_type = Column(String(50))
+    detail_value = Column(String(255))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # 关系

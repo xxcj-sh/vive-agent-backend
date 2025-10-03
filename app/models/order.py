@@ -14,12 +14,12 @@ class OrderStatus(enum.Enum):
 class MembershipOrder(Base):
     __tablename__ = "membership_orders"
     
-    id = Column(String(50), primary_key=True)
+    id = Column(String(36), primary_key=True)
     plan_name = Column(String(100), nullable=False)
     amount = Column(Float, nullable=False)
     date = Column(DateTime, default=datetime.utcnow)
     status = Column(Enum(OrderStatus), default=OrderStatus.PENDING)
-    user_id = Column(String(50), nullable=False)  # 关联用户ID
+    user_id = Column(String(36), nullable=False)  # 关联用户ID
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

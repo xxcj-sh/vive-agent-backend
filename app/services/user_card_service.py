@@ -20,7 +20,6 @@ class UserCardService:
         card_id = f"card_{card_data.scene_type}_{card_data.role_type}_{uuid.uuid4().hex[:8]}"
         
         # 处理 JSON 字段，确保正确序列化
-        # SQLite 需要 JSON 字符串而不是 Python 对象
         trigger_and_output = card_data.trigger_and_output
         if trigger_and_output is not None:
             if isinstance(trigger_and_output, (list, dict)):

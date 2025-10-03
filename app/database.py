@@ -6,22 +6,14 @@ from app.config import settings
 # 使用配置中的数据库URL
 DATABASE_URL = settings.database_url
 
-# 创建数据库引擎
-if DATABASE_URL.startswith("sqlite"):
-    # SQLite配置
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False}
-    )
-else:
-    # MySQL配置
-    engine = create_engine(
-        DATABASE_URL,
-        pool_size=settings.MYSQL_POOL_SIZE,
-        max_overflow=settings.MYSQL_MAX_OVERFLOW,
-        pool_recycle=settings.MYSQL_POOL_RECYCLE,
-        echo=settings.DEBUG
-    )
+# 基于 MySQL 配置创建引擎
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=settings.MYSQL_POOL_SIZE,
+    max_overflow=settings.MYSQL_MAX_OVERFLOW,
+    pool_recycle=settings.MYSQL_POOL_RECYCLE,
+    echo=settings.DEBUG
+)
 
 # 创建会话
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

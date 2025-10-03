@@ -6,14 +6,14 @@ VMatch是一个基于FastAPI的后端服务，为微信小程序提供匹配功�
 
 - 用户管理：注册、查询、更新和删除用户
 - 匹配管理：创建、查询、更新和删除匹配记录
-- 数据库支持：支持SQLite（开发环境）和MySQL（生产环境）
+- 数据库支持：MySQL（本地开发环境和云服务器生产环境）
 
 ## 环境要求
 
 - Python 3.7+
 - FastAPI
 - SQLAlchemy
-- 数据库：SQLite（开发）或MySQL（生产）
+- 数据库：MySQL
 
 ## 安装
 
@@ -56,11 +56,6 @@ MYSQL_PASSWORD=your_password
 
 ## 运行
 
-### 开发环境（SQLite）
-```bash
-uvicorn app.main:app --reload
-```
-
 ### 生产环境（MySQL）
 ```bash
 ENVIRONMENT=production uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -70,12 +65,6 @@ ENVIRONMENT=production uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ## 数据库初始化脚本
 
-### SQLite初始化
-```bash
-cd scripts
-python init_database.py
-```
-
 ### MySQL初始化
 ```bash
 cd scripts
@@ -83,10 +72,6 @@ python init_mysql_database.py
 ```
 
 ### 重置数据库
-```bash
-# SQLite
-python init_database.py --reset --force
-
 # MySQL
 python init_mysql_database.py --reset --force
 ```
@@ -95,8 +80,8 @@ python init_mysql_database.py --reset --force
 
 项目支持自动数据库切换：
 
-- 开发环境（ENVIRONMENT=development）：自动使用SQLite
-- 生产环境（ENVIRONMENT=production）：自动使用MySQL
+- 开发环境（ENVIRONMENT=development）：自动使用开发环境 MySQL
+- 生产环境（ENVIRONMENT=production）：自动使用 MySQL
 - 也可通过DATABASE_URL环境变量强制指定数据库连接
 
 ## 云服务部署

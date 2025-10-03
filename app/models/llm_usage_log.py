@@ -33,13 +33,13 @@ class LLMUsageLog(Base):
     """大语言模型调用日志表"""
     __tablename__ = "llm_usage_logs"
     
-    id = Column(String, primary_key=True, index=True)
+    id = Column(String(36), primary_key=True, index=True)
     
     # 基本信息
-    user_id = Column(String, nullable=True, index=True, comment="用户ID，可为空")
+    user_id = Column(String(36), nullable=True, index=True, comment="用户ID，可为空")
     task_type = Column(Enum(LLMTaskType), nullable=False, comment="任务类型")
     provider = Column(Enum(LLMProvider), nullable=False, comment="服务提供商")
-    llm_model_name = Column(String, nullable=False, comment="模型名称")
+    llm_model_name = Column(String(100), nullable=False, comment="模型名称")
     
     # 输入输出统计
     prompt_tokens = Column(Integer, nullable=False, default=0, comment="输入token数")
@@ -59,7 +59,7 @@ class LLMUsageLog(Base):
     response_metadata = Column(JSON, nullable=True, comment="响应元数据(JSON)")
     
     # 状态信息
-    status = Column(String, default="success", comment="调用状态")
+    status = Column(String(20), default="success", comment="调用状态")
     error_message = Column(Text, nullable=True, comment="错误信息")
     
     # 时间戳

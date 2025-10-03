@@ -10,14 +10,14 @@ import uuid
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))  # 改为String类型支持字符串ID
-    phone = Column(String, unique=True, index=True, nullable=True)
-    hashed_password = Column(String, nullable=True)
+    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))  # 改为String类型支持字符串ID
+    phone = Column(String(20), unique=True, index=True, nullable=True)
+    hashed_password = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
     
     # 扩展用户字段以支持更多信息
     nick_name = Column(String(100), nullable=True)  # 昵称
-    avatar_url = Column(String, nullable=True)  # 头像URL
+    avatar_url = Column(String(500), nullable=True)  # 头像URL
     gender = Column(Integer, nullable=True)  # 性别 1-男 2-女
     age = Column(Integer, nullable=True)  # 年龄
     bio = Column(Text, nullable=True)  # 个人简介

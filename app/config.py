@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # 数据库配置
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", 
-        f"sqlite:///./vmatch_{ENVIRONMENT}.db"
+        ""
     )
     
     # 应用配置
