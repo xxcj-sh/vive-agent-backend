@@ -63,10 +63,15 @@ def init_mysql_database(sql_script_path=None):
             if statement and not statement.startswith('--'):
                 try:
                     cursor.execute(statement)
+                    # 如果语句是创建数据库，需要提交事务
+                    if statement.upper().startswith('CREATE DATABASE'):
+                        conn.commit()
                 except mysql.connector.Error as e:
                     # 忽略一些预期的错误（如表已存在）
                     if "already exists" not in str(e) and "Unknown database" not in str(e):
                         print(f"警告: 执行SQL语句时出错: {e}")
+                    else:
+                        print(f"信息: {e}")
         
         # 提交事务
         conn.commit()
