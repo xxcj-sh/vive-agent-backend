@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS llm_usage_logs (
 -- 社交偏好表
 CREATE TABLE IF NOT EXISTS social_preferences (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
     social_purposes TEXT,
     current_industry VARCHAR(100),
     target_industries TEXT,
@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS social_preferences (
 -- 社交档案表
 CREATE TABLE IF NOT EXISTS social_profiles (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL UNIQUE,
+    user_id BIGINT UNSIGNED NOT NULL UNIQUE,
     headline VARCHAR(255),
     summary TEXT,
     current_role VARCHAR(100),
@@ -210,7 +210,7 @@ CREATE TABLE IF NOT EXISTS social_profiles (
 -- 社交匹配条件表
 CREATE TABLE IF NOT EXISTS social_match_criteria (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL UNIQUE,
+    user_id BIGINT UNSIGNED NOT NULL UNIQUE,
     industry_weight TINYINT UNSIGNED DEFAULT 3,
     experience_weight TINYINT UNSIGNED DEFAULT 3,
     skills_weight TINYINT UNSIGNED DEFAULT 4,
@@ -255,16 +255,16 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 CREATE OR REPLACE VIEW user_statistics AS
 SELECT 
     u.id,
-    u.nick_name,
-    u.status,
+    u.nickname as nick_name,
+    u.is_active as status,
     COUNT(uc.id) as card_count,
     COUNT(ma.id) as action_count,
     COUNT(DISTINCT mr.id) as match_count
 FROM users u
-LEFT JOIN user_cards uc ON u.id = uc.user_id AND uc.is_active = TRUE
+LEFT JOIN user_cards uc ON u.id = uc.user_id AND uc.is_active = 1
 LEFT JOIN match_actions ma ON u.id = ma.user_id
-LEFT JOIN match_results mr ON (u.id = mr.user1_id OR u.id = mr.user2_id) AND mr.is_active = TRUE
-GROUP BY u.id, u.nick_name, u.status;
+LEFT JOIN match_results mr ON (u.id = mr.user1_id OR u.id = mr.user2_id) AND mr.is_active = 1
+GROUP BY u.id, u.nickname, u.is_active;
 
 -- 匹配统计视图
 CREATE OR REPLACE VIEW match_statistics AS

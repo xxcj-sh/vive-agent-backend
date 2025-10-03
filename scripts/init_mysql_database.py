@@ -60,7 +60,8 @@ def init_mysql_database(sql_script_path=None):
         
         for statement in sql_statements:
             statement = statement.strip()
-            if statement and not statement.startswith('--'):
+            if statement:
+                print(f"执行语句: {statement}")
                 try:
                     cursor.execute(statement)
                     # 如果语句是创建数据库，需要提交事务
