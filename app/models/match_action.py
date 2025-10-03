@@ -11,7 +11,6 @@ class MatchActionType(str, enum.Enum):
     DISLIKE = "dislike"        # 不喜欢
     SUPER_LIKE = "super_like"  # 超级喜欢
     PASS = "pass"              # 跳过
-    AI_RECOMMEND_AFTER_USER_CHAT = "ai_recommend_after_user_chat"  # 聊天后 AI 引荐
     AI_RECOMMEND_BY_SYSTEM = "ai_recommend_by_system"  # 系统主动 AI 引荐
     COLLECTION = "collection"  # 收藏卡片
 
@@ -71,7 +70,7 @@ class MatchResult(Base):
     user2_action_id = Column(String, ForeignKey("match_actions.id"), nullable=False)  # 用户2的操作记录ID
     matched_at = Column(DateTime(timezone=True), server_default=func.now())  # 匹配成功时间
     last_activity_at = Column(DateTime(timezone=True), server_default=func.now())  # 最后活动时间
-    first_message_at = Column(DateTime(timezone=True), nullable=True)  # 首次消息时间
+
     is_active = Column(Boolean, default=True)  # 是否活跃
     is_blocked = Column(Boolean, default=False)  # 是否被屏蔽
     expiry_date = Column(DateTime(timezone=True), nullable=True)  # 过期时间

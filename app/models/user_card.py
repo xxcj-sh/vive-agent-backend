@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import json
-from .card_preferences import CardPreferences
 from .card_profiles import (
     ActivityOrganizerProfile,
     ActivityParticipantProfile,

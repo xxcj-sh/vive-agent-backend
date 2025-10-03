@@ -40,17 +40,3 @@ def sample_match_data():
         "score": 85.5,
         "created_at": datetime.now()
     }
-
-@pytest.fixture
-def sample_chat_message_data():
-    """示例聊天消息数据"""
-    return {
-        "id": str(uuid.uuid4()),
-        "match_id": str(uuid.uuid4()),
-        "sender_id": str(uuid.uuid4()),
-        "receiver_id": str(uuid.uuid4()),
-        "content": "你好，很高兴认识你！",
-        "message_type": "text",
-        "is_read": False,
-        "status": "sent"
-    }

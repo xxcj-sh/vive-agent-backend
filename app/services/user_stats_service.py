@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from typing import Dict, Any
 from app.models.match_action import MatchResult, MatchResultStatus, MatchAction, MatchActionType
-from app.models.chat_message import ChatMessage
 from app.models.user import User
 from app.models.user_card_db import UserCard
 
@@ -89,26 +88,7 @@ class UserStatsService:
             "new_matches": new_matches
         }
     
-    def _get_message_stats(self, user_id: str) -> Dict[str, int]:
-        """获取消息统计"""
-        # 总消息数（发送+接收）
-        total_messages = self.db.query(ChatMessage).filter(
-            or_(
-                ChatMessage.sender_id == user_id,
-                ChatMessage.receiver_id == user_id
-            )
-        ).count()
-        
-        # 未读消息数
-        unread_messages = self.db.query(ChatMessage).filter(
-            ChatMessage.receiver_id == user_id,
-            ChatMessage.is_read == False
-        ).count()
-        
-        return {
-            "total_messages": total_messages,
-            "unread_messages": unread_messages
-        }
+
     
     def _get_card_stats(self, user_id: str) -> Dict[str, int]:
         """获取用户卡片统计"""

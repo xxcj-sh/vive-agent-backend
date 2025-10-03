@@ -99,8 +99,6 @@ class Match(Base):
 
     user = relationship("User", back_populates="matches")
     match_details = relationship("MatchDetail", back_populates="match", cascade="all, delete-orphan")
-    chat_messages = relationship("ChatMessage", back_populates="match", cascade="all, delete-orphan")
-    chat_conversation = relationship("ChatConversation", back_populates="match", uselist=False, cascade="all, delete-orphan")
 
 class MatchDetail(Base):
     __tablename__ = "match_details"

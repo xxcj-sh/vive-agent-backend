@@ -26,11 +26,7 @@ class InterestAnalysisRequest(LLMRequest):
     user_interests: List[str] = Field(..., description="用户兴趣列表")
     context_data: Optional[Dict[str, Any]] = Field(None, description="上下文数据")
     
-class ChatAnalysisRequest(LLMRequest):
-    """聊天记录分析请求"""
-    task_type: LLMTaskType = Field(default=LLMTaskType.CHAT_ANALYSIS, description="任务类型")
-    chat_history: List[Dict[str, Any]] = Field(..., description="聊天记录")
-    analysis_type: str = Field(..., description="分析类型: sentiment, summary, insights")
+
     
 class QuestionAnsweringRequest(LLMRequest):
     """用户提问回答请求"""
@@ -57,12 +53,7 @@ class InterestAnalysisResponse(LLMResponse):
     categories: Dict[str, List[str]] = Field(..., description="兴趣分类")
     match_suggestions: List[str] = Field(..., description="匹配建议")
     
-class ChatAnalysisResponse(LLMResponse):
-    """聊天记录分析响应"""
-    sentiment: str = Field(..., description="情感倾向")
-    summary: str = Field(..., description="聊天摘要")
-    key_topics: List[str] = Field(..., description="主要话题")
-    relationship_score: Optional[float] = Field(None, description="关系评分")
+
     
 class QuestionAnsweringResponse(LLMResponse):
     """用户提问回答响应"""
@@ -75,7 +66,6 @@ class ComprehensiveAnalysisRequest(BaseModel):
     user_id: Optional[str] = Field(None, description="用户ID")
     profile_data: Dict[str, Any] = Field(..., description="用户资料数据")
     interests: List[str] = Field(..., description="用户兴趣列表")
-    chat_history: Optional[List[Dict[str, Any]]] = Field(None, description="聊天记录")
     context: Optional[Dict[str, Any]] = Field(None, description="额外上下文信息")
     analysis_types: List[str] = Field(..., description="分析类型列表")
 
@@ -83,25 +73,10 @@ class ComprehensiveAnalysisResponse(LLMResponse):
     """综合分析响应"""
     profile_analysis: Optional[Dict[str, Any]] = Field(None, description="用户资料分析")
     interest_analysis: Optional[Dict[str, Any]] = Field(None, description="兴趣分析")
-    chat_analysis: Optional[Dict[str, Any]] = Field(None, description="聊天分析")
     overall_insights: List[str] = Field(..., description="综合洞察")
     recommendations: List[str] = Field(..., description="综合建议")
 
-class ConversationSuggestionRequest(BaseModel):
-    """对话建议请求"""
-    userId: Optional[str] = Field(None, description="用户ID")
-    cardId: Optional[str] = Field(None, description="卡片ID")
-    chatId: str = Field(..., description="聊天ID")
-    context: Dict[str, Any] = Field(..., description="上下文信息")
-    suggestionType: str = Field(..., description="建议类型")
-    maxSuggestions: int = Field(default=3, description="最大建议数量")
 
-class ConversationSuggestionResponse(LLMResponse):
-    """对话建议响应"""
-    suggestions: List[str] = Field(..., description="建议列表")
-    confidence: float = Field(..., description="置信度")
-    is_meet_preference: bool = Field(..., description="是否满足卡片主人偏好")
-    preference_judgement: Optional[str] = Field(None, description="满足偏好的判断论述")
 
 class LLMUsageLogResponse(BaseModel):
     """LLM使用日志响应"""

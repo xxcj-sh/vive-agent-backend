@@ -23,13 +23,11 @@ class LLMTaskType(str, enum.Enum):
     """LLM任务类型枚举"""
     PROFILE_ANALYSIS = "profile_analysis"
     INTEREST_ANALYSIS = "interest_analysis"
-    CHAT_ANALYSIS = "chat_analysis"
     QUESTION_ANSWERING = "question_answering"
     CONTENT_GENERATION = "content_generation"
     RECOMMENDATION = "recommendation"
     SENTIMENT_ANALYSIS = "sentiment_analysis"
     COMPREHENSIVE_ANALYSIS = "comprehensive_analysis"
-    CONVERSATION_SUGGESTION = "conversation_suggestion"
 
 class LLMUsageLog(Base):
     """大语言模型调用日志表"""

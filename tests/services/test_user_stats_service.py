@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from app.services.user_stats_service import UserStatsService
 from app.models.match_action import MatchAction, MatchActionType
 from app.models.match_action import MatchResult, MatchResultStatus
-from app.models.chat_message import ChatMessage
 from app.models.user import User
 from app.models.user_card_db import UserCard
 
@@ -90,24 +89,7 @@ class TestUserStatsService:
         assert result["active_matches"] == 8
         assert result["new_matches"] == 3
     
-    def test_get_message_stats_success(self, mock_db, sample_user_id):
-        """测试获取消息统计成功"""
-        # 创建服务实例
-        service = UserStatsService(mock_db)
-        
-        # 模拟消息查询
-        mock_message_query = Mock()
-        mock_message_query.filter.return_value = mock_message_query
-        mock_message_query.count.side_effect = [50, 12]  # total_messages, unread_messages
-        
-        mock_db.query.return_value = mock_message_query
-        
-        # 调用私有方法
-        result = service._get_message_stats(sample_user_id)
-        
-        # 验证结果
-        assert result["total_messages"] == 50
-        assert result["unread_messages"] == 12
+
     
     def test_get_card_stats_success(self, mock_db, sample_user_id):
         """测试获取卡片统计成功"""
@@ -284,10 +266,8 @@ class TestUserStatsService:
         
         # 获取各种统计
         match_stats = service._get_match_stats(sample_user_id)
-        message_stats = service._get_message_stats(sample_user_id)
         card_stats = service._get_card_stats(sample_user_id)
         
         # 验证所有统计都为0
         assert all(value == 0 for value in match_stats.values())
-        assert all(value == 0 for value in message_stats.values())
         assert all(value == 0 for value in card_stats.values())

@@ -22,7 +22,7 @@
 
 ## 数据库结构
 
-### 核心数据表（13个）
+### 核心数据表（11个）
 
 #### 用户管理
 1. **users** - 用户基本信息表
@@ -42,21 +42,14 @@
    - 字段：id, user1_id, user2_id, user1_card_id, user2_card_id, scene_type, status等
    - 索引：user1_id, user2_id, status, is_active
 
-#### 聊天系统
-5. **chat_messages** - 聊天消息表
-   - 字段：id, match_id, sender_id, receiver_id, content, message_type, status等
-   - 索引：match_id, sender_id, receiver_id, created_at
 
-6. **chat_conversations** - 聊天会话表
-   - 字段：id, match_id, user1_id, user2_id, last_message_id, unread_count等
-   - 索引：match_id, user1_id, user2_id
 
 #### 其他功能表
-7. **membership_orders** - 会员订单表
-8. **llm_usage_logs** - LLM使用日志表
-9. **social_preferences** - 社交偏好表
-10. **social_profiles** - 社交档案表
-11. **social_match_criteria** - 社交匹配条件表
+5. **membership_orders** - 会员订单表
+6. **llm_usage_logs** - LLM使用日志表
+7. **social_preferences** - 社交偏好表
+8. **social_profiles** - 社交档案表
+9. **social_match_criteria** - 社交匹配条件表
 
 ### 索引（25个）
 

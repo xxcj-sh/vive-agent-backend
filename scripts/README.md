@@ -64,9 +64,7 @@ python simple_init_test.py
 - `match_actions` - 用户匹配操作记录表
 - `match_results` - 匹配结果记录表
 
-#### 聊天相关表
-- `chat_messages` - 聊天消息表
-- `chat_conversations` - 聊天会话表
+
 
 #### 其他表
 - `membership_orders` - 会员订单表

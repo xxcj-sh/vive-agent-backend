@@ -13,7 +13,6 @@ class MatchActionType(Enum):
     COLLECTION = "collection"
     REJECT = "reject"
     MUTUAL_MATCH = "mutual_match"
-    AI_RECOMMEND_AFTER_USER_CHAT = "ai_recommend_after_user_chat"
     AI_RECOMMEND_BY_SYSTEM = "ai_recommend_by_system"
 
 

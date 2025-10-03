@@ -48,7 +48,6 @@ def upgrade():
     
     # 更新 MatchResult 表
     # 1. 添加新字段
-    op.add_column('match_results', sa.Column('first_message_at', sa.DateTime(timezone=True), nullable=True))
     op.add_column('match_results', sa.Column('is_blocked', sa.Boolean(), nullable=False, server_default='false'))
     op.add_column('match_results', sa.Column('expiry_date', sa.DateTime(timezone=True), nullable=True))
     
@@ -96,4 +95,3 @@ def downgrade():
     
     op.drop_column('match_results', 'expiry_date')
     op.drop_column('match_results', 'is_blocked')
-    op.drop_column('match_results', 'first_message_at')

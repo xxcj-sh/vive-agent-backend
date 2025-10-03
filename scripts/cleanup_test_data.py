@@ -28,8 +28,7 @@ class TestDataCleaner:
         self.deleted_stats = {
             'cards': 0,
             'users': 0,
-            'matches': 0,
-            'chat_messages': 0
+            'matches': 0
         }
     
     def connect(self):
@@ -252,14 +251,7 @@ class TestDataCleaner:
         """
         cursor.execute(action_query, card_ids)
         
-        # 清理聊天记录
-        chat_query = f"""
-            UPDATE chat_messages 
-            SET is_deleted = 1 
-            WHERE card_id IN ({placeholders})
-        """
-        cursor.execute(chat_query, card_ids)
-        self.deleted_stats['chat_messages'] += cursor.rowcount
+
         
         if not self.dry_run:
             self.conn.commit()
@@ -328,7 +320,6 @@ class TestDataCleaner:
             report.append("\n删除统计:")
             report.append(f"  删除卡片: {self.deleted_stats['cards']}")
             report.append(f"  删除匹配: {self.deleted_stats['matches']}")
-            report.append(f"  删除聊天记录: {self.deleted_stats['chat_messages']}")
         
         return "\n".join(report)
 

@@ -277,7 +277,6 @@ class MatchService:
             recommendations = self.db.query(MatchAction).filter(
                 MatchAction.user_id == user_id,
                 MatchAction.action_type.in_([
-                    DBMatchActionType.AI_RECOMMEND_AFTER_USER_CHAT,
                     DBMatchActionType.AI_RECOMMEND_BY_SYSTEM
                 ]),
                 MatchAction.scene_type == scene_type,
@@ -353,7 +352,6 @@ class MatchService:
         """
         return self.db.query(MatchAction).filter(
             MatchAction.action_type.in_([
-                DBMatchActionType.AI_RECOMMEND_AFTER_USER_CHAT,
                 DBMatchActionType.AI_RECOMMEND_BY_SYSTEM
             ]),
             MatchAction.is_processed == False
@@ -396,7 +394,6 @@ class MatchService:
             ai_recommendations = self.db.query(MatchAction).filter(
                 MatchAction.user_id == user_id,
                 MatchAction.action_type.in_([
-                    DBMatchActionType.AI_RECOMMEND_AFTER_USER_CHAT,
                     DBMatchActionType.AI_RECOMMEND_BY_SYSTEM
                 ]),
                 MatchAction.created_at >= cutoff_date

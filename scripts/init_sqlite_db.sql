@@ -93,55 +93,7 @@ CREATE TABLE match_results (
     FOREIGN KEY (user2_action_id) REFERENCES match_actions(id)
 );
 
--- 聊天消息表
-CREATE TABLE chat_messages (
-    id TEXT PRIMARY KEY,
-    match_id TEXT NOT NULL,
-    sender_id TEXT NOT NULL,
-    receiver_id TEXT NOT NULL,
-    content TEXT NOT NULL,
-    message_type TEXT DEFAULT 'text',
-    media_url TEXT,
-    media_size INTEGER,
-    media_duration INTEGER,
-    status TEXT DEFAULT 'sent',
-    is_read BOOLEAN DEFAULT 0,
-    read_at TIMESTAMP,
-    reply_to_id TEXT,
-    system_type TEXT,
-    system_data TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_deleted BOOLEAN DEFAULT 0,
-    deleted_at TIMESTAMP,
-    deleted_by TEXT,
-    FOREIGN KEY (match_id) REFERENCES match_results(id),
-    FOREIGN KEY (sender_id) REFERENCES users(id),
-    FOREIGN KEY (receiver_id) REFERENCES users(id),
-    FOREIGN KEY (reply_to_id) REFERENCES chat_messages(id)
-);
 
--- 聊天会话表
-CREATE TABLE chat_conversations (
-    id TEXT PRIMARY KEY,
-    match_id TEXT NOT NULL UNIQUE,
-    user1_id TEXT NOT NULL,
-    user2_id TEXT NOT NULL,
-    last_message_id TEXT,
-    last_message_content TEXT,
-    last_message_time TIMESTAMP,
-    user1_unread_count INTEGER DEFAULT 0,
-    user2_unread_count INTEGER DEFAULT 0,
-    is_active BOOLEAN DEFAULT 1,
-    is_blocked BOOLEAN DEFAULT 0,
-    blocked_by TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (match_id) REFERENCES match_results(id),
-    FOREIGN KEY (user1_id) REFERENCES users(id),
-    FOREIGN KEY (user2_id) REFERENCES users(id),
-    FOREIGN KEY (last_message_id) REFERENCES chat_messages(id)
-);
 
 -- 会员订单表
 CREATE TABLE membership_orders (
@@ -263,13 +215,7 @@ CREATE INDEX idx_match_results_user1_id ON match_results(user1_id);
 CREATE INDEX idx_match_results_user2_id ON match_results(user2_id);
 CREATE INDEX idx_match_results_status ON match_results(status);
 CREATE INDEX idx_match_results_is_active ON match_results(is_active);
-CREATE INDEX idx_chat_messages_match_id ON chat_messages(match_id);
-CREATE INDEX idx_chat_messages_sender_id ON chat_messages(sender_id);
-CREATE INDEX idx_chat_messages_receiver_id ON chat_messages(receiver_id);
-CREATE INDEX idx_chat_messages_created_at ON chat_messages(created_at);
-CREATE INDEX idx_chat_conversations_match_id ON chat_conversations(match_id);
-CREATE INDEX idx_chat_conversations_user1_id ON chat_conversations(user1_id);
-CREATE INDEX idx_chat_conversations_user2_id ON chat_conversations(user2_id);
+
 CREATE INDEX idx_membership_orders_user_id ON membership_orders(user_id);
 CREATE INDEX idx_membership_orders_status ON membership_orders(status);
 CREATE INDEX idx_llm_usage_logs_user_id ON llm_usage_logs(user_id);

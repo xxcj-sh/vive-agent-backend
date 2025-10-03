@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     WECHAT_APP_ID: str = os.getenv("WECHAT_APP_ID", "")
     WECHAT_APP_SECRET: str = os.getenv("WECHAT_APP_SECRET", "")
     
+    # MySQL配置（兼容性字段）
+    MYSQL_HOST: Optional[str] = os.getenv("MYSQL_HOST", None)
+    MYSQL_PORT: Optional[str] = os.getenv("MYSQL_PORT", None)
+    MYSQL_DATABASE: Optional[str] = os.getenv("MYSQL_DATABASE", None)
+    MYSQL_USERNAME: Optional[str] = os.getenv("MYSQL_USERNAME", None)
+    MYSQL_PASSWORD: Optional[str] = os.getenv("MYSQL_PASSWORD", None)
+    
     class Config:
         env_file = ".env"
 

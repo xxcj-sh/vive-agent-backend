@@ -90,7 +90,7 @@ class MatchCardStrategy:
                 target_user_interest = self.db.query(MatchAction).filter(
                     MatchAction.user_id == user.id,
                     MatchAction.target_user_id == current_user["id"],
-                    MatchAction.action_type.in_([MatchActionType.AI_RECOMMEND_AFTER_USER_CHAT, MatchActionType.LIKE, MatchActionType.SUPER_LIKE])
+                    MatchAction.action_type.in_([MatchActionType.LIKE, MatchActionType.SUPER_LIKE])
                 ).first()
                 
                 card_data = {

@@ -53,7 +53,7 @@ def test_table_structure():
         manager = get_db_manager()
         
         # 测试主要表
-        test_tables = ['users', 'user_cards', 'match_actions', 'match_results', 'chat_messages']
+        test_tables = ['users', 'user_cards', 'match_actions', 'match_results']
         
         for table in test_tables:
             try:
