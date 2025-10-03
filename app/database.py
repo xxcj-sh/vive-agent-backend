@@ -1,16 +1,27 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
+from app.config import settings
 
-# 数据库配置
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./vmatch_dev.db")
+# 使用配置中的数据库URL
+DATABASE_URL = settings.database_url
 
 # 创建数据库引擎
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-)
+if DATABASE_URL.startswith("sqlite"):
+    # SQLite配置
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+else:
+    # MySQL配置
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=settings.MYSQL_POOL_SIZE,
+        max_overflow=settings.MYSQL_MAX_OVERFLOW,
+        pool_recycle=settings.MYSQL_POOL_RECYCLE,
+        echo=settings.DEBUG
+    )
 
 # 创建会话
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -11,8 +11,6 @@ from sqlalchemy import func, and_, or_
 
 from app.models.user import User
 from app.models.match import Match  # 使用现有的Match模型替代HousingListing
-from app.models.card_profiles import DatingProfile
-from app.models.card_profiles import ActivityOrganizerProfile, ActivityParticipantProfile
 from .models import MatchCard
 
 
@@ -84,8 +82,6 @@ class MatchCardStrategy:
             
             cards = []
             for user in users:
-                dating_profile = self.db.query(DatingProfile).filter(DatingProfile.user_id == user.id).first()
-                
                 # 检查对方是否已对当前用户表示兴趣
                 target_user_interest = self.db.query(MatchAction).filter(
                     MatchAction.user_id == user.id,
@@ -109,7 +105,7 @@ class MatchCardStrategy:
                     "gender": getattr(user, 'gender', 0),
                     "education": getattr(user, 'education', ''),
                     "height": getattr(user, 'height', 170),
-                    "relationshipStatus": getattr(dating_profile, 'relationship_status', 'single') if dating_profile else 'single',
+                    "relationshipStatus": 'single',  # 默认值，因为DatingProfile已删除
                     "hasInterestInMe": target_user_interest is not None,
                     "mutualMatchAvailable": target_user_interest is not None
                 }

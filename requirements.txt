@@ -19,3 +19,5 @@ SQLAlchemy==2.0.23
 starlette==0.27.0
 tqdm==4.67.1
 uvicorn==0.24.0
+mysql-connector-python==8.3.0
+pymysql==1.1.1

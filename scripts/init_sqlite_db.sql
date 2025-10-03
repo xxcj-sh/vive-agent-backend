@@ -199,6 +199,27 @@ CREATE TABLE social_match_criteria (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+-- 用户画像表
+CREATE TABLE user_profiles (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    preferences TEXT,
+    personality_traits TEXT,
+    mood_state TEXT,
+    behavior_patterns TEXT,
+    interest_tags TEXT,
+    social_preferences TEXT,
+    match_preferences TEXT,
+    data_source TEXT,
+    confidence_score INTEGER,
+    update_reason TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    version INTEGER DEFAULT 1,
+    is_active INTEGER DEFAULT 1,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 -- 创建索引
 CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_users_wechat_open_id ON users(wechat_open_id);
@@ -206,6 +227,12 @@ CREATE INDEX idx_users_status ON users(status);
 CREATE INDEX idx_user_cards_user_id ON user_cards(user_id);
 CREATE INDEX idx_user_cards_scene_type ON user_cards(scene_type);
 CREATE INDEX idx_user_cards_is_active ON user_cards(is_active);
+
+-- 用户画像表索引
+CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
+CREATE INDEX idx_user_profiles_is_active ON user_profiles(is_active);
+CREATE INDEX idx_user_profiles_created_at ON user_profiles(created_at);
+CREATE INDEX idx_user_profiles_updated_at ON user_profiles(updated_at);
 CREATE INDEX idx_match_actions_user_id ON match_actions(user_id);
 CREATE INDEX idx_match_actions_target_user_id ON match_actions(target_user_id);
 CREATE INDEX idx_match_actions_action_type ON match_actions(action_type);
