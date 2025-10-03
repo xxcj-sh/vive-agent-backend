@@ -26,9 +26,9 @@ def init_mysql_database(sql_script_path=None):
     if sql_script_path is None:
         sql_script_path = Path(__file__).parent / "init_mysql_db.sql"
     
-    print(f"MySQL主机: {settings.MYSQL_HOST}:{settings.MYSQL_PORT}")
-    print(f"数据库名: {settings.MYSQL_DATABASE}")
-    print(f"用户名: {settings.MYSQL_USERNAME}")
+    print(f"MySQL主机: {settings.mysql_host}:{settings.mysql_port}")
+    print(f"数据库名: {settings.mysql_database}")
+    print(f"用户名: {settings.mysql_username}")
     print(f"SQL脚本路径: {sql_script_path}")
     
     # 检查SQL脚本文件是否存在
@@ -43,10 +43,10 @@ def init_mysql_database(sql_script_path=None):
         
         # 创建数据库连接
         conn = mysql.connector.connect(
-            host=settings.MYSQL_HOST,
-            port=int(settings.MYSQL_PORT),
-            user=settings.MYSQL_USERNAME,
-            password=settings.MYSQL_PASSWORD,
+            host=settings.mysql_host,
+            port=int(settings.mysql_port),
+            user=settings.mysql_username,
+            password=settings.mysql_password,
             charset='utf8mb4'
         )
         
@@ -74,7 +74,7 @@ def init_mysql_database(sql_script_path=None):
         print("MySQL数据库初始化完成！")
         
         # 显示创建的表
-        cursor.execute(f"USE {settings.MYSQL_DATABASE}")
+        cursor.execute(f"USE {settings.mysql_database}")
         cursor.execute("SHOW TABLES")
         tables = cursor.fetchall()
         print(f"创建的表数量: {len(tables)}")
@@ -97,11 +97,11 @@ def test_mysql_connection():
     """测试MySQL数据库连接"""
     try:
         conn = mysql.connector.connect(
-            host=settings.MYSQL_HOST,
-            port=int(settings.MYSQL_PORT),
-            user=settings.MYSQL_USERNAME,
-            password=settings.MYSQL_PASSWORD,
-            database=settings.MYSQL_DATABASE
+            host=settings.mysql_host,
+            port=int(settings.mysql_port),
+            user=settings.mysql_username,
+            password=settings.mysql_password,
+            database=settings.mysql_database
         )
         
         cursor = conn.cursor()
@@ -122,20 +122,20 @@ def reset_mysql_database():
     """重置MySQL数据库（删除所有表）"""
     try:
         conn = mysql.connector.connect(
-            host=settings.MYSQL_HOST,
-            port=int(settings.MYSQL_PORT),
-            user=settings.MYSQL_USERNAME,
-            password=settings.MYSQL_PASSWORD,
+            host=settings.mysql_host,
+            port=int(settings.mysql_port),
+            user=settings.mysql_username,
+            password=settings.mysql_password,
             charset='utf8mb4'
         )
         
         cursor = conn.cursor()
         
         # 删除数据库
-        cursor.execute(f"DROP DATABASE IF EXISTS {settings.MYSQL_DATABASE}")
+        cursor.execute(f"DROP DATABASE IF EXISTS {settings.mysql_database}")
         
         # 重新创建数据库
-        cursor.execute(f"CREATE DATABASE {settings.MYSQL_DATABASE} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+        cursor.execute(f"CREATE DATABASE {settings.mysql_database} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
         
         conn.commit()
         cursor.close()

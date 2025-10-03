@@ -41,36 +41,6 @@ cp .env.example .env
 # 编辑.env文件，设置环境变量
 ```
 
-## 数据库配置
-
-### SQLite（开发环境默认）
-
-无需额外配置，项目默认使用SQLite数据库。
-
-### MySQL配置
-
-1. 确保MySQL服务已启动
-2. 在.env文件中配置MySQL连接：
-```bash
-ENVIRONMENT=production
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_DATABASE=vmatch
-MYSQL_USERNAME=root
-MYSQL_PASSWORD=your_password
-```
-
-3. 初始化MySQL数据库：
-```bash
-cd scripts
-python init_mysql_database.py
-```
-
-4. 测试MySQL连接：
-```bash
-python init_mysql_database.py --test
-```
-
 ### 线上服务器配置
 
 参考 `/Users/liukun/Documents/workspace/codebase/VMatch/vmatch-dev-reference/database-config.md` 中的配置：
