@@ -3,6 +3,8 @@
 .pytest_cache
 uploads/
 .env
+.env.test
+.env.dev
 __pycache__
 # Docker相关
 docker-compose.override.yml
