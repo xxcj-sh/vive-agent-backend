@@ -11,6 +11,7 @@ import logging
 import pymysql
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -32,37 +33,23 @@ class DatabaseConfig:
         }
     
     def _get_default_database_url(self) -> str:
-        """获取默认数据库URL"""
-        # 优先使用环境变量
-        database_url = os.getenv("DATABASE_URL")
-        if database_url:
-            return database_url
-        
-        # MySQL配置
-        mysql_host = os.getenv("MYSQL_HOST", "localhost")
-        mysql_port = os.getenv("MYSQL_PORT", "3306")
-        mysql_user = os.getenv("MYSQL_USERNAME", "root")
-        mysql_password = os.getenv("MYSQL_PASSWORD", "")
-        mysql_database = os.getenv("MYSQL_DATABASE", "vmatch_dev")
-        
-        if mysql_password:
-            return f"mysql+pymysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_database}"
-        else:
-            return f"mysql+pymysql://{mysql_user}@{mysql_host}:{mysql_port}/{mysql_database}"
+        """获取默认数据库URL - 使用 config.py 中的配置"""
+        # 使用 config.py 中的配置
+        return settings.computed_database_url
     
     def get_connection_string(self) -> str:
         """获取数据库连接字符串"""
         return self.db_url
     
     def database_exists(self) -> bool:
-        """检查数据库是否存在"""
+        """检查数据库是否存在 - 使用 config.py 中的配置"""
         # MySQL需要通过连接测试
         try:
             connection = pymysql.connect(
-                host=os.getenv("MYSQL_HOST", "localhost"),
-                user=os.getenv("MYSQL_USERNAME", "root"),
-                password=os.getenv("MYSQL_PASSWORD", ""),
-                database=os.getenv("MYSQL_DATABASE", "vmatch_dev"),
+                host=settings.MYSQL_HOST,
+                user=settings.MYSQL_USERNAME,
+                password=settings.MYSQL_PASSWORD,
+                database=settings.MYSQL_DATABASE,
                 connect_timeout=5
             )
             connection.close()
@@ -71,14 +58,14 @@ class DatabaseConfig:
             return False
     
     def get_db_size(self) -> int:
-        """获取数据库大小（字节）"""
+        """获取数据库大小（字节） - 使用 config.py 中的配置"""
         # MySQL数据库大小查询
         try:
             connection = pymysql.connect(
-                host=os.getenv("MYSQL_HOST", "localhost"),
-                user=os.getenv("MYSQL_USERNAME", "root"),
-                password=os.getenv("MYSQL_PASSWORD", ""),
-                database=os.getenv("MYSQL_DATABASE", "vmatch_dev"),
+                host=settings.MYSQL_HOST,
+                user=settings.MYSQL_USERNAME,
+                password=settings.MYSQL_PASSWORD,
+                database=settings.MYSQL_DATABASE,
                 connect_timeout=5
             )
             cursor = connection.cursor()

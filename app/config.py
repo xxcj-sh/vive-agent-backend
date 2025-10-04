@@ -267,6 +267,7 @@ class Settings(BaseSettings):
 
 # 全局配置实例
 settings = Settings()
+settings.print_config_summary()
 
 # 如果直接运行此文件，显示配置摘要
 if __name__ == "__main__":
