@@ -20,7 +20,7 @@ from app.models.llm_schemas import (
     LLMRequest, ProfileAnalysisRequest, InterestAnalysisRequest,
     QuestionAnsweringRequest,
     LLMResponse, ProfileAnalysisResponse, InterestAnalysisResponse,
-    QuestionAnsweringResponse
+    QuestionAnsweringResponse, ConversationSuggestionResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -604,7 +604,129 @@ class LLMService:
             "duration": response.duration,
             "error": "综合分析失败"
         }
+    async def generate_conversation_suggestion(
+        self,
+        card_id: str,
+        user_id: str,
+        chatId: str,
+        context: Dict[str, Any],
+        suggestionType: str = "reply",
+        maxSuggestions: int = 3,
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
+    ) -> ConversationSuggestionResponse:
+        """生成对话建议"""
+        # 从上下文中提取用户性格和聊天记录
+        userPersonality = context.get("userPersonality", {})
+        chatHistory = context.get("chatHistory", [])
+        
+        # 从 Card ID 获取匹配信息，然后获取对方用户的卡片偏好
+        card_owner_preferences = {}
+        cart_trigger_and_output = {}
+        try:
+            from app.models.user_card_db import UserCard
+            from app.services.user_card_service import UserCardService
+            from app.models.match import Match
+            from sqlalchemy import or_
+            
+            # 根据card_id获取卡片信息
+            user_card = UserCardService.get_card_by_id(self.db, card_id)
+            if user_card and hasattr(user_card, 'preferences') and user_card.preferences:
+                # 如果卡片直接有preferences字段，则直接使用
+                card_owner_preferences = user_card.preferences
+            
+            if user_card and hasattr(user_card, 'trigger_and_output') and user_card.trigger_and_output:
+                cart_trigger_and_output = user_card.trigger_and_output
+            
+            if user_card and hasattr(user_card, 'bio') and user_card.bio:
+                card_bio = user_card.bio
+        except Exception as e:
+            logger.error(f"获取卡片主人偏好和触发信息失败: {str(e)}")
 
+        # 继续执行，即使获取失败也不影响主要功能
+        print("card_owner_preferences:", card_owner_preferences)
+        print("cart_trigger_and_output:", cart_trigger_and_output)
+        # 构建提示词
+        prompt = f"""
+        请根据以下信息生成对话建议：
+        
+        聊天ID: {chatId}
+        用户性格特点: {json.dumps(userPersonality, ensure_ascii=False)}
+        聊天记录: {json.dumps(chatHistory, ensure_ascii=False)}
+        建议类型: {suggestionType}
+        卡片主人偏好信息: {json.dumps(card_owner_preferences, ensure_ascii=False)}
+        卡片简介信息（仅作为回答问题时的参考）: {card_bio}
+        聊天隐藏触发条件和输出信息: {json.dumps(cart_trigger_and_output, ensure_ascii=False)}
+        
+        请生成{maxSuggestions}条适合当前对话情境的回复建议，要求：
+        1. 符合卡片主人性格设定，以用户的身份对话，避免出现身份混淆和不符合逻辑事实的情况
+        2. 自然流畅，符合对话上下文
+        3. 内容积极友好
+        4. 每条建议是独立完整的回复
+        5. 如果卡片主人偏好信息不为空，建议内容应适当引导用户回答问题，
+           以帮助判断用户是否满足卡片主人的偏好要求
+        6. 根据用户配置的触发条件，引导用户回答问题，判断用户是否满足卡片主人的偏好要求，在满足触发条件时也视为满足卡片主人的偏好要求，根据用户配置的输出信息，生成建议回复消息
+        
+        请以JSON格式回复，包含suggestions（建议列表）和confidence（置信度）字段，is_meet_preference（是否满足卡片主人偏好的布尔类型）字段，
+        preference_judgement（满足偏好的判断论述）字段，trigger_output（触发条件后的输出信息）字段
+        
+        参考如下格式
+        """ + """
+        {
+            "confidence": 0.92,
+            "suggestions": ["欢迎参加活动", "您可以参加活动"],
+            "is_meet_preference": true,
+            "preference_judgement": "用户的兴趣爱好与卡片主人的偏好相符，用户的生活方式与卡片主人的偏好相符",
+            "trigger_output": "欢迎加我微信联系，记得备注来源哦"
+        }
+        """
+        
+        # 创建请求对象
+        request = LLMRequest(
+            user_id=user_id,
+            task_type=LLMTaskType.CONVERSATION_SUGGESTION,
+            prompt=prompt
+        )
+        
+        # 调用LLM API
+        response = await self.call_llm_api(request, provider, model_name)
+        
+        if response.success and response.data:
+            try:
+                data = json.loads(response.data)
+                return ConversationSuggestionResponse(
+                    success=True,
+                    data=response.data,  # 保持原始字符串格式
+                    usage=response.usage,
+                    duration=response.duration,
+                    suggestions=data.get("suggestions", []),
+                    confidence=data.get("confidence", 0.8),
+                    is_meet_preference=data.get("is_meet_preference", False),
+                    preference_judgement=data.get("preference_judgement", "")
+                )
+            except json.JSONDecodeError:
+                # 如果解析失败，尝试将响应内容直接作为单条建议
+                return ConversationSuggestionResponse(
+                    success=True,
+                    data=response.data,
+                    usage=response.usage,
+                    duration=response.duration,
+                    suggestions=[response.data],
+                    confidence=0.7,
+                    is_meet_preference=False,
+                    preference_judgement=""
+                )
+        
+        return ConversationSuggestionResponse(
+            success=False,
+            data=None,
+            usage=response.usage,
+            duration=response.duration,
+            suggestions=[],
+            confidence=0,
+            is_meet_preference=False,
+            preference_judgement=""
+        )
 
 
 # 导入asyncio用于模拟API

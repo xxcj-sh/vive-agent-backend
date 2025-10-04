@@ -94,3 +94,19 @@ class LLMUsageLogResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class ConversationSuggestionRequest(BaseModel):
+    """对话建议请求"""
+    userId: Optional[str] = Field(None, description="用户ID")
+    cardId: Optional[str] = Field(None, description="卡片ID")
+    chatId: str = Field(..., description="聊天ID")
+    context: Dict[str, Any] = Field(..., description="上下文信息")
+    suggestionType: str = Field(..., description="建议类型")
+    maxSuggestions: int = Field(default=3, description="最大建议数量")
+
+class ConversationSuggestionResponse(LLMResponse):
+    """对话建议响应"""
+    suggestions: List[str] = Field(..., description="建议列表")
+    confidence: float = Field(..., description="置信度")
+    is_meet_preference: bool = Field(..., description="是否满足卡片主人偏好")
+    preference_judgement: Optional[str] = Field(None, description="满足偏好的判断论述")
