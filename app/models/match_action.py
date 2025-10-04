@@ -13,6 +13,8 @@ class MatchActionType(str, enum.Enum):
     PASS = "pass"              # 跳过
     AI_RECOMMEND_BY_SYSTEM = "ai_recommend_by_system"  # 系统主动 AI 引荐
     COLLECTION = "collection"  # 收藏卡片
+    FOLLOW = "follow"          # 关注
+    FOLLOW_AFTER_TRIGGER_IN_CHAT = "follow_after_trigger_in_chat"  # 触发后在聊天中关注
 
 class MatchResultStatus(str, enum.Enum):
     """匹配结果状态枚举"""

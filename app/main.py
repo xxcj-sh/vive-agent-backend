@@ -8,8 +8,8 @@ import os
 
 # 初始化应用
 app = FastAPI(
-    title="VMatch API",
-    description="VMatch Backend API for WeChat Mini Program",
+    title="Vive Agent API",
+    description="Vive Agent Backend API for WeChat Mini Program",
     version="0.1.0",
 )
 
@@ -45,7 +45,7 @@ app.include_router(user_profile.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to VMatch API"}
+    return {"message": "Welcome to Vive Agent API"}
 
 @app.get("/api/v1")
 def api_info():
@@ -65,7 +65,7 @@ def health_check():
     """健康检查端点"""
     return {
         "status": "healthy",
-        "service": "vmatch-backend",
+        "service": "vive-agent-backend",
         "timestamp": "2024-01-01T00:00:00Z"
     }
 

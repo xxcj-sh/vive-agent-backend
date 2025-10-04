@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WeMatch 微信小程序服务端启动脚本
+Vive Agent 微信小程序服务端启动脚本
 """
 import uvicorn
 import os
@@ -8,7 +8,7 @@ import sys
 
 def main():
     """启动应用"""
-    print("🚀 启动 VMatch Backend 服务...")
+    print("🚀 启动 Vive Agent Backend 服务...")
     print("📱 支持微信小程序登录注册")
     print("🔐 开发阶段固定验证码: 123456")
     print("🌐 服务地址: http://0.0.0.0:8000")

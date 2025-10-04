@@ -1,6 +1,6 @@
-# VMatch Backend
+# Vive Agent Backend
 
-VMatch是一个基于FastAPI的后端服务，为微信小程序提供匹配功能。
+基于FastAPI的后端服务，为微信小程序提供匹配功能。
 
 ## 功能特点
 
@@ -49,7 +49,7 @@ cp .env.example .env
 ENVIRONMENT=production
 MYSQL_HOST=rm-uf672o44x147i9c2p9o.mysql.rds.aliyuncs.com
 MYSQL_PORT=3306
-MYSQL_DATABASE=vmatch
+MYSQL_DATABASE=vive_agent
 MYSQL_USERNAME=your_username
 MYSQL_PASSWORD=your_password
 ```
