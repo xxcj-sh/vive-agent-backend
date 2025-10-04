@@ -30,7 +30,7 @@ class DatabaseConnectionTester:
     
     def __init__(self):
         self.results = []
-        self.connection_string = settings.database_url
+        self.connection_string = settings.DATABASE_URL
         
     def test_connection_string_format(self) -> bool:
         """测试数据库连接字符串格式"""

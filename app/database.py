@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from app.config import settings
 
 # 使用配置中的数据库URL
-DATABASE_URL = settings.database_url
+DATABASE_URL = settings.DATABASE_URL
 
 # 基于 MySQL 配置创建引擎
 engine = create_engine(
