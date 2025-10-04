@@ -1,6 +1,7 @@
 from .user import User
 from .match import Match, MatchDetail
-from .match_action import MatchResult, MatchResultStatus
+from .match_action import MatchResult
+from .enums import MatchResultStatus
 from .user_card import Card
 from .user_card_db import UserCard
 from .order import MembershipOrder, OrderStatus

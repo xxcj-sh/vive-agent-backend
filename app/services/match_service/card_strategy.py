@@ -78,7 +78,8 @@ class MatchCardStrategy:
             users = query.order_by(User.created_at.desc()).offset(offset).limit(page_size).all()
             
             # 导入匹配操作模型
-            from app.models.match_action import MatchAction, MatchActionType
+            from app.models.enums import MatchActionType
+            from app.models.match_action import MatchAction
             
             cards = []
             for user in users:
@@ -132,7 +133,8 @@ class MatchCardStrategy:
             participants = query.order_by(User.created_at.desc()).offset(offset).limit(page_size).all()
             
             # 导入匹配操作模型
-            from app.models.match_action import MatchAction, MatchActionType
+            from app.models.enums import MatchActionType
+            from app.models.match_action import MatchAction
             
             cards = []
             for participant in participants:

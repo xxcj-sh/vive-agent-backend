@@ -2,27 +2,8 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, E
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.utils.db_config import Base
-import enum
+from app.models.enums import MatchActionType, MatchResultStatus
 import uuid
-
-class MatchActionType(str, enum.Enum):
-    """匹配操作类型枚举"""
-    LIKE = "like"              # 喜欢
-    DISLIKE = "dislike"        # 不喜欢
-    SUPER_LIKE = "super_like"  # 超级喜欢
-    PASS = "pass"              # 跳过
-    AI_RECOMMEND_BY_SYSTEM = "ai_recommend_by_system"  # 系统主动 AI 引荐
-    COLLECTION = "collection"  # 收藏卡片
-    FOLLOW = "follow"          # 关注
-    FOLLOW_AFTER_TRIGGER_IN_CHAT = "follow_after_trigger_in_chat"  # 触发后在聊天中关注
-
-class MatchResultStatus(str, enum.Enum):
-    """匹配结果状态枚举"""
-    PENDING = "pending"        # 等待对方操作
-    MATCHED = "matched"        # 双向匹配成功
-    UNMATCHED = "unmatched"    # 未匹配
-    EXPIRED = "expired"        # 已过期
-    BLOCKED = "blocked"        # 已屏蔽
 
 class MatchAction(Base):
     """用户匹配操作记录表"""

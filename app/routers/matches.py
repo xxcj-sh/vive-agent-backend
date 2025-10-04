@@ -5,13 +5,17 @@ from app.models.schemas import BaseResponse
 from app.utils.auth import get_current_user
 from app.models.user import User
 from app.models.enums import Gender
-from app.services.match_service.models import MatchActionType
+from app.models.enums import MatchActionType
 from app.services.match_service.card_strategy import MatchCardStrategy
 from app.services.match_service.core import MatchService
 from app.services.user_card_service import UserCardService
 from app.database import get_db
 from pydantic import BaseModel
 from typing import Optional
+from sqlalchemy import and_
+from app.models.match_action import MatchAction
+from app.models.enums import MatchActionType
+from app.models.user_card_db import UserCard
 
 router = APIRouter(prefix="/matches", tags=["匹配页面"])
 
@@ -259,11 +263,6 @@ async def get_received_match_actions(
             user_id = str(current_user.get('id', ''))
         else:
             user_id = str(current_user.id)
-        
-        from sqlalchemy import and_
-        from app.models.match_action import MatchAction, MatchActionType
-        from app.models.user import User
-        from app.models.user_card_db import UserCard
         
         # 基础查询：获取用户收到的动作
         query = db.query(MatchAction).filter(

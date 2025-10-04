@@ -11,7 +11,8 @@ import random
 import math
 from collections import defaultdict
 
-from app.models.match_action import MatchAction, MatchResult, MatchActionType, MatchResultStatus
+from app.models.match_action import MatchAction, MatchResult
+from app.models.enums import MatchActionType, MatchResultStatus
 from app.models.user import User
 from app.models.user_card_db import UserCard
 from app.services.match_service import MatchService

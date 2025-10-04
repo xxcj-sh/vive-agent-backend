@@ -2,27 +2,9 @@
 匹配服务的数据模型和枚举类型
 """
 
-from enum import Enum
 from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
-
-class MatchActionType(Enum):
-    """匹配操作类型枚举"""
-    LIKE = "like"
-    SUPER_LIKE = "super_like"
-    COLLECTION = "collection"
-    REJECT = "reject"
-    MUTUAL_MATCH = "mutual_match"
-    AI_RECOMMEND_BY_SYSTEM = "ai_recommend_by_system"
-
-
-class MatchStatus(Enum):
-    """匹配状态枚举"""
-    PENDING = "pending"
-    MATCHED = "matched"
-    REJECTED = "rejected"
-    EXPIRED = "expired"
-    ALL = "all"
+from app.models.enums import MatchActionType, MatchStatus, MatchResultStatus
 
 
 class MatchResult(BaseModel):

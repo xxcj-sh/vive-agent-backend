@@ -10,8 +10,8 @@ from typing import Dict, Any, Optional, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 
-from app.models.match_action import MatchAction, MatchActionType as DBMatchActionType
-from app.models.match_action import MatchResult as DBMatchResult, MatchResultStatus as DBMatchStatus
+from app.models.match_action import MatchAction, MatchResult as DBMatchResult
+from app.models.enums import MatchActionType as DBMatchActionType, MatchResultStatus as DBMatchStatus
 from app.models.user import User
 from app.models.user_card_db import UserCard
 from .models import MatchResult, MatchActionType, MatchStatistics, AIRecommendation
@@ -36,12 +36,19 @@ class MatchService:
         if not all([card_id, action_type]):
             raise ValueError("缺少必要参数: cardId, action")  # Updated error message
             
-        # 验证操作类型
+        # 验证操作类型 (支持大小写不敏感匹配)
         valid_actions = [t.value for t in DBMatchActionType]
-        if str(action_type) not in valid_actions:
-            raise ValueError(f"无效的操作类型: {action_type}")
+        action_type_str = str(action_type)
         
-
+        # 尝试找到匹配的操作类型（不区分大小写）
+        matched_action = None
+        for valid_action in valid_actions:
+            if action_type_str.lower() == valid_action.lower():
+                matched_action = valid_action
+                break
+        
+        if not matched_action:
+            raise ValueError(f"无效的操作类型: {action_type}. 有效类型: {valid_actions}")
             
         return True
     
@@ -72,10 +79,22 @@ class MatchService:
             action_type = str(action_type)
             scene_type = str(scene_type)
             
-            # 验证操作类型
+            # 验证操作类型 (支持大小写不敏感匹配)
             valid_actions = [t.value for t in DBMatchActionType]
-            if action_type not in valid_actions:
-                raise ValueError(f"无效的操作类型: {action_type}")
+            action_type_lower = action_type.lower()
+            
+            # 尝试找到匹配的操作类型（不区分大小写）
+            matched_action = None
+            for valid_action in valid_actions:
+                if action_type_lower == valid_action.lower():
+                    matched_action = valid_action
+                    break
+            
+            if not matched_action:
+                raise ValueError(f"无效的操作类型: {action_type}. 有效类型: {valid_actions}")
+            
+            # 使用正确的操作类型（来自枚举的小写形式）
+            action_type = matched_action
             
             # 解析目标用户ID
             target_user_id = self._extract_target_user_id(card_id, scene_type)
@@ -87,7 +106,7 @@ class MatchService:
                 MatchAction.user_id == user_id,
                 MatchAction.target_user_id == target_user_id,
                 MatchAction.target_card_id == card_id,
-                MatchAction.scene_type == scene_type
+                MatchAction.action_type == action_type
             ).first()
             
             if existing_action:

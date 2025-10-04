@@ -6,7 +6,8 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from typing import Dict, Any
-from app.models.match_action import MatchResult, MatchResultStatus, MatchAction, MatchActionType
+from app.models.match_action import MatchResult, MatchAction
+from app.models.enums import MatchResultStatus, MatchActionType
 from app.models.user import User
 from app.models.user_card_db import UserCard
 

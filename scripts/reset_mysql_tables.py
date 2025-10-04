@@ -175,7 +175,7 @@ def get_table_creation_sql() -> List[str]:
             user_id VARCHAR(36) NOT NULL,
             target_user_id VARCHAR(36) NOT NULL,
             target_card_id VARCHAR(36) NOT NULL,
-            action_type VARCHAR(20) NOT NULL,
+            action_type VARCHAR(50) NOT NULL,
             scene_type VARCHAR(50) NOT NULL,
             scene_context TEXT,
             source VARCHAR(20) DEFAULT 'user',
