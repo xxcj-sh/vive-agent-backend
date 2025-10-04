@@ -242,6 +242,122 @@ async def get_match_actions_history(
             data=None
         )
 
+# 新增API：获取用户收到的匹配动作（用于trigger页面）
+@router.get("/actions/received")
+async def get_received_match_actions(
+    actionType: Optional[str] = Query(None, description="动作类型，如 FOLLOW_AFTER_TRIGGER_IN_CHAT"),
+    sceneType: Optional[str] = Query(None, description="场景类型"),
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取用户收到的匹配动作（用于trigger页面）"""
+    try:
+        # 获取当前用户ID
+        if isinstance(current_user, dict):
+            user_id = str(current_user.get('id', ''))
+        else:
+            user_id = str(current_user.id)
+        
+        from sqlalchemy import and_
+        from app.models.match_action import MatchAction, MatchActionType
+        from app.models.user import User
+        from app.models.user_card_db import UserCard
+        
+        # 基础查询：获取用户收到的动作
+        query = db.query(MatchAction).filter(
+            MatchAction.target_user_id == user_id
+        )
+        
+        # 如果指定了动作类型，添加筛选条件
+        if actionType:
+            query = query.filter(MatchAction.action_type == actionType)
+        
+        # 如果指定了场景类型，添加筛选条件
+        if sceneType:
+            query = query.filter(MatchAction.scene_type == sceneType)
+        
+        # 获取总数
+        total = query.count()
+        
+        # 获取分页数据
+        offset = (page - 1) * pageSize
+        actions = query.order_by(MatchAction.created_at.desc()).offset(offset).limit(pageSize).all()
+        
+        # 获取操作用户的信息和卡片信息
+        user_ids = [action.user_id for action in actions]
+        card_ids = [action.target_card_id for action in actions]
+        
+        users = {str(user.id): user for user in db.query(User).filter(User.id.in_(user_ids)).all()}
+        cards = {str(card.id): card for card in db.query(UserCard).filter(UserCard.id.in_(card_ids)).all()}
+        
+        # 格式化返回数据
+        formatted_actions = []
+        for action in actions:
+            user = users.get(str(action.user_id))
+            card = cards.get(str(action.target_card_id))
+            
+            if user and card:
+                # 解析场景上下文
+                scene_context = {}
+                if action.scene_context:
+                    try:
+                        import json
+                        scene_context = json.loads(action.scene_context) if action.scene_context else {}
+                    except:
+                        scene_context = {}
+                
+                formatted_action = {
+                    "id": str(action.id),
+                    "actionType": action.action_type.value,
+                    "sceneType": action.scene_type,
+                    "sceneContext": scene_context,
+                    "createdAt": action.created_at.isoformat() if action.created_at else "",
+                    "followerUser": {
+                        "id": str(user.id),
+                        "name": getattr(user, 'nick_name', None) or getattr(user, 'name', '匿名用户'),
+                        "avatar": getattr(user, 'avatar_url', None) or "",
+                        "age": getattr(user, 'age', 25),
+                        "occupation": getattr(user, 'occupation', ''),
+                        "location": getattr(user, 'location', ''),
+                        "education": getattr(user, 'education', ''),
+                        "bio": getattr(user, 'bio', ''),
+                        "interests": getattr(user, 'interests', []) if isinstance(getattr(user, 'interests', []), list) else []
+                    },
+                    "cardInfo": {
+                        "id": str(card.id),
+                        "title": getattr(card, 'display_name', ''),
+                        "sceneType": card.scene_type,
+                        "roleType": card.role_type,
+                        "bio": card.bio or '',
+                        "location": getattr(card, 'location', '')
+                    }
+                }
+                formatted_actions.append(formatted_action)
+        
+        return BaseResponse(
+            code=0,
+            message="success",
+            data={
+                "actions": formatted_actions,
+                "total": total,
+                "page": page,
+                "pageSize": pageSize,
+                "totalPages": (total + pageSize - 1) // pageSize
+            }
+        )
+        
+    except Exception as e:
+        print(f"获取收到的匹配动作异常: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return BaseResponse(
+            code=500,
+            message=f"获取收到的匹配动作失败: {str(e)}",
+            data=None
+        )
+
 @router.get("/recommendation-cards")
 async def get_match_recommendation_cards(
     sceneType: str = Query(None, description="匹配类型"),
