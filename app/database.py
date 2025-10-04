@@ -3,8 +3,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
 
-# 使用配置中的数据库URL
-DATABASE_URL = settings.DATABASE_URL
+# 使用配置中的数据库URL - 优先使用computed_database_url确保配置正确应用
+DATABASE_URL = settings.computed_database_url
 
 # 基于 MySQL 配置创建引擎
 engine = create_engine(

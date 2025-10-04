@@ -3,8 +3,16 @@ from typing import Optional
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# 确保.env文件被加载 - 在创建Settings实例之前加载
-load_dotenv(".env", override=True)
+# 智能加载环境文件 - 根据环境变量或默认优先级加载
+env_file = os.environ.get('ENV_FILE', '.env')
+if os.path.exists(env_file):
+    load_dotenv(env_file, override=True)
+    print(f"✅ 已加载环境文件: {env_file}")
+elif os.path.exists('.env'):
+    load_dotenv('.env', override=True)
+    print("✅ 已加载环境文件: .env")
+else:
+    print("⚠️  未找到环境文件，使用默认配置")
 
 class Settings(BaseSettings):
     """应用配置 - 与.env文件保持一致
