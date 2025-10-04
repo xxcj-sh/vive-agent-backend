@@ -73,8 +73,8 @@ class Settings(BaseSettings):
         """根据环境选择MySQL主机"""
         return self._get_mysql_config(
             "MYSQL_HOST", 
-            "localhost", 
-            "rm-uf672o44x147i9c2p9o.mysql.rds.aliyuncs.com"
+            "localhost",  # 开发环境默认
+            "rm-uf672o44x147i9c2p9o.mysql.rds.aliyuncs.com"  # 生产环境默认
         )
     
     @property
@@ -95,7 +95,7 @@ class Settings(BaseSettings):
     @property
     def mysql_password(self) -> str:
         """获取MySQL密码"""
-        return self._get_mysql_config("MYSQL_PASSWORD", "", "liukun@187")
+        return self._get_mysql_config("MYSQL_PASSWORD", "", "")
     
     # MySQL连接池配置
     MYSQL_POOL_SIZE: int = int(os.getenv("MYSQL_POOL_SIZE", "5"))

@@ -25,7 +25,7 @@ def get_database_url():
     
     if env == "production":
         # 生产环境默认使用MySQL
-        mysql_database = os.getenv("MYSQL_DATABASE", "vmatch_prod")
+        mysql_database = os.getenv("MYSQL_DATABASE", "vmatch_dev")
         if mysql_password:
             return f"mysql+pymysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_database}"
         else:

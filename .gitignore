@@ -1,7 +1,6 @@
 .venv
 .codebuddy
 .pytest_cache
-.env.example
 uploads/
 .env
 __pycache__
