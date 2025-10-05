@@ -14,16 +14,6 @@ SCENE_CONFIGS = {
         iconActive="/images/interest-active.svg",
         description="寻找活动伙伴",
         roles={
-            # "activity_participant": SceneRole(
-            #     key="activity_participant",
-            #     label="参与者",
-            #     description="寻找活动伙伴"
-            # ),
-            # "activity_organizer": SceneRole(
-            #     key="activity_organizer",
-            #     label="组织者",
-            #     description="组织活动的组织者"
-            # ),
             "activity_recorder": SceneRole(
                 key="activity_recorder",
                 label="活动记录",
@@ -56,28 +46,28 @@ SCENE_CONFIGS = {
         roles={
             "social_identity": SceneRole(
                 key="social_identity",
-                label="社会身份",
+                label="身份名片",
                 description="介绍你的社会身份"
             ),
-            "social_business": SceneRole(
-                key="social_business",
-                label="商务拓展",
-                description="寻找商务合作、投资机会"
-            ),
-            "social_business": SceneRole(
-                key="social_business",
-                label="商务拓展",
-                description="寻找商务合作、投资机会"
-            ),
-            "social_career": SceneRole(
-                key="social_career",
-                label="职业发展",
-                description="寻求职业指导、跳槽机会"
-            ),
+            # "social_business": SceneRole(
+            #     key="social_business",
+            #     label="商务拓展",
+            #     description="寻找商务合作、投资机会"
+            # ),
+            # "social_business": SceneRole(
+            #     key="social_business",
+            #     label="商务拓展",
+            #     description="寻找商务合作、投资机会"
+            # ),
+            # "social_career": SceneRole(
+            #     key="social_career",
+            #     label="职业发展",
+            #     description="寻求职业指导、跳槽机会"
+            # ),
             "social_interest": SceneRole(
                 key="social_interest",
                 label="兴趣社交",
-                description="基于共同兴趣的社交互动"
+                description="寻找有共同兴趣的伙伴"
             )
         },
         CardFields=[
