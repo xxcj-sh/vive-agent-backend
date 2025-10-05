@@ -110,3 +110,13 @@ class ConversationSuggestionResponse(LLMResponse):
     confidence: float = Field(..., description="置信度")
     is_meet_preference: bool = Field(..., description="是否满足卡片主人偏好")
     preference_judgement: Optional[str] = Field(None, description="满足偏好的判断论述")
+
+
+class SimpleChatStreamRequest(BaseModel):
+    """简单聊天流式请求 - 仅返回纯文本"""
+    userId: Optional[str] = Field(None, description="用户ID")
+    cardId: Optional[str] = Field(None, description="卡片ID") 
+    chatId: str = Field(..., description="聊天ID")
+    message: str = Field(..., description="用户消息")
+    context: Optional[Dict[str, Any]] = Field(default={}, description="上下文信息")
+    personality: Optional[str] = Field(None, description="卡片主人性格描述")

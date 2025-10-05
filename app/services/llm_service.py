@@ -50,7 +50,8 @@ class LLMService:
         self,
         request: LLMRequest,
         provider: LLMProvider = LLMProvider.VOLCENGINE,
-        model_name: str = None
+        model_name: str = None,
+        stream: bool = False
     ) -> LLMResponse:
         """
         调用LLM API的统一接口
@@ -81,14 +82,24 @@ class LLMService:
             if provider == LLMProvider.VOLCENGINE:
                 # 检查VOLCENGINE客户端是否已初始化
                 if LLMProvider.VOLCENGINE in self.clients:
-                    response = await self._call_volcengine_api(request, model_name)
+                    if stream:
+                        # 流式调用，返回异步生成器
+                        return self._call_volcengine_api_stream(request, model_name)
+                    else:
+                        response = await self._call_volcengine_api(request, model_name)
                 else:
                     # 如果客户端未初始化，降级使用模拟API
                     logger.warning(f"VOLCENGINE客户端未初始化，使用模拟API代替")
-                    response = await self._call_mock_api(request, provider, model_name)
+                    if stream:
+                        return await self._call_mock_api_stream(request, provider, model_name)
+                    else:
+                        response = await self._call_mock_api(request, provider, model_name)
             else:
                 # 可以扩展其他提供商
-                response = await self._call_mock_api(request, provider, model_name)
+                if stream:
+                    return await self._call_mock_api_stream(request, provider, model_name)
+                else:
+                    response = await self._call_mock_api(request, provider, model_name)
             
             # 计算耗时
             duration = time.time() - request_start
@@ -115,6 +126,10 @@ class LLMService:
                 status="success"
             )
             
+            # 流式调用直接返回异步生成器
+            if stream:
+                return response
+                
             return LLMResponse(
                 success=True,
                 data=response.get("choices", [{}])[0].get("message", {}).get("content", ""),
@@ -156,6 +171,73 @@ class LLMService:
             )
     
 
+
+    async def _call_volcengine_api_stream(self, request: LLMRequest, model_name: str):
+        """流式调用火山引擎API"""
+        client = self.clients.get(LLMProvider.VOLCENGINE)
+        if not client:
+            raise ValueError("火山引擎客户端未初始化")
+
+        messages = [
+            {"role": "system", "content": self._get_system_prompt(request.task_type)},
+            {"role": "user", "content": request.prompt}
+        ]
+
+        # 流式调用
+        stream = await client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            max_tokens=1000,
+            temperature=0.7,
+            stream=True
+        )
+        
+        # 返回流式响应生成器
+        async for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                yield {
+                    "type": "text",
+                    "content": content,
+                    "finished": False
+                }
+        
+        # 发送结束标记
+        yield {"type": "end"}
+
+    async def _call_mock_api_stream(self, request: LLMRequest, provider: LLMProvider, model_name: str):
+        """模拟流式API调用，用于测试"""
+        import asyncio
+        
+        # 模拟响应内容
+        mock_content = "这是来自{}的{}模型的模拟流式响应。我会为您提供一些有用的建议和信息。".format(
+            provider.value, model_name
+        )
+        
+        # 模拟流式输出，每50ms发送一个字符块
+        chunk_size = 3  # 每次发送3个字符
+        for i in range(0, len(mock_content), chunk_size):
+            chunk = mock_content[i:i + chunk_size]
+            yield {
+                "type": "text", 
+                "content": chunk,
+                "finished": i + chunk_size >= len(mock_content)
+            }
+            await asyncio.sleep(0.05)  # 50ms延迟
+        
+        # 发送元数据
+        await asyncio.sleep(0.2)
+        yield {
+            "type": "metadata",
+            "confidence": 0.85,
+            "is_meet_preference": True,
+            "preference_judgement": "用户的兴趣爱好与卡片主人的偏好相符",
+            "usage": {"prompt_tokens": 50, "completion_tokens": 100, "total_tokens": 150},
+            "duration": 2.5
+        }
+        
+        # 发送结束标记
+        yield {"type": "end"}
 
     async def _call_volcengine_api(self, request: LLMRequest, model_name: str) -> Dict[str, Any]:
         """调用火山引擎API"""
@@ -643,9 +725,6 @@ class LLMService:
         except Exception as e:
             logger.error(f"获取卡片主人偏好和触发信息失败: {str(e)}")
 
-        # 继续执行，即使获取失败也不影响主要功能
-        print("card_owner_preferences:", card_owner_preferences)
-        print("cart_trigger_and_output:", cart_trigger_and_output)
         # 构建提示词
         prompt = f"""
         请根据以下信息生成对话建议：
@@ -728,6 +807,132 @@ class LLMService:
             preference_judgement=""
         )
 
+    async def generate_conversation_suggestion_stream(
+        self,
+        card_id: str,
+        user_id: str,
+        chatId: str,
+        context: Dict[str, Any],
+        suggestionType: str = "reply",
+        maxSuggestions: int = 3,
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
+    ):
+        """生成流式对话建议 - 真正的流式处理"""
+        # 从上下文中提取用户性格和聊天记录
+        userPersonality = context.get("userPersonality", {})
+        chatHistory = context.get("chatHistory", [])
+        
+        # 获取卡片主人偏好信息
+        card_owner_preferences = {}
+        cart_trigger_and_output = {}
+        card_bio = ""
+        try:
+            from app.models.user_card_db import UserCard
+            from app.services.user_card_service import UserCardService
+            
+            user_card = UserCardService.get_card_by_id(self.db, card_id)
+            if user_card:
+                if hasattr(user_card, 'preferences') and user_card.preferences:
+                    card_owner_preferences = user_card.preferences
+                if hasattr(user_card, 'trigger_and_output') and user_card.trigger_and_output:
+                    cart_trigger_and_output = user_card.trigger_and_output
+                if hasattr(user_card, 'bio') and user_card.bio:
+                    card_bio = user_card.bio
+        except Exception as e:
+            logger.warning(f"获取卡片主人偏好信息失败: {str(e)}")
+        
+        # 构建提示词
+        prompt = f"""
+        请根据以下信息生成对话建议：
+        
+        聊天ID: {chatId}
+        用户性格特点: {json.dumps(userPersonality, ensure_ascii=False)}
+        聊天记录: {json.dumps(chatHistory, ensure_ascii=False)}
+        建议类型: {suggestionType}
+        卡片主人偏好信息: {json.dumps(card_owner_preferences, ensure_ascii=False)}
+        卡片简介信息: {card_bio}
+        聊天隐藏触发条件和输出信息: {json.dumps(cart_trigger_and_output, ensure_ascii=False)}
+        
+        请生成{maxSuggestions}条适合当前对话情境的回复建议，要求：
+        1. 符合卡片主人性格设定，自然流畅
+        2. 内容积极友好，每条建议独立完整  
+        3. 如卡片主人偏好信息不为空，适当引导用户回答问题
+        4. 根据触发条件判断用户是否满足偏好要求
+        
+        直接返回建议回复内容文本
+        """
+        
+        # 创建LLM请求
+        llm_request = LLMRequest(
+            user_id=user_id,
+            task_type=LLMTaskType.CONVERSATION_SUGGESTION,
+            prompt=prompt
+        )
+        
+        # 流式调用LLM API
+        return await self.call_llm_api(llm_request, provider, model_name, stream=True)
 
-# 导入asyncio用于模拟API
-import asyncio
+
+    async def generate_simple_chat_stream(
+        self,
+        user_id: str,
+        card_id: str,
+        chat_id: str,
+        message: str,
+        context: Dict[str, Any] = {},
+        personality: Optional[str] = None,
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
+    ):
+        """生成简单聊天流式回复 - 仅返回纯文本"""
+        
+        # 获取聊天记录和上下文
+        chat_history = context.get("chatHistory", [])
+        
+        # 获取卡片信息
+        card_bio = ""
+        card_preferences = {}
+        try:
+            from app.models.user_card_db import UserCard
+            from app.services.user_card_service import UserCardService
+            
+            user_card = UserCardService.get_card_by_id(self.db, card_id)
+            if user_card:
+                if hasattr(user_card, 'bio') and user_card.bio:
+                    card_bio = user_card.bio
+                if hasattr(user_card, 'preferences') and user_card.preferences:
+                    card_preferences = user_card.preferences
+        except Exception as e:
+            logger.warning(f"获取卡片信息失败: {str(e)}")
+        
+        # 构建简洁的提示词 - 专注于生成自然流畅的回复
+        prompt = f"""
+        你是一个友好、自然的聊天助手。请根据以下信息回复用户的消息：
+        
+        聊天ID: {chat_id}
+        用户消息: {message}
+        卡片简介: {card_bio}
+        卡片偏好: {json.dumps(card_preferences, ensure_ascii=False)}
+        聊天历史: {json.dumps(chat_history[-5:], ensure_ascii=False) if chat_history else '无历史记录'}
+        {f'卡片主人性格: {personality}' if personality else ''}
+        
+        要求：
+        1. 回复要自然流畅，像真人对话
+        2. 内容要积极友好
+        3. 根据卡片主人的性格和偏好来回复
+        4. 直接给出回复内容，不要包含其他解释
+        5. 回复长度适中，像日常聊天一样
+        
+        请直接给出回复内容：
+        """
+        
+        # 创建LLM请求
+        llm_request = LLMRequest(
+            user_id=user_id,
+            task_type=LLMTaskType.CONVERSATION_SUGGESTION,
+            prompt=prompt
+        )
+        
+        # 流式调用LLM API
+        return await self.call_llm_api(llm_request, provider, model_name, stream=True)
