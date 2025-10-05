@@ -52,7 +52,7 @@ class MatchService:
             
         return True
     
-    def submit_match_action(self, user_id: str, action_data: Dict[str, Any]) -> MatchResult:
+    async def submit_match_action(self, user_id: str, action_data: Dict[str, Any]) -> MatchResult:
         """
         提交匹配操作
         
@@ -139,6 +139,10 @@ class MatchService:
             is_match, match_id = self._process_match_logic(
                 user_id, target_user_id, card_id, scene_type, str(match_action.id), action_type
             )
+            
+            # 如果是触发对话操作，发送订阅消息
+            if action_type == "FOLLOW_AFTER_TRIGGER_IN_CHAT":
+                await self._send_trigger_notification(user_id, target_user_id, card_id, scene_type, action_data)
             
             return MatchResult(
                 is_match=is_match,
@@ -895,4 +899,52 @@ class MatchService:
             raise ValueError("无效的卡片ID格式")
             
         return user_id, card_suffix
-        return parts[0].strip(), parts[1].strip()
+    
+    async def _send_trigger_notification(self, user_id: str, target_user_id: str, card_id: str, 
+                                       scene_type: str, action_data: Dict[str, Any]) -> None:
+        """
+        发送触发对话通知
+        
+        Args:
+            user_id: 当前用户ID
+            target_user_id: 目标用户ID
+            card_id: 卡片ID
+            scene_type: 场景类型
+            action_data: 操作数据
+        """
+        try:
+            # 导入订阅消息服务
+            from app.services.subscribe_message_service import SubscribeMessageService
+            
+            # 创建订阅消息服务实例
+            subscribe_service = SubscribeMessageService(self.db)
+            
+            # 获取当前用户信息
+            current_user = self.db.query(User).filter(User.id == user_id).first()
+            if not current_user:
+                return
+            
+            # 获取目标用户信息
+            target_user = self.db.query(User).filter(User.id == target_user_id).first()
+            if not target_user:
+                return
+            
+            # 构建消息数据
+            message_data = {
+                "thing1": {"value": current_user.nickname or "用户"},
+                "thing2": {"value": scene_type},
+                "thing3": {"value": "触发对话"},
+                "time4": {"value": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")}
+            }
+            
+            # 发送订阅消息
+            await subscribe_service.send_subscribe_message(
+                user_id=target_user_id,
+                template_id="TRIGGER_CHAT_NOTIFICATION",  # 需要配置实际的模板ID
+                data=message_data,
+                page=f"pages/chat/chat?targetUserId={user_id}&cardId={card_id}"
+            )
+            
+        except Exception as e:
+            # 记录错误但不影响主流程
+            print(f"发送触发通知失败: {str(e)}")

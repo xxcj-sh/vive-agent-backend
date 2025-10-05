@@ -22,8 +22,6 @@ def run_all_tests():
         "-v",  # 详细输出
         "--tb=short",  # 简短错误信息
         "--color=yes",  # 彩色输出
-        "--cov=app/services",  # 覆盖率报告
-        "--cov-report=term-missing",  # 显示缺失的行
         "tests/services/"
     ]
     

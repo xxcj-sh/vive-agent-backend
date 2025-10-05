@@ -142,7 +142,7 @@ async def create_match_action(
         match_service = MatchService(db)
         
         # 提交匹配操作
-        result = match_service.submit_match_action(
+        result = await match_service.submit_match_action(
             user_id=user_id,
             action_data=action_data.dict()
         )
