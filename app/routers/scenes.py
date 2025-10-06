@@ -42,12 +42,12 @@ SCENE_CONFIGS = {
         label="社交",
         icon="/images/social.svg",
         iconActive="/images/social-active.svg",
-        description="商务社交与职业发展",
+        description="寻找兴趣伙伴，或者生活、事业合伙人",
         roles={
             "social_identity": SceneRole(
                 key="social_identity",
                 label="身份名片",
-                description="介绍你的社会身份"
+                description="更生动地向别人介绍你"
             ),
             # "social_business": SceneRole(
             #     key="social_business",
