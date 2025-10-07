@@ -686,6 +686,138 @@ class LLMService:
             "duration": response.duration,
             "error": "综合分析失败"
         }
+    def _get_role_specific_prompt(
+        self,
+        role_type: str,
+        prompt_type: str,
+        chatId: str,
+        userPersonality: Dict[str, Any],
+        chatHistory: List[Dict[str, Any]],
+        suggestionType: str,
+        maxSuggestions: int,
+        preferences: Dict[str, Any],
+        bio: str,
+        trigger_and_output: Dict[str, Any]
+    ) -> str:
+        """获取特定角色类型的提示词模板"""
+        # 基础信息
+        base_info = f"""
+        聊天ID: {chatId}
+        用户性格特点: {json.dumps(userPersonality, ensure_ascii=False)}
+        聊天记录: {json.dumps(chatHistory, ensure_ascii=False)}
+        建议类型: {suggestionType}
+        """
+        
+        # 根据角色类型选择不同的提示词模板
+        if role_type == "trade_landlord":
+            # 针对房东角色的特定提示词
+            role_specific_info = f"""
+            房东偏好信息: {json.dumps(preferences, ensure_ascii=False)}
+            房东简介信息: {bio}
+            隐藏触发条件和输出信息: {json.dumps(trigger_and_output, ensure_ascii=False)}
+            """
+            
+            if prompt_type == "stream":
+                # 流式响应的提示词模板
+                return f"""
+                请根据以下信息生成适合房东角色的对话建议：
+                {base_info}
+                {role_specific_info}
+                
+                请生成{maxSuggestions}条适合当前对话情境的房东回复建议，要求：
+                1. 符合房东身份，自然流畅
+                2. 关注收集潜在租户的关键信息（如工作稳定性、入住时间、租期要求、生活习惯等）
+                3. 保持友好但专业的态度进行租金和条款协商
+                4. 适当引导对话向签约意向发展
+                5. 如偏好信息不为空，注意筛选符合条件的租户
+                6. 每条建议独立完整
+                
+                直接返回建议回复内容文本
+                """
+            else:
+                # 非流式响应的提示词模板
+                return f"""
+                请根据以下信息生成适合房东角色的对话建议：
+                {base_info}
+                {role_specific_info}
+                
+                请生成{maxSuggestions}条适合当前对话情境的房东回复建议，要求：
+                1. 符合房东身份，以用户的身份对话，避免出现身份混淆和不符合逻辑事实的情况
+                2. 自然流畅，符合对话上下文
+                3. 关注收集潜在租户的关键信息（如工作稳定性、入住时间、租期要求、生活习惯等）
+                4. 保持友好但专业的态度进行租金和条款协商
+                5. 适当引导对话向签约意向发展
+                6. 每条建议是独立完整的回复
+                7. 如果偏好信息不为空，建议内容应适当引导用户回答问题，以帮助判断用户是否满足房东的偏好要求
+                8. 根据用户配置的触发条件，引导用户回答问题，判断用户是否满足房东的偏好要求，在满足触发条件时也视为满足房东的偏好要求，根据用户配置的输出信息，生成建议回复消息
+                9. 回复的内容需要保持公开可接受
+                
+                请以JSON格式回复，包含 summary(对于租客租房需求的总结，包括起租时间，租期，租金以及其他特别要求等), suggestions（为房东提供的参考建议）和 confidence（租客可靠程度）字段，is_meet_preference（是否满足房东偏好的布尔类型）字段，
+                preference_judgement（满足偏好的判断论述）字段，trigger_output（触发条件后提供给租客的信息）字段
+                
+                参考如下格式
+                """ + """
+                {
+                    "summary": "租客工作稳定，在互联网公司上班，希望起租时间为11月1日，租金预算 5000 每月，租期 1 年",
+                    "confidence": 0.95,
+                    "is_meet_preference": true,
+                    "preference_judgement": "用户的租房需求与房东的偏好相符，用户对房子的基本情况表示满意，初步达成租房意向",
+                    "trigger_output": "房东收到通知后会通过微信与您联系，商定签约事宜"
+                }
+                """
+        else:
+            # 默认提示词模板
+            default_info = f"""
+            卡片主人偏好信息: {json.dumps(preferences, ensure_ascii=False)}
+            卡片简介信息（仅作为回答问题时的参考）: {bio}
+            聊天隐藏触发条件和输出信息: {json.dumps(trigger_and_output, ensure_ascii=False)}
+            """
+            
+            if prompt_type == "stream":
+                # 流式响应的默认提示词模板
+                return f"""
+                请根据以下信息生成对话建议：
+                {base_info}
+                {default_info}
+                
+                请生成{maxSuggestions}条适合当前对话情境的回复建议，要求：
+                1. 符合卡片主人性格设定，自然流畅
+                2. 内容积极友好，每条建议独立完整  
+                3. 如卡片主人偏好信息不为空，适当引导用户回答问题
+                4. 根据触发条件判断用户是否满足偏好要求
+                
+                直接返回建议回复内容文本
+                """
+            else:
+                # 非流式响应的默认提示词模板
+                return f"""
+                请根据以下信息生成对话建议：
+                {base_info}
+                {default_info}
+                
+                请生成{maxSuggestions}条适合当前对话情境的回复建议，要求：
+                1. 符合卡片主人性格设定，以用户的身份对话，避免出现身份混淆和不符合逻辑事实的情况
+                2. 自然流畅，符合对话上下文
+                3. 内容积极友好
+                4. 每条建议是独立完整的回复
+                5. 如果卡片主人偏好信息不为空，建议内容应适当引导用户回答问题，
+                   以帮助判断用户是否满足卡片主人的偏好要求
+                6. 根据用户配置的触发条件，引导用户回答问题，判断用户是否满足卡片主人的偏好要求，在满足触发条件时也视为满足卡片主人的偏好要求，根据用户配置的输出信息，生成建议回复消息
+                
+                请以JSON格式回复，包含suggestions（建议列表）和confidence（置信度）字段，is_meet_preference（是否满足卡片主人偏好的布尔类型）字段，
+                preference_judgement（满足偏好的判断论述）字段，trigger_output（触发条件后的输出信息）字段
+                
+                参考如下格式
+                """ + """
+                {
+                    "confidence": 0.92,
+                    "suggestions": ["欢迎参加活动", "您可以参加活动"],
+                    "is_meet_preference": true,
+                    "preference_judgement": "用户的兴趣爱好与卡片主人的偏好相符，用户的生活方式与卡片主人的偏好相符",
+                    "trigger_output": "欢迎加我微信联系，记得备注来源哦"
+                }
+                """
+                
     async def generate_conversation_suggestion(
         self,
         card_id: str,
@@ -702,63 +834,41 @@ class LLMService:
         userPersonality = context.get("userPersonality", {})
         chatHistory = context.get("chatHistory", [])
         
-        # 从 Card ID 获取匹配信息，然后获取对方用户的卡片偏好
+        # 获取卡片主人信息
         card_owner_preferences = {}
         cart_trigger_and_output = {}
+        card_bio = ""
+        role_type = ""
         try:
             from app.models.user_card_db import UserCard
             from app.services.user_card_service import UserCardService
-            from app.models.match import Match
-            from sqlalchemy import or_
             
-            # 根据card_id获取卡片信息
             user_card = UserCardService.get_card_by_id(self.db, card_id)
-            if user_card and hasattr(user_card, 'preferences') and user_card.preferences:
-                # 如果卡片直接有preferences字段，则直接使用
-                card_owner_preferences = user_card.preferences
-            
-            if user_card and hasattr(user_card, 'trigger_and_output') and user_card.trigger_and_output:
-                cart_trigger_and_output = user_card.trigger_and_output
-            
-            if user_card and hasattr(user_card, 'bio') and user_card.bio:
-                card_bio = user_card.bio
+            if user_card:
+                if hasattr(user_card, 'preferences') and user_card.preferences:
+                    card_owner_preferences = user_card.preferences
+                if hasattr(user_card, 'trigger_and_output') and user_card.trigger_and_output:
+                    cart_trigger_and_output = user_card.trigger_and_output
+                if hasattr(user_card, 'bio') and user_card.bio:
+                    card_bio = user_card.bio
+                if hasattr(user_card, 'role_type'):
+                    role_type = user_card.role_type
         except Exception as e:
-            logger.error(f"获取卡片主人偏好和触发信息失败: {str(e)}")
+            logger.error(f"获取卡片主人信息失败: {str(e)}")
 
-        # 构建提示词
-        prompt = f"""
-        请根据以下信息生成对话建议：
-        
-        聊天ID: {chatId}
-        用户性格特点: {json.dumps(userPersonality, ensure_ascii=False)}
-        聊天记录: {json.dumps(chatHistory, ensure_ascii=False)}
-        建议类型: {suggestionType}
-        卡片主人偏好信息: {json.dumps(card_owner_preferences, ensure_ascii=False)}
-        卡片简介信息（仅作为回答问题时的参考）: {card_bio}
-        聊天隐藏触发条件和输出信息: {json.dumps(cart_trigger_and_output, ensure_ascii=False)}
-        
-        请生成{maxSuggestions}条适合当前对话情境的回复建议，要求：
-        1. 符合卡片主人性格设定，以用户的身份对话，避免出现身份混淆和不符合逻辑事实的情况
-        2. 自然流畅，符合对话上下文
-        3. 内容积极友好
-        4. 每条建议是独立完整的回复
-        5. 如果卡片主人偏好信息不为空，建议内容应适当引导用户回答问题，
-           以帮助判断用户是否满足卡片主人的偏好要求
-        6. 根据用户配置的触发条件，引导用户回答问题，判断用户是否满足卡片主人的偏好要求，在满足触发条件时也视为满足卡片主人的偏好要求，根据用户配置的输出信息，生成建议回复消息
-        
-        请以JSON格式回复，包含suggestions（建议列表）和confidence（置信度）字段，is_meet_preference（是否满足卡片主人偏好的布尔类型）字段，
-        preference_judgement（满足偏好的判断论述）字段，trigger_output（触发条件后的输出信息）字段
-        
-        参考如下格式
-        """ + """
-        {
-            "confidence": 0.92,
-            "suggestions": ["欢迎参加活动", "您可以参加活动"],
-            "is_meet_preference": true,
-            "preference_judgement": "用户的兴趣爱好与卡片主人的偏好相符，用户的生活方式与卡片主人的偏好相符",
-            "trigger_output": "欢迎加我微信联系，记得备注来源哦"
-        }
-        """
+        # 获取角色特定的提示词
+        prompt = self._get_role_specific_prompt(
+            role_type,
+            "normal",
+            chatId,
+            userPersonality,
+            chatHistory,
+            suggestionType,
+            maxSuggestions,
+            card_owner_preferences,
+            card_bio,
+            cart_trigger_and_output
+        )
         
         # 创建请求对象
         request = LLMRequest(
@@ -823,10 +933,11 @@ class LLMService:
         userPersonality = context.get("userPersonality", {})
         chatHistory = context.get("chatHistory", [])
         
-        # 获取卡片主人偏好信息
+        # 获取卡片主人信息
         card_owner_preferences = {}
         cart_trigger_and_output = {}
         card_bio = ""
+        role_type = ""
         try:
             from app.models.user_card_db import UserCard
             from app.services.user_card_service import UserCardService
@@ -839,29 +950,24 @@ class LLMService:
                     cart_trigger_and_output = user_card.trigger_and_output
                 if hasattr(user_card, 'bio') and user_card.bio:
                     card_bio = user_card.bio
+                if hasattr(user_card, 'role_type'):
+                    role_type = user_card.role_type
         except Exception as e:
-            logger.warning(f"获取卡片主人偏好信息失败: {str(e)}")
+            logger.warning(f"获取卡片主人信息失败: {str(e)}")
         
-        # 构建提示词
-        prompt = f"""
-        请根据以下信息生成对话建议：
-        
-        聊天ID: {chatId}
-        用户性格特点: {json.dumps(userPersonality, ensure_ascii=False)}
-        聊天记录: {json.dumps(chatHistory, ensure_ascii=False)}
-        建议类型: {suggestionType}
-        卡片主人偏好信息: {json.dumps(card_owner_preferences, ensure_ascii=False)}
-        卡片简介信息: {card_bio}
-        聊天隐藏触发条件和输出信息: {json.dumps(cart_trigger_and_output, ensure_ascii=False)}
-        
-        请生成{maxSuggestions}条适合当前对话情境的回复建议，要求：
-        1. 符合卡片主人性格设定，自然流畅
-        2. 内容积极友好，每条建议独立完整  
-        3. 如卡片主人偏好信息不为空，适当引导用户回答问题
-        4. 根据触发条件判断用户是否满足偏好要求
-        
-        直接返回建议回复内容文本
-        """
+        # 获取角色特定的提示词
+        prompt = self._get_role_specific_prompt(
+            role_type,
+            "stream",
+            chatId,
+            userPersonality,
+            chatHistory,
+            suggestionType,
+            maxSuggestions,
+            card_owner_preferences,
+            card_bio,
+            cart_trigger_and_output
+        )
         
         # 创建LLM请求
         llm_request = LLMRequest(

@@ -9,3 +9,5 @@ from .schemas import *
 # unified_enums 已合并到 enums.py 中
 from .llm_usage_log import LLMUsageLog, LLMProvider, LLMTaskType
 from .llm_schemas import *
+from .chat_message import ChatMessage
+from .subscribe_message import SubscribeMessage, UserSubscribeSetting

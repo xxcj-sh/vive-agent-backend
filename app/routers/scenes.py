@@ -7,6 +7,41 @@ router = APIRouter(prefix="/scenes", tags=["scenes"], dependencies=[])
 
 # 场景配置数据 - 使用与 schemas.py 一致的格式
 SCENE_CONFIGS = {
+    "trade": SceneConfig(
+        key="trade",
+        label="交易",
+        icon="/images/trade.svg",
+        iconActive="/images/trade-active.svg",
+        description="寻找交易伙伴",
+        roles={
+            "trade_landlord": SceneRole(
+                key="trade_landlord",
+                label="房东直租",
+                description="提供可租赁房屋"
+            )
+            # "trade_buyer": SceneRole(
+            #     key="trade_buyer",
+            #     label="购买者",
+            #     description="寻找商品或服务"
+            # ),
+            # "trade_seller": SceneRole(
+            #     key="trade_seller",
+            #     label="销售者",
+            #     description="提供商品或服务"
+            # )
+        },
+        CardFields=["currentRole", "currentCompany", "industry", "yearsOfExperience", "skills", "expertiseAreas", "socialInterests", "valueOfferings", "seekingOpportunities", "professionalLevel", "companySize"],
+        tags=[
+            "房屋出租",
+            "企业服务",
+            "咨询顾问",
+            "创业投资",
+            "产品设计",
+            "技术开发",
+            "运营管理",
+            "市场销售"
+        ]
+    ),
     "activity": SceneConfig(
         key="activity",
         label="活动",

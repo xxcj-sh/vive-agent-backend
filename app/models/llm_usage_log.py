@@ -25,6 +25,7 @@ class LLMTaskType(str, enum.Enum):
     INTEREST_ANALYSIS = "interest_analysis"
     QUESTION_ANSWERING = "question_answering"
     CONTENT_GENERATION = "content_generation"
+    CONTENT_MODERATION = "content_moderation"
     RECOMMENDATION = "recommendation"
     SENTIMENT_ANALYSIS = "sentiment_analysis"
     COMPREHENSIVE_ANALYSIS = "comprehensive_analysis"
