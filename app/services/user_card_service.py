@@ -175,6 +175,7 @@ class UserCardService:
                             value = json.dumps(value, ensure_ascii=False)
                         elif field in ["profile_data", "preferences"] and isinstance(value, dict):
                             value = json.dumps(value, ensure_ascii=False)
+                            print(f"更新{field}后:", value)
                         else:
                             # 如果不是预期的类型，使用默认值
                             if field == "trigger_and_output":

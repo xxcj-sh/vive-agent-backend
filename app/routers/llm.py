@@ -286,7 +286,6 @@ async def generate_conversation_suggestions(
         provider=settings.LLM_PROVIDER,
         model_name=settings.LLM_MODEL
     )
-    print("response:", response)
     if not response.success:
         raise HTTPException(status_code=500, detail="生成对话建议失败")
     

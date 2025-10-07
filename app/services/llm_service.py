@@ -975,7 +975,7 @@ class LLMService:
             task_type=LLMTaskType.CONVERSATION_SUGGESTION,
             prompt=prompt
         )
-        
+        print("stream calling llm")
         # 流式调用LLM API
         return await self.call_llm_api(llm_request, provider, model_name, stream=True)
 
