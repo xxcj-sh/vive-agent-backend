@@ -105,8 +105,8 @@ class DataService:
         """获取匹配卡片数据
         
         Args:
-            match_type: 匹配类型 ('dating', 'housing', 'activity')
-            user_role: 用户角色 ('seeker', 'provider', 'organizer', 'participant')
+            match_type: 匹配类型
+            user_role: 用户角色
             page: 页码
             page_size: 每页数量
             

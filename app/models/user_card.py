@@ -38,6 +38,39 @@ class CardUpdate(BaseModel):
     visibility: Optional[str] = Field(None, description="可见性")
     is_active: Optional[int] = Field(None, description="是否激活")
     search_code: Optional[str] = Field(None, description="搜索代码")
+    
+    @validator('trigger_and_output', pre=True)
+    def validate_trigger_and_output(cls, v):
+        """验证trigger_and_output字段"""
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, list) else []
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return v if isinstance(v, list) else []
+    
+    @validator('profile_data', pre=True)
+    def validate_profile_data(cls, v):
+        """验证profile_data字段"""
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, dict) else {}
+            except (json.JSONDecodeError, TypeError):
+                return {}
+        return v if isinstance(v, dict) else {}
+    
+    @validator('preferences', pre=True)
+    def validate_preferences(cls, v):
+        """验证preferences字段"""
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, dict) else {}
+            except (json.JSONDecodeError, TypeError):
+                return {}
+        return v if isinstance(v, dict) else {}
 
 class Card(CardBase):
     """用户角色卡片响应模型"""

@@ -883,12 +883,17 @@ class LLMService:
         if response.success and response.data:
             try:
                 data = json.loads(response.data)
+                # Ensure suggestions is always a list
+                suggestions = data.get("suggestions", [])
+                if isinstance(suggestions, str):
+                    suggestions = [suggestions]
+                
                 return ConversationSuggestionResponse(
                     success=True,
                     data=response.data,  # 保持原始字符串格式
                     usage=response.usage,
                     duration=response.duration,
-                    suggestions=data.get("suggestions", []),
+                    suggestions=suggestions,
                     confidence=data.get("confidence", 0.8),
                     is_meet_preference=data.get("is_meet_preference", False),
                     preference_judgement=data.get("preference_judgement", "")

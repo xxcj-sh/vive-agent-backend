@@ -42,36 +42,36 @@ SCENE_CONFIGS = {
             "市场销售"
         ]
     ),
-    "activity": SceneConfig(
-        key="activity",
-        label="活动",
-        icon="/images/interest.svg",
-        iconActive="/images/interest-active.svg",
-        description="寻找活动伙伴",
-        roles={
-            "activity_recorder": SceneRole(
-                key="activity_recorder",
-                label="活动记录",
-                description="记录活动"
-            ),
-            "activity_situation_puzzle": SceneRole(
-                key="activity_situation_puzzle",
-                label="海龟汤",
-                description="分析提问，完成故事拼图"
-            )
-        },
-        CardFields=["interests", "skillLevel", "availableTime", "groupSize", "budget"],
-        tags=[
-            "户外运动",
-            "音乐",
-            "摄影",
-            "美食",
-            "阅读",
-            "旅行",
-            "健身",
-            "游戏"
-        ]
-    ),
+    # "activity": SceneConfig(
+    #     key="activity",
+    #     label="活动",
+    #     icon="/images/interest.svg",
+    #     iconActive="/images/interest-active.svg",
+    #     description="寻找活动伙伴",
+    #     roles={
+    #         "activity_recorder": SceneRole(
+    #             key="activity_recorder",
+    #             label="活动记录",
+    #             description="记录活动"
+    #         ),
+    #         "activity_situation_puzzle": SceneRole(
+    #             key="activity_situation_puzzle",
+    #             label="海龟汤",
+    #             description="分析提问，完成故事拼图"
+    #         )
+    #     },
+    #     CardFields=["interests", "skillLevel", "availableTime", "groupSize", "budget"],
+    #     tags=[
+    #         "户外运动",
+    #         "音乐",
+    #         "摄影",
+    #         "美食",
+    #         "阅读",
+    #         "旅行",
+    #         "健身",
+    #         "游戏"
+    #     ]
+    # ),
     "social": SceneConfig(
         key="social",
         label="社交",
