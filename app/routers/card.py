@@ -4,7 +4,7 @@ from app.utils.db_config import get_db
 from app.services.user_card_service import UserCardService
 from app.models.user_card import CardCreate, CardUpdate
 from app.dependencies import get_current_user
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 router = APIRouter(
     prefix="/cards",
@@ -138,6 +138,33 @@ def update_card(
             "updated_at": updated_card.updated_at
         }
     }
+
+@router.get("/public")
+def get_public_cards(
+    page: int = 1,
+    page_size: int = 10,
+    scene_type: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """获取公开卡片列表"""
+    try:
+        # 验证页码和每页数量
+        if page < 1:
+            page = 1
+        if page_size < 1 or page_size > 100:
+            page_size = 10
+            
+        # 调用服务获取公开卡片列表
+        result = UserCardService.get_public_cards(db, page, page_size, scene_type)
+        
+        return {
+            "code": 0,
+            "message": "success",
+            "data": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取公开卡片列表失败: {str(e)}")
+
 
 @router.delete("/{card_id}")
 def delete_card(

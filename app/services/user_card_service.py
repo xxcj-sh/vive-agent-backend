@@ -10,6 +10,7 @@ from app.models.user_card import (
 import uuid
 import json
 from datetime import datetime
+from sqlalchemy.orm import Session
 
 class UserCardService:
     """用户角色卡片服务"""
@@ -291,6 +292,91 @@ class UserCardService:
         }
         return role_mapping.get(scene_type, [])
     
+    @staticmethod
+    def get_public_cards(db: Session, page: int = 1, page_size: int = 10, scene_type: str = None) -> Dict[str, Any]:
+        """获取公开的卡片列表"""
+        # 构建查询条件
+        query = db.query(UserCard).filter(
+            UserCard.visibility == "public",  # 只查询公开可见的卡片
+            UserCard.is_deleted == 0,  # 排除已删除的卡片
+            UserCard.is_active == 1    # 只查询激活状态的卡片
+        )
+        
+        # 如果提供了场景类型，则添加场景类型过滤
+        if scene_type:
+            query = query.filter(UserCard.scene_type == scene_type)
+        
+        # 获取总记录数
+        total_count = query.count()
+        
+        # 计算偏移量并添加分页
+        offset = (page - 1) * page_size
+        cards = query.order_by(UserCard.created_at.desc()).offset(offset).limit(page_size).all()
+        
+        # 处理卡片数据
+        processed_cards = []
+        for card in cards:
+            # 解析JSON字段
+            try:
+                trigger_and_output = json.loads(card.trigger_and_output) if card.trigger_and_output else []
+            except (json.JSONDecodeError, TypeError):
+                trigger_and_output = []
+            
+            try:
+                profile_data = json.loads(card.profile_data) if card.profile_data else {}
+            except (json.JSONDecodeError, TypeError):
+                profile_data = {}
+            
+            try:
+                preferences = json.loads(card.preferences) if card.preferences else {}
+            except (json.JSONDecodeError, TypeError):
+                preferences = {}
+            
+            # 获取用户基础信息
+            user = db.query(User).filter(User.id == card.user_id).first()
+            user_info = {}
+            if user:
+                user_info = {
+                    "nick_name": user.nick_name if user else None,
+                    "age": user.age if user else None,
+                    "gender": user.gender if user else None,
+                    "occupation": getattr(user, 'occupation', None) if user else None,
+                    "location": getattr(user, 'location', None) if user else None,
+                    "education": getattr(user, 'education', None) if user else None,
+                    "interests": getattr(user, 'interests', []) if user else [],
+                    "avatar_url": user.avatar_url if user else None
+                }
+            
+            processed_card = {
+                "id": card.id,
+                "user_id": card.user_id,
+                "role_type": card.role_type,
+                "scene_type": card.scene_type,
+                "display_name": card.display_name,
+                "avatar_url": card.avatar_url,
+                "bio": card.bio,
+                "trigger_and_output": trigger_and_output,
+                "profile_data": profile_data,
+                "preferences": preferences,
+                "visibility": card.visibility,
+                "created_at": card.created_at,
+                "updated_at": card.updated_at,
+                "user_info": user_info
+            }
+            
+            processed_cards.append(processed_card)
+        
+        # 计算总页数
+        total_pages = (total_count + page_size - 1) // page_size
+        
+        return {
+            "list": processed_cards,
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "current_page": page,
+            "page_size": page_size
+        }
+        
     @staticmethod
     def get_card_template(scene_type: str, role_type: str) -> Dict[str, Any]:
         """获取特定场景和角色的卡片模板"""
