@@ -16,8 +16,8 @@ SCENE_CONFIGS = {
         roles={
             "trade_landlord": SceneRole(
                 key="trade_landlord",
-                label="房东直租",
-                description="提供可租赁房屋"
+                label="出租房源",
+                description="提供可租赁的房屋"
             )
             # "trade_buyer": SceneRole(
             #     key="trade_buyer",
