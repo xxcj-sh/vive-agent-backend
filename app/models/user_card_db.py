@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Integer, DateTime, Text, JSON, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from app.utils.db_config import Base
+from app.database import Base
 import uuid
 
 class UserCard(Base):

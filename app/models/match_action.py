@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum, UniqueConstraint, Index, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from app.utils.db_config import Base
+from app.database import Base
 from app.models.enums import MatchActionType, MatchResultStatus
 import uuid
 

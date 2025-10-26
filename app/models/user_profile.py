@@ -6,7 +6,7 @@
 from sqlalchemy import Column, String, Text, DateTime, JSON, Integer, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from app.utils.db_config import Base
+from app.database import Base
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
@@ -50,21 +50,22 @@ class UserProfile(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), comment="更新时间")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="创建时间")
     
-    # 版本控制
-    version = Column(Integer, default=1, comment="数据版本")
-    is_active = Column(Boolean, default=True, comment="是否激活")
+    # 关联关系 - 用户画像历史记录
+    history = relationship("UserProfileHistory", back_populates="profile", cascade="all, delete-orphan")
+    
 
 
 # Pydantic 模型用于API
 class UserProfileBase(BaseModel):
     """用户画像基础模型"""
     user_id: str = Field(..., description="用户ID")
-    preferences: Optional[Dict[str, Any]] = Field(None, description="用户偏好设置")
-    personality_traits: Optional[Dict[str, Any]] = Field(None, description="个性特征分析")
+    basic_info: Optional[Dict[str, Any]] = Field(None, description="基本信息")
+    preferences: Optional[Dict[str, Any]] = Field(None, description="用户偏好")
     mood_state: Optional[Dict[str, Any]] = Field(None, description="心情状态分析")
-    behavior_patterns: Optional[Dict[str, Any]] = Field(None, description="行为模式分析")
+    behavior_patterns: Optional[Dict[str, Any]] = Field(None, description="聊天中体现的行为模式分析")
+    personality_traits: Optional[Dict[str, Any]] = Field(None, description="个性特征分析")
     interest_tags: Optional[List[str]] = Field(None, description="兴趣标签")
-    social_preferences: Optional[Dict[str, Any]] = Field(None, description="社交偏好")
+    social_preferences: Optional[Dict[str, Any]] = Field(None, description="沟通偏好")
     match_preferences: Optional[Dict[str, Any]] = Field(None, description="匹配偏好")
     data_source: Optional[str] = Field(None, description="数据来源")
     confidence_score: Optional[int] = Field(None, description="置信度评分(0-100)")
