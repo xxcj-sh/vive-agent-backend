@@ -11,7 +11,6 @@ from datetime import datetime
 
 from app.database import get_db
 from app.services.user_profile_service import UserProfileService
-from app.services.enhanced_user_profile_service import EnhancedUserProfileService
 from app.models.user_profile import (
     UserProfileCreate, 
     UserProfileUpdate, 
@@ -22,19 +21,265 @@ from app.models.user_profile import (
 )
 from app.utils.auth import get_current_user
 from app.models.user import User
+from pydantic import BaseModel, Field
+from enum import Enum
 
 router = APIRouter(prefix="/profiles", tags=["user-profiles"])
 
+# 评价相关模型
+class EvaluationType(str, Enum):
+    """评价类型枚举"""
+    ACCURACY = "accuracy"  # 准确性评价
+    COMPLETENESS = "completeness"  # 完整性评价
+    USEFULNESS = "usefulness"  # 有用性评价
+    OVERALL = "overall"  # 总体评价
 
-def get_enhanced_profile_service(db: Session = Depends(get_db)) -> EnhancedUserProfileService:
+class ProfileEvaluationRequest(BaseModel):
+    """用户画像评价请求模型"""
+    rating: Optional[int] = Field(None, ge=1, le=5, description="评分，1-5分")
+    evaluation_type: EvaluationType = Field(default=EvaluationType.OVERALL, description="评价类型")
+    comment: Optional[str] = Field(None, description="评价备注")
+    tags: Optional[List[str]] = Field(None, description="评价标签")
+    # 前端兼容字段
+    accuracy_rating: Optional[str] = Field(None, description="准确率评价(accurate, partial, inaccurate)")
+    adjustment_suggestion: Optional[str] = Field(None, description="调整建议")
+    profile_id: Optional[str] = Field(None, description="用户画像ID")
+    timestamp: Optional[str] = Field(None, description="时间戳")
+
+class ProfileEvaluationResponse(BaseModel):
+    """用户画像评价响应模型"""
+    id: str
+    user_id: str
+    rating: int
+    evaluation_type: str
+    comment: Optional[str]
+    tags: Optional[List[str]]
+    created_at: datetime
+    message: str = "评价提交成功"
+
+
+def get_enhanced_profile_service(db: Session = Depends(get_db)) -> UserProfileService:
     """获取增强用户画像服务实例"""
-    return EnhancedUserProfileService(db)
+    return UserProfileService(db)
+
+@router.get("/me")
+async def get_my_enhanced_profile(
+    include_history: bool = Query(False, description="是否包含历史记录"),
+    include_recommendations: bool = Query(False, description="是否包含推荐"),
+    current_user: dict = Depends(get_current_user),
+    service: UserProfileService = Depends(get_enhanced_profile_service)
+):
+    """
+    获取当前用户的增强画像
+    包含更多智能分析结果
+    """
+    result = service.get_user_profile_by_user_id(current_user.get("id"), include_history)
+    
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    
+    # 如果需要推荐，添加推荐数据
+    if include_recommendations:
+        recommendations = await service.get_smart_recommendations(current_user.get("id"), "all", 5)
+        result["recommendations"] = recommendations
+    
+    return result
+
+
+# ===== 用户画像评价接口 =====
+@router.post("/me/evaluation", response_model=ProfileEvaluationResponse)
+async def submit_profile_evaluation(
+    evaluation_data: ProfileEvaluationRequest,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    提交用户画像评价
+    用户可以对自己的画像进行评价，包括准确性、完整性、有用性等方面
+    同时更新用户画像的 accuracy_rating 和 adjustment_text 字段
+    """
+    from uuid import uuid4
+    
+    try:
+        user_id = str(current_user.get("id"))
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User not authenticated")
+        
+        # 获取当前用户的画像
+        service = UserProfileService(db)
+        profile = service.get_active_user_profile(user_id)
+        
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="用户画像不存在，请先创建画像"
+            )
+        
+        # 处理前端兼容数据格式
+        rating = evaluation_data.rating
+        comment = evaluation_data.comment
+        
+        # 如果前端发送了兼容字段，进行转换
+        if evaluation_data.accuracy_rating and not rating:
+            # 根据accuracy_rating反向推导rating
+            accuracy_to_rating = {
+                "accurate": 5,
+                "partial": 3,
+                "inaccurate": 1
+            }
+            rating = accuracy_to_rating.get(evaluation_data.accuracy_rating, 3)
+        
+        # 如果前端发送了adjustment_suggestion，用作comment
+        if evaluation_data.adjustment_suggestion and not comment:
+            comment = evaluation_data.adjustment_suggestion
+        
+        # 如果仍然没有rating，使用默认值
+        if not rating:
+            rating = 3  # 默认中等评分
+        
+        # 根据评价类型更新用户画像的 accuracy_rating 和 adjustment_text
+        accuracy_rating_map = {
+            1: "inaccurate",
+            2: "inaccurate", 
+            3: "partial",
+            4: "accurate",
+            5: "accurate"
+        }
+        
+        # 获取对应的准确率评价
+        new_accuracy_rating = accuracy_rating_map.get(rating, "partial")
+        
+        # 构建更新数据
+        update_data = UserProfileUpdate(
+            accuracy_rating=new_accuracy_rating,
+            adjustment_text=comment,
+            update_reason=f"用户画像评价: {evaluation_data.evaluation_type.value} - 评分: {rating}"
+        )
+        
+        # 更新用户画像
+        updated_profile = service.update_user_profile(
+            profile.id,
+            update_data,
+            change_source="user_evaluation",
+            change_reason=f"用户提交{evaluation_data.evaluation_type.value}评价"
+        )
+        
+        if not updated_profile:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="更新用户画像失败"
+            )
+        
+        # 创建评价记录
+        evaluation_record = {
+            "id": str(uuid4()),
+            "user_id": user_id,
+            "profile_id": profile.id,
+            "rating": rating,
+            "evaluation_type": evaluation_data.evaluation_type.value,
+            "comment": comment,
+            "tags": evaluation_data.tags or [],
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        }
+        
+        return ProfileEvaluationResponse(
+            id=evaluation_record["id"],
+            user_id=evaluation_record["user_id"],
+            rating=evaluation_record["rating"],
+            evaluation_type=evaluation_record["evaluation_type"],
+            comment=evaluation_record["comment"],
+            tags=evaluation_record["tags"],
+            created_at=evaluation_record["created_at"],
+            message=f"评价提交成功，用户画像已更新: accuracy_rating={new_accuracy_rating}"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"提交评价失败: {str(e)}"
+        )
+
+
+@router.get("/me/evaluation/stats")
+async def get_profile_evaluation_stats(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    获取用户画像评价统计
+    返回用户的评价统计数据，基于用户画像的 accuracy_rating 和 adjustment_text 字段
+    """
+    try:
+        user_id = str(current_user.get("id"))
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User not authenticated")
+        
+        # 获取当前用户的画像
+        service = UserProfileService(db)
+        profile = service.get_active_user_profile(user_id)
+        
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="用户画像不存在"
+            )
+        
+        # 基于用户画像的 accuracy_rating 和 adjustment_text 生成统计
+        # 这里简化处理，实际应该从评价记录表中查询真实数据
+        current_accuracy = profile.accuracy_rating or "unknown"
+        current_adjustment = profile.adjustment_text or ""
+        
+        # 根据 accuracy_rating 映射到评分
+        rating_map = {
+            "accurate": 5,
+            "partial": 3,
+            "inaccurate": 1,
+            "unknown": 0
+        }
+        
+        current_rating = rating_map.get(current_accuracy, 0)
+        
+        stats = {
+            "total_evaluations": 1 if current_accuracy != "unknown" else 0,
+            "average_rating": current_rating if current_rating > 0 else None,
+            "current_accuracy_rating": current_accuracy,
+            "current_adjustment_text": current_adjustment,
+            "evaluation_breakdown": {
+                "accuracy": {
+                    "current_rating": current_accuracy,
+                    "comment": current_adjustment
+                }
+            },
+            "recent_evaluations": [
+                {
+                    "id": f"eval_{profile.id}",
+                    "rating": current_rating,
+                    "evaluation_type": "overall",
+                    "comment": current_adjustment,
+                    "created_at": profile.updated_at.isoformat() if profile.updated_at else profile.created_at.isoformat()
+                }
+            ] if current_accuracy != "unknown" else []
+        }
+        
+        return stats
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取评价统计失败: {str(e)}"
+        )
+
 
 
 @router.post("/", response_model=UserProfileResponse, status_code=status.HTTP_201_CREATED)
 async def create_user_profile(
     profile_data: UserProfileCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -45,10 +290,12 @@ async def create_user_profile(
     try:
         # 如果profile_data中没有user_id，使用当前用户ID
         if not profile_data.user_id:
-            profile_data.user_id = str(current_user.id)
+            profile_data.user_id = str(current_user.get("id"))
         
         # 权限检查：用户只能创建自己的画像，管理员可以创建任何用户的画像
-        if profile_data.user_id != str(current_user.id) and not current_user.is_admin:
+        current_user_id = current_user.get("id")
+        is_admin = current_user.get("is_admin", False)
+        if profile_data.user_id != str(current_user_id) and not is_admin:
             raise HTTPException(status_code=403, detail="权限不足，只能创建自己的用户画像")
         
         profile = service.create_user_profile(profile_data)
@@ -76,18 +323,19 @@ async def get_user_profile(
     return UserProfileResponse.from_orm(profile)
 
 
-@router.get("/user/{user_id}/active", response_model=UserProfileResponse)
+@router.get("/user/{user_id}", response_model=UserProfileResponse)
 async def get_active_user_profile(
     user_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    获取用户的激活画像（增强版）
-    添加权限控制，用户只能查看自己的画像，管理员可以查看所有用户的画像
+    获取用户画像（增强版）
+    添加权限控制，用户只能查看自己的画像
     """
-    # 权限检查
-    if str(current_user.id) != user_id and not current_user.is_admin:
+    # 权限检查 - current_user是字典，使用get方法获取id
+    current_user_id = current_user.get("id")
+    if not current_user_id or str(current_user_id) != user_id:
         raise HTTPException(status_code=403, detail="权限不足，只能查看自己的用户画像")
     
     service = UserProfileService(db)
@@ -97,26 +345,6 @@ async def get_active_user_profile(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户没有激活的画像")
     
     return UserProfileResponse.from_orm(profile)
-
-
-@router.get("/user/{user_id}/all", response_model=UserProfileListResponse)
-async def get_user_profiles(
-    user_id: str,
-    include_inactive: bool = False,
-    db: Session = Depends(get_db)
-):
-    """
-    获取用户的所有画像
-    """
-    service = UserProfileService(db)
-    profiles = service.get_user_profiles(user_id, include_inactive)
-    
-    return UserProfileListResponse(
-        profiles=[UserProfileResponse.from_orm(profile) for profile in profiles],
-        total_count=len(profiles),
-        active_count=len([p for p in profiles if p.is_active == 1])
-    )
-
 
 @router.put("/{profile_id}", response_model=UserProfileResponse)
 async def update_user_profile(
@@ -257,7 +485,7 @@ async def analyze_user_mood(
 @router.get("/user/{user_id}/statistics")
 async def get_profile_statistics(
     user_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -265,7 +493,7 @@ async def get_profile_statistics(
     添加权限控制
     """
     # 权限检查
-    if str(current_user.id) != user_id and not current_user.is_admin:
+    if str(current_user.get("id")) != user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能查看自己的统计信息")
     
     service = UserProfileService(db)
@@ -279,14 +507,14 @@ async def get_profile_statistics(
 @router.post("/smart-update")
 async def update_with_smart_suggestions(
     update_data: Dict[str, Any] = Body(...),
-    current_user: User = Depends(get_current_user),
-    service: EnhancedUserProfileService = Depends(get_enhanced_profile_service)
+    current_user: dict = Depends(get_current_user),
+    service: UserProfileService = Depends(get_enhanced_profile_service)
 ):
     """
     智能更新用户画像（基于AI建议）
     整合自user_profile_enhanced.py的增强功能
     """
-    result = await service.update_with_smart_suggestions(current_user.id, update_data)
+    result = await service.update_with_smart_suggestions(current_user.get("id"), update_data)
     
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -297,14 +525,14 @@ async def update_with_smart_suggestions(
 @router.post("/implicit-learning")
 async def perform_implicit_learning(
     interaction_data: Dict[str, Any] = Body(...),
-    current_user: User = Depends(get_current_user),
-    service: EnhancedUserProfileService = Depends(get_enhanced_profile_service)
+    current_user: dict = Depends(get_current_user),
+    service: UserProfileService = Depends(get_enhanced_profile_service)
 ):
     """
     执行隐式学习更新
     根据用户交互行为自动更新画像
     """
-    result = await service.perform_implicit_learning(current_user.id, interaction_data)
+    result = await service.perform_implicit_learning(current_user.get("id"), interaction_data)
     
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -315,14 +543,14 @@ async def perform_implicit_learning(
 @router.post("/periodic-review")
 async def perform_periodic_review(
     review_type: str = Query("monthly", description="回顾类型: monthly, quarterly"),
-    current_user: User = Depends(get_current_user),
-    service: EnhancedUserProfileService = Depends(get_enhanced_profile_service)
+    current_user: dict = Depends(get_current_user),
+    service: UserProfileService = Depends(get_enhanced_profile_service)
 ):
     """
     执行定期回顾
     定期分析和优化用户画像
     """
-    result = await service.perform_periodic_review(current_user.id, review_type)
+    result = await service.perform_periodic_review(current_user.get("id"), review_type)
     
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -334,43 +562,20 @@ async def perform_periodic_review(
 async def get_smart_recommendations(
     recommendation_type: str = Query("all", description="推荐类型: all, content, social, activity"),
     limit: int = Query(10, ge=1, le=50),
-    current_user: User = Depends(get_current_user),
-    service: EnhancedUserProfileService = Depends(get_enhanced_profile_service)
+    current_user: dict = Depends(get_current_user),
+    service: UserProfileService = Depends(get_enhanced_profile_service)
 ):
     """
     获取智能推荐
     基于用户画像提供个性化推荐
     """
-    result = await service.get_smart_recommendations(current_user.id, recommendation_type, limit)
+    result = await service.get_smart_recommendations(current_user.get("id"), recommendation_type, limit)
     
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
     
     return result
 
-
-@router.get("/me/enhanced")
-async def get_my_enhanced_profile(
-    include_history: bool = Query(False, description="是否包含历史记录"),
-    include_recommendations: bool = Query(False, description="是否包含推荐"),
-    current_user: User = Depends(get_current_user),
-    service: EnhancedUserProfileService = Depends(get_enhanced_profile_service)
-):
-    """
-    获取当前用户的增强画像
-    包含更多智能分析结果
-    """
-    result = await service.get_user_profile(current_user.id, include_history)
-    
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
-    
-    # 如果需要推荐，添加推荐数据
-    if include_recommendations:
-        recommendations = await service.get_smart_recommendations(current_user.id, "all", 5)
-        result["recommendations"] = recommendations
-    
-    return result
 
 
 @router.get("/health")
@@ -387,6 +592,8 @@ async def health_check():
             "智能分析",
             "隐式学习",
             "定期回顾",
-            "智能推荐"
+            "智能推荐",
+            "用户画像评价"
         ]
     }
+

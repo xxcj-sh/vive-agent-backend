@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 import logging
 
 from app.dependencies import get_db
-from app.services.profile_modeling_service import ProfileModelingService
-from app.services.profile_modeling_scheduler import ProfileModelingScheduler
+from app.services.user_profile_modeling_service import UserProfileModelingService
+from app.services.user_profile_modeling_scheduler import UserProfileModelingScheduler
 from app.models.user import User
 from app.core.security import get_current_user
 
@@ -44,7 +44,7 @@ async def verify_profile_authenticity(
         modeling_service = ProfileModelingService(db)
         
         # 验证用户是否有权限访问此功能
-        if current_user.id != user_id and not current_user.is_admin:
+        if current_user.get("id") != user_id and not current_user.get("is_admin", False):
             raise HTTPException(
                 status_code=403,
                 detail="您没有权限验证其他用户的人设真实性"
@@ -151,7 +151,7 @@ async def update_user_profile_analysis(
         modeling_service = ProfileModelingService(db)
         
         # 验证用户是否有权限访问此功能
-        if current_user.id != user_id and not current_user.is_admin:
+        if current_user.get("id") != user_id and not current_user.get("is_admin", False):
             raise HTTPException(
                 status_code=403,
                 detail="您没有权限更新其他用户的画像分析"
@@ -202,7 +202,7 @@ async def start_profile_modeling_scheduler(
     """
     try:
         # 验证管理员权限
-        if not current_user.is_admin:
+        if not current_user.get("is_admin", False):
             raise HTTPException(
                 status_code=403,
                 detail="只有管理员才能启动调度器"
@@ -213,7 +213,7 @@ async def start_profile_modeling_scheduler(
         
         status = scheduler.get_task_status()
         
-        logger.info(f"用户画像离线建模调度器已启动，用户: {current_user.id}")
+        logger.info(f"用户画像离线建模调度器已启动，用户: {current_user.get('id')}")
         
         return {
             "success": True,
@@ -248,7 +248,7 @@ async def stop_profile_modeling_scheduler(
     """
     try:
         # 验证管理员权限
-        if not current_user.is_admin:
+        if not current_user.get("is_admin", False):
             raise HTTPException(
                 status_code=403,
                 detail="只有管理员才能停止调度器"
@@ -257,7 +257,7 @@ async def stop_profile_modeling_scheduler(
         scheduler = ProfileModelingScheduler(db)
         scheduler.stop()
         
-        logger.info(f"用户画像离线建模调度器已停止，用户: {current_user.id}")
+        logger.info(f"用户画像离线建模调度器已停止，用户: {current_user.get('id')}")
         
         return {
             "success": True,
@@ -292,7 +292,7 @@ async def get_scheduler_status(
     """
     try:
         # 验证管理员权限
-        if not current_user.is_admin:
+        if not current_user.get("is_admin", False):
             raise HTTPException(
                 status_code=403,
                 detail="只有管理员才能查看调度器状态"
@@ -335,7 +335,7 @@ async def update_task_config(
     """
     try:
         # 验证管理员权限
-        if not current_user.is_admin:
+        if not current_user.get("is_admin", False):
             raise HTTPException(
                 status_code=403,
                 detail="只有管理员才能更新任务配置"
@@ -352,7 +352,7 @@ async def update_task_config(
         scheduler = ProfileModelingScheduler(db)
         scheduler.update_task_config(task_name, config)
         
-        logger.info(f"任务 {task_name} 配置已更新，用户: {current_user.id}")
+        logger.info(f"任务 {task_name} 配置已更新，用户: {current_user.get('id')}")
         
         return {
             "success": True,
@@ -392,7 +392,7 @@ async def get_verification_history(
     """
     try:
         # 验证用户权限
-        if current_user.id != user_id and not current_user.is_admin:
+        if current_user.get("id") != user_id and not current_user.get("is_admin", False):
             raise HTTPException(
                 status_code=403,
                 detail="您没有权限查看其他用户的验证历史"

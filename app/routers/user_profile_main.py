@@ -6,9 +6,9 @@
 from fastapi import APIRouter
 from app.routers import (
     user_profile,  # 已包含增强功能
-    profile_learning,
-    profile_history,
-    profile_review
+    user_profile_learning,
+    user_profile_history,
+    user_profile_review
 )
 
 # 创建主路由器
@@ -17,9 +17,9 @@ router = APIRouter()
 # 包含所有用户画像相关的子路由
 # user_profile现在包含了基础功能和增强功能
 router.include_router(user_profile.router)
-router.include_router(profile_learning.router)
-router.include_router(profile_history.router)
-router.include_router(profile_review.router)
+router.include_router(user_profile_learning.router)
+router.include_router(user_profile_history.router)
+router.include_router(user_profile_review.router)
 
 # 健康检查端点
 @router.get("/health")

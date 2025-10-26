@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from app.database import get_db
-from app.services.profile_review_service import ProfileReviewService
-from app.services.profile_learning_service import ProfileLearningService
+from app.services.user_profile_review_service import ProfileReviewService
+from app.services.user_profile_learning_service import ProfileLearningService
 from app.utils.auth import get_current_user
 from app.models.user import User
 from app.models.user_profile import UserProfile
@@ -38,7 +38,7 @@ async def schedule_review(
 ):
     """安排用户画像定期回顾"""
     # 权限检查：用户只能安排自己的回顾，管理员可以安排所有用户的回顾
-    if current_user.id != user_id and not current_user.is_admin:
+    if current_user.get("id") != user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能安排自己的回顾")
     
     # 验证回顾类型
@@ -64,7 +64,7 @@ async def execute_review(
 ):
     """执行用户画像定期回顾"""
     # 权限检查
-    if current_user.id != user_id and not current_user.is_admin:
+    if current_user.get("id") != user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能执行自己的回顾")
     
     # 验证回顾类型
@@ -106,7 +106,7 @@ async def get_review_reminder(
 ):
     """获取用户画像回顾提醒"""
     # 权限检查
-    if current_user.id != user_id and not current_user.is_admin:
+    if current_user.get("id") != user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能查看自己的提醒")
     
     # 验证回顾类型
@@ -130,7 +130,7 @@ async def get_review_status(
 ):
     """获取用户画像回顾状态"""
     # 权限检查
-    if current_user.id != user_id and not current_user.is_admin:
+    if current_user.get("id") != user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能查看自己的状态")
     
     # 获取用户画像
@@ -188,7 +188,7 @@ async def get_review_report(
 ):
     """获取用户画像回顾报告"""
     # 权限检查
-    if current_user.id != user_id and not current_user.is_admin:
+    if current_user.get("id") != user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能查看自己的报告")
     
     # 验证回顾类型
@@ -241,7 +241,7 @@ async def setup_auto_review_schedule(
 ):
     """设置用户画像自动回顾调度"""
     # 权限检查
-    if current_user.id != user_id and not current_user.is_admin:
+    if current_user.get("id") != user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能设置自己的调度")
     
     # 设置自动调度
@@ -265,7 +265,7 @@ async def perform_batch_review(
 ):
     """批量执行用户画像回顾（管理员功能）"""
     # 权限检查：只有管理员可以执行批量回顾
-    if not current_user.is_admin:
+    if not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只有管理员可以执行批量回顾")
     
     # 验证回顾类型

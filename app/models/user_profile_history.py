@@ -42,7 +42,11 @@ class UserProfileHistory(Base):
     current_interest_tags = Column(JSON, nullable=True, comment="变更后的兴趣标签")
     current_social_preferences = Column(JSON, nullable=True, comment="变更后的社交偏好")
     current_match_preferences = Column(JSON, nullable=True, comment="变更后的匹配偏好")
-    
+
+    # 用户评价
+    accuracy_rating = Column(String(20), nullable=True, comment="准确率评价(accurate, partial, inaccurate)")
+    adjustment_text = Column(Text, nullable=True, comment="调整建议")
+
     # 变更元数据
     change_reason = Column(String(255), nullable=True, comment="变更原因")
     change_source = Column(String(100), nullable=False, comment="变更来源: user, system, admin, llm")
@@ -73,6 +77,8 @@ class UserProfileHistoryBase(BaseModel):
     confidence_score_after: Optional[int] = Field(None, description="变更后的置信度评分")
     changed_fields: Optional[List[str]] = Field(None, description="变更的字段列表")
     change_summary: Optional[str] = Field(None, description="变更摘要")
+    accuracy_rating: Optional[str] = Field(None, description="准确率评价(accurate, partial, inaccurate)")
+    adjustment_text: Optional[str] = Field(None, description="调整建议")
 
 
 class UserProfileHistoryCreate(UserProfileHistoryBase):
@@ -94,6 +100,12 @@ class UserProfileHistoryCreate(UserProfileHistoryBase):
     current_interest_tags: Optional[List[str]] = Field(None, description="变更后的兴趣标签")
     current_social_preferences: Optional[Dict[str, Any]] = Field(None, description="变更后的社交偏好")
     current_match_preferences: Optional[Dict[str, Any]] = Field(None, description="变更后的匹配偏好")
+    
+    # 用户评价数据（新增）
+    previous_accuracy_rating: Optional[str] = Field(None, description="变更前的准确率评价")
+    previous_adjustment_text: Optional[str] = Field(None, description="变更前的调整建议")
+    current_accuracy_rating: Optional[str] = Field(None, description="变更后的准确率评价")
+    current_adjustment_text: Optional[str] = Field(None, description="变更后的调整建议")
 
 
 class UserProfileHistoryResponse(UserProfileHistoryBase):
@@ -118,6 +130,12 @@ class UserProfileHistoryResponse(UserProfileHistoryBase):
     current_interest_tags: Optional[List[str]] = Field(None, description="变更后的兴趣标签")
     current_social_preferences: Optional[Dict[str, Any]] = Field(None, description="变更后的社交偏好")
     current_match_preferences: Optional[Dict[str, Any]] = Field(None, description="变更后的匹配偏好")
+    
+    # 用户评价数据（新增）
+    previous_accuracy_rating: Optional[str] = Field(None, description="变更前的准确率评价")
+    previous_adjustment_text: Optional[str] = Field(None, description="变更前的调整建议")
+    current_accuracy_rating: Optional[str] = Field(None, description="变更后的准确率评价")
+    current_adjustment_text: Optional[str] = Field(None, description="变更后的调整建议")
     
     class Config:
         from_attributes = True

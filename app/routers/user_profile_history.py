@@ -11,14 +11,14 @@ from app.database import get_db
 from app.models.user_profile_history import UserProfileHistory
 from app.utils.auth import get_current_user
 from app.models.user import User
-from app.services.enhanced_user_profile_service import EnhancedUserProfileService
+from app.services.user_profile_service import UserProfileService
 
 router = APIRouter(prefix="/profiles/history", tags=["用户画像历史记录"])
 
 
-def get_profile_service(db: Session = Depends(get_db)) -> EnhancedUserProfileService:
+def get_profile_service(db: Session = Depends(get_db)) -> UserProfileService:
     """获取增强用户画像服务实例"""
-    return EnhancedUserProfileService(db)
+    return UserProfileService(db)
 
 
 @router.get("/user/{user_id}")
@@ -31,7 +31,7 @@ async def get_user_profile_history(
 ):
     """获取用户画像历史记录列表"""
     # 权限检查：用户只能查看自己的历史记录，管理员可以查看所有用户
-    if current_user.id != user_id and not current_user.is_admin:
+    if current_user.get("id") != user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能查看自己的历史记录")
     
     # 查询历史记录
@@ -57,7 +57,7 @@ async def get_user_profile_history(
             "profile_id": record.profile_id,
             "version": record.version,
             "change_type": record.change_type,
-            "change_description": record.change_description,
+            "change_description": record.change_summary,
             "previous_snapshot": record.previous_snapshot,
             "current_snapshot": record.current_snapshot,
             "metadata": record.metadata,
@@ -95,7 +95,7 @@ async def get_version_details(
         raise HTTPException(status_code=404, detail="版本记录不存在")
     
     # 权限检查
-    if current_user.id != history_record.user_id and not current_user.is_admin:
+    if current_user.get("id") != history_record.user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能查看自己的版本记录")
     
     return {
@@ -104,7 +104,7 @@ async def get_version_details(
         "profile_id": history_record.profile_id,
         "version": history_record.version,
         "change_type": history_record.change_type,
-        "change_description": history_record.change_description,
+        "change_description": history_record.change_summary,
         "previous_snapshot": history_record.previous_snapshot,
         "current_snapshot": history_record.current_snapshot,
         "metadata": history_record.metadata,
@@ -137,7 +137,7 @@ async def compare_versions(
         raise HTTPException(status_code=400, detail="版本不属于同一用户")
     
     user_id = user_ids.pop()
-    if current_user.id != user_id and not current_user.is_admin:
+    if current_user.get("id") != user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能对比自己的版本")
     
     # 按版本号排序
@@ -158,7 +158,7 @@ async def compare_versions(
             "from_version": current_record.version,
             "to_version": next_record.version,
             "change_type": next_record.change_type,
-            "change_description": next_record.change_description,
+            "change_description": next_record.change_summary,
             "timestamp_diff": (next_record.created_at - current_record.created_at).total_seconds(),
             "snapshot_changes": {
                 "previous": current_record.current_snapshot,
@@ -176,7 +176,7 @@ async def rollback_to_version(
     version_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    profile_service: EnhancedUserProfileService = Depends(get_profile_service)
+    profile_service: UserProfileService = Depends(get_profile_service)
 ):
     """回滚到指定版本"""
     # 查询版本记录
@@ -188,11 +188,11 @@ async def rollback_to_version(
         raise HTTPException(status_code=404, detail="版本记录不存在")
     
     # 权限检查
-    if current_user.id != history_record.user_id and not current_user.is_admin:
+    if current_user.get("id") != history_record.user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能回滚自己的版本")
     
     # 执行回滚
-    result = await profile_service.rollback_to_version(current_user.id, version_id)
+    result = await profile_service.rollback_to_version(current_user.get("id"), version_id)
     
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -208,7 +208,7 @@ async def get_version_statistics(
 ):
     """获取用户画像版本统计信息"""
     # 权限检查
-    if current_user.id != user_id and not current_user.is_admin:
+    if current_user.get("id") != user_id and not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="权限不足，只能查看自己的统计信息")
     
     # 查询用户的历史记录统计
@@ -218,7 +218,7 @@ async def get_version_statistics(
         func.count(UserProfileHistory.id).label("total_versions"),
         func.min(UserProfileHistory.created_at).label("first_version_date"),
         func.max(UserProfileHistory.created_at).label("last_version_date"),
-        func.avg(func.length(UserProfileHistory.change_description)).label("avg_change_length")
+        func.avg(func.length(UserProfileHistory.change_summary)).label("avg_change_length")
     ).filter(UserProfileHistory.user_id == user_id).first()
     
     # 查询各种变更类型的数量

@@ -551,4 +551,74 @@ class AuthService:
             print(f"获取微信access_token异常: {str(e)}")
             return None
 
+    @staticmethod
+    def dev_quick_login(phone: str, db: Session) -> Dict[str, Any]:
+        """开发者快速登录（仅开发环境）"""
+        try:
+            # 检查是否为开发环境
+            if not settings.DEBUG:
+                raise ValueError("该接口仅在开发环境可用")
+            
+            # 验证手机号格式
+            if not phone or not phone.startswith('1') or len(phone) != 11:
+                raise ValueError("手机号格式不正确")
+            
+            create_user_func, get_user_by_phone_func, get_user_func = get_db_services()
+            
+            # 检查用户是否已存在
+            existing_user = get_user_by_phone_func(db, phone)
+            
+            if existing_user:
+                # 用户存在，直接登录
+                user_dict = {
+                    "id": existing_user.id,
+                    "phone": existing_user.phone,
+                    "nickName": existing_user.nick_name,
+                    "avatarUrl": existing_user.avatar_url,
+                    "gender": existing_user.gender
+                }
+                print(f"[开发者登录] 用户已存在，手机号: {phone}, 用户ID: {existing_user.id}")
+            else:
+                # 用户不存在，创建新用户
+                user_id = str(uuid.uuid4())
+                new_user_data = {
+                    "id": user_id,
+                    "phone": phone,
+                    "nick_name": f"开发用户{phone[-4:]}",
+                    "avatar_url": f"https://picsum.photos/200/200?random=dev{phone[-4:]}",
+                    "gender": 0,
+                    "is_active": True,
+                    "status": "active",
+                    "register_at": datetime.now()
+                }
+                
+                db_user = create_user_func(db, new_user_data)
+                user_dict = {
+                    "id": db_user.id,
+                    "phone": db_user.phone,
+                    "nickName": db_user.nick_name,
+                    "avatarUrl": db_user.avatar_url,
+                    "gender": db_user.gender
+                }
+                print(f"[开发者登录] 创建新用户，手机号: {phone}, 用户ID: {user_id}")
+            
+            # 创建token
+            token = AuthService.create_token(str(user_dict["id"]))
+            
+            return {
+                "token": token,
+                "expiresIn": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                "userInfo": {
+                    "id": user_dict["id"],
+                    "nickName": user_dict["nickName"],
+                    "avatarUrl": user_dict["avatarUrl"],
+                    "gender": user_dict["gender"]
+                }
+            }
+            
+        except ValueError as e:
+            raise e
+        except Exception as e:
+            raise ValueError(f"开发者登录失败: {str(e)}")
+
 auth_service = AuthService()

@@ -11,10 +11,15 @@ from app.utils.auth import get_current_user
 from app.dependencies import get_auth_service
 from app.utils.db_config import get_db
 from sqlalchemy.orm import Session
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel
 from typing import Dict, Any
+from app.config import settings
 
 router = APIRouter()
+
+# 开发者快速登录请求模型
+class DevQuickLoginRequest(BaseModel):
+    phone: str
 
 @router.post("/sessions", response_model=BaseResponse, status_code=201)
 async def login(
@@ -295,3 +300,40 @@ async def register(
 async def logout():
     # 登出操作 - 204状态码不能有响应体
     pass
+
+@router.post("/sessions/dev-quick-login", response_model=BaseResponse, status_code=201)
+async def dev_quick_login(
+    request: DevQuickLoginRequest,
+    db: Session = Depends(get_db),
+    auth_service = Depends(get_auth_service)
+):
+    """开发者快速登录（仅开发环境）"""
+    try:
+        # 检查是否为开发环境
+        if not settings.DEBUG:
+            return BaseResponse(code=403, message="该接口仅在开发环境可用", data={})
+        
+        phone = request.phone
+        if not phone:
+            return BaseResponse(code=422, message="手机号不能为空", data={})
+        
+        # 验证手机号格式
+        if not phone.startswith('1') or len(phone) != 11:
+            return BaseResponse(code=422, message="手机号格式不正确", data={})
+        
+        # 调用服务层的开发者快速登录方法
+        login_result = AuthService.dev_quick_login(phone, db)
+        
+        return BaseResponse(
+            code=0,
+            message="开发者登录成功",
+            data={
+                "token": login_result["token"],
+                "expiresIn": login_result["expiresIn"],
+                "userInfo": login_result["userInfo"]
+            }
+        )
+    except ValueError as e:
+        return BaseResponse(code=422, message=str(e), data={})
+    except Exception as e:
+        return BaseResponse(code=1006, message=f"开发者登录失败: {str(e)}", data={})

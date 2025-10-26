@@ -8,8 +8,8 @@ import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from app.services.profile_modeling_service import ProfileModelingService
-from app.services.profile_modeling_scheduler import ProfileModelingScheduler
+from app.services.user_profile_modeling_service import UserProfileModelingService
+from app.services.user_profile_modeling_scheduler import UserProfileModelingScheduler
 from app.dependencies import get_db
 
 # 配置日志

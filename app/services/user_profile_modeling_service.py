@@ -28,8 +28,9 @@ class ProfileModelingService:
     def __init__(self, db: Session):
         self.db = db
         self.llm_service = LLMService(db)
-        # 指定的多模态大模型名称
-        self.model_name = "ep-20251004235106-gklgg"
+        # 从配置中读取模型名称
+        from app.config import settings
+        self.model_name = settings.USER_PROFILE_MODEL_NAME
     
     async def verify_profile_authenticity(self, user_id: str, card_id: str = None) -> Dict[str, Any]:
         """

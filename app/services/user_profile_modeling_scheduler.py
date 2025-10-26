@@ -12,7 +12,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
-from app.services.profile_modeling_service import ProfileModelingService
+from app.services.user_profile_modeling_service import UserProfileModelingService
 from app.models.user import User
 from app.models.user_card_db import UserCard
 from app.models.user_profile import UserProfile

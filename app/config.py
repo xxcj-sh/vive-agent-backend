@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     LLM_TIMEOUT: int = 30
     LLM_RATE_LIMIT_PER_MINUTE: int = 60
     
+    # 用户画像模型配置
+    USER_PROFILE_MODEL_NAME: str = "ep-20251004235106-gklgg"
+    
     # 兼容性字段 (将逐步废弃)
     LLM_PROVIDER_COMPAT: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
@@ -87,11 +90,6 @@ class Settings(BaseSettings):
     
     # 兼容性字段
     UPLOAD_DIR_COMPAT: str = ""
-    
-    # ===========================
-    # 测试模式配置
-    # ===========================
-    TEST_MODE: bool = False
     
     # ===========================
     # 环境特定配置逻辑

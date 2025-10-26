@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 from app.models.user_profile import UserProfile, UserProfileUpdate
 from app.models.user_profile_history import UserProfileHistory
 from app.models.user import User
-from app.services.profile_learning_service import ProfileLearningService
-from app.services.enhanced_user_profile_service import EnhancedUserProfileService
+from app.services.user_profile_learning_service import ProfileLearningService
+from app.services.user_profile_service import UserProfileService
 import logging
 import asyncio
 
@@ -23,7 +23,7 @@ class ProfileReviewService:
     def __init__(self, db: Session):
         self.db = db
         self.learning_service = ProfileLearningService(db)
-        self.profile_service = EnhancedUserProfileService(db)
+        self.profile_service = UserProfileService(db)
     
     async def schedule_quarterly_review(self, user_id: str) -> Dict[str, Any]:
         """
@@ -36,10 +36,9 @@ class ProfileReviewService:
             Dict[str, Any]: 安排结果
         """
         try:
-            # 获取用户当前画像
+            # 获取用户当前画像（UserProfile模型没有is_active字段）
             current_profile = self.db.query(UserProfile).filter(
-                UserProfile.user_id == user_id,
-                UserProfile.is_active == True
+                UserProfile.user_id == user_id
             ).first()
             
             if not current_profile:
@@ -86,10 +85,9 @@ class ProfileReviewService:
             Dict[str, Any]: 回顾结果
         """
         try:
-            # 获取用户当前画像
+            # 获取用户当前画像（UserProfile模型没有is_active字段）
             current_profile = self.db.query(UserProfile).filter(
-                UserProfile.user_id == user_id,
-                UserProfile.is_active == True
+                UserProfile.user_id == user_id
             ).first()
             
             if not current_profile:
@@ -148,10 +146,9 @@ class ProfileReviewService:
             Dict[str, Any]: 回顾结果
         """
         try:
-            # 获取用户当前画像
+            # 获取用户当前画像（UserProfile模型没有is_active字段）
             current_profile = self.db.query(UserProfile).filter(
-                UserProfile.user_id == user_id,
-                UserProfile.is_active == True
+                UserProfile.user_id == user_id
             ).first()
             
             if not current_profile:
@@ -224,10 +221,9 @@ class ProfileReviewService:
             Dict[str, Any]: 提醒内容
         """
         try:
-            # 获取用户当前画像
+            # 获取用户当前画像（UserProfile模型没有is_active字段）
             current_profile = self.db.query(UserProfile).filter(
-                UserProfile.user_id == user_id,
-                UserProfile.is_active == True
+                UserProfile.user_id == user_id
             ).first()
             
             if not current_profile:

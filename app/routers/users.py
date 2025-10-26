@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 import json
+from enum import Enum
 from app.utils.db_config import get_db
 from app.services import db_service
 from app.services.data_adapter import DataService
@@ -114,6 +115,9 @@ class User(UserBase):
 
     class Config:
         orm_mode = True
+
+
+
 
 # 路由
 @router.post("/", response_model=User, status_code=status.HTTP_201_CREATED)

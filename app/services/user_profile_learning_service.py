@@ -24,7 +24,9 @@ class ProfileLearningService:
     def __init__(self, db: Session):
         self.db = db
         self.llm_service = LLMService(db)
-        self.model_name = "ep-20251004235106-gklgg"
+        # 从配置中读取模型名称
+        from app.config import settings
+        self.model_name = settings.USER_PROFILE_MODEL_NAME
     
     async def analyze_user_interaction(self, user_id: str, interaction_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -38,10 +40,9 @@ class ProfileLearningService:
             Dict[str, Any]: 分析结果，包含是否需要更新画像、更新内容等
         """
         try:
-            # 获取用户当前画像
+            # 获取用户当前画像（UserProfile模型没有is_active字段）
             current_profile = self.db.query(UserProfile).filter(
-                UserProfile.user_id == user_id,
-                UserProfile.is_active == True
+                UserProfile.user_id == user_id
             ).first()
             
             if not current_profile:
@@ -107,10 +108,9 @@ class ProfileLearningService:
             Dict[str, Any]: 学习结果
         """
         try:
-            # 获取用户当前画像
+            # 获取用户当前画像（UserProfile模型没有is_active字段）
             current_profile = self.db.query(UserProfile).filter(
-                UserProfile.user_id == user_id,
-                UserProfile.is_active == True
+                UserProfile.user_id == user_id
             ).first()
             
             if not current_profile:
@@ -180,10 +180,9 @@ class ProfileLearningService:
             Dict[str, Any]: 学习结果
         """
         try:
-            # 获取用户当前画像
+            # 获取用户当前画像（UserProfile模型没有is_active字段）
             current_profile = self.db.query(UserProfile).filter(
-                UserProfile.user_id == user_id,
-                UserProfile.is_active == True
+                UserProfile.user_id == user_id
             ).first()
             
             if not current_profile:
@@ -248,10 +247,9 @@ class ProfileLearningService:
             Dict[str, Any]: 洞察报告
         """
         try:
-            # 获取用户当前画像
+            # 获取用户当前画像（UserProfile模型没有is_active字段）
             current_profile = self.db.query(UserProfile).filter(
-                UserProfile.user_id == user_id,
-                UserProfile.is_active == True
+                UserProfile.user_id == user_id
             ).first()
             
             if not current_profile:
@@ -577,4 +575,166 @@ class ProfileLearningService:
                 "insights": [],
                 "confidence_score": 0,
                 "recommendations": []
+            }
+    
+    async def initialize_user_profile(self, user_id: str, basic_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        基于用户基本资料初始化用户画像
+        
+        Args:
+            user_id: 用户ID
+            basic_data: 用户基本资料，包含昵称、性别、年龄、地区、简介等
+            
+        Returns:
+            Dict[str, Any]: 初始化结果
+        """
+        try:
+            # 获取用户基本信息
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if not user:
+                return {"error": "用户不存在"}
+            
+            # 检查是否已存在画像（UserProfile模型没有is_active字段，所有画像默认激活）
+            existing_profile = self.db.query(UserProfile).filter(
+                UserProfile.user_id == user_id
+            ).first()
+            
+            if existing_profile:
+                return {"error": "用户画像已存在，无法重复初始化"}
+            
+            # 构建初始化提示词
+            init_prompt = self._build_profile_initialization_prompt(user, basic_data)
+            
+            # 调用LLM进行画像初始化分析
+            llm_request = LLMRequest(
+                user_id=user_id,
+                task_type=LLMTaskType.PROFILE_ANALYSIS,
+                prompt=init_prompt,
+                context={
+                    "task": "profile_initialization",
+                    "user_id": user_id,
+                    "basic_data": basic_data
+                }
+            )
+            
+            response = await self.llm_service.call_llm_api(
+                request=llm_request,
+                provider=LLMProvider.VOLCENGINE,
+                model_name=self.model_name
+            )
+            
+            if not response.success:
+                return {"error": f"画像初始化失败: {response.data}"}
+            
+            # 解析初始化结果
+            init_result = self._parse_initialization_response(response.data)
+            
+            # 创建用户画像
+            from app.models.user_profile import UserProfileCreate
+            from app.services.user_profile_service import UserProfileService
+            
+            profile_service = UserProfileService(self.db)
+            
+            profile_data = UserProfileCreate(
+                user_id=user_id,
+                preferences=init_result.get("preferences", {}),
+                personality_traits=init_result.get("personality_traits", {}),
+                mood_state=init_result.get("mood_state", {}),
+                behavior_patterns=init_result.get("behavior_patterns", {}),
+                interest_tags=init_result.get("interest_tags", []),
+                social_preferences=init_result.get("social_preferences", {}),
+                match_preferences=init_result.get("match_preferences", {}),
+                data_source="initialization",
+                confidence_score=init_result.get("confidence_score", 60),
+                update_reason="基于用户基本资料初始化生成"
+            )
+            
+            # 创建画像
+            profile = profile_service.create_user_profile(profile_data, change_source="system")
+            
+            return {
+                "success": True,
+                "profile_id": profile.id,
+                "confidence_score": profile.confidence_score,
+                "initialization_insights": init_result.get("insights", []),
+                "generated_preferences": init_result.get("preferences", {}),
+                "generated_traits": init_result.get("personality_traits", {}),
+                "reasoning": init_result.get("reasoning", "")
+            }
+            
+        except Exception as e:
+            logger.error(f"用户画像初始化过程出错: {str(e)}")
+            return {"error": f"用户画像初始化过程出错: {str(e)}"}
+    
+    def _build_profile_initialization_prompt(self, user: User, basic_data: Dict[str, Any]) -> str:
+        """构建用户画像初始化提示词"""
+        prompt = f"""
+        作为用户画像分析专家，请基于用户的基本资料生成初始用户画像。
+        
+        用户基本信息：
+        - 用户ID: {user.id}
+        - 昵称: {basic_data.get('nickname', '未知')}
+        - 性别: {basic_data.get('gender', '未知')}
+        - 年龄: {basic_data.get('age', '未知')}
+        - 地区: {basic_data.get('location', '未知地区')}
+        - 个人简介: {basic_data.get('bio', '暂无简介')}
+        - 生日: {basic_data.get('birthday', '未知')}
+        
+        请基于以上信息，生成用户的初始画像，包括：
+        1. 用户偏好（兴趣爱好、生活方式等）
+        2. 个性特征（性格特点、行为倾向等）
+        3. 心情状态（当前心理状态）
+        4. 行为模式（社交行为、消费习惯等）
+        5. 兴趣标签（相关兴趣标签）
+        6. 社交偏好（交友偏好、社交方式等）
+        7. 匹配偏好（对潜在匹配对象的偏好）
+        
+        返回JSON格式，包含：
+        - preferences: 用户偏好对象
+        - personality_traits: 个性特征对象
+        - mood_state: 心情状态对象
+        - behavior_patterns: 行为模式对象
+        - interest_tags: 兴趣标签数组
+        - social_preferences: 社交偏好对象
+        - match_preferences: 匹配偏好对象
+        - confidence_score: 置信度评分（0-100）
+        - insights: 生成洞察数组
+        - reasoning: 生成理由说明
+        """
+        return prompt
+    
+    def _parse_initialization_response(self, response_data: str) -> Dict[str, Any]:
+        """解析初始化响应"""
+        try:
+            if isinstance(response_data, str):
+                import json
+                data = json.loads(response_data)
+            else:
+                data = response_data
+            
+            return {
+                "preferences": data.get("preferences", {}),
+                "personality_traits": data.get("personality_traits", {}),
+                "mood_state": data.get("mood_state", {}),
+                "behavior_patterns": data.get("behavior_patterns", {}),
+                "interest_tags": data.get("interest_tags", []),
+                "social_preferences": data.get("social_preferences", {}),
+                "match_preferences": data.get("match_preferences", {}),
+                "confidence_score": data.get("confidence_score", 60),
+                "insights": data.get("insights", []),
+                "reasoning": data.get("reasoning", "")
+            }
+        except Exception as e:
+            logger.error(f"解析初始化响应失败: {str(e)}")
+            return {
+                "preferences": {},
+                "personality_traits": {},
+                "mood_state": {},
+                "behavior_patterns": {},
+                "interest_tags": [],
+                "social_preferences": {},
+                "match_preferences": {},
+                "confidence_score": 60,
+                "insights": [],
+                "reasoning": "解析失败，使用默认配置"
             }

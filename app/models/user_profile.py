@@ -50,6 +50,10 @@ class UserProfile(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), comment="更新时间")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="创建时间")
     
+    # 用户评价
+    accuracy_rating = Column(String(20), nullable=True, comment="准确率评价(accurate, partial, inaccurate)")
+    adjustment_text = Column(Text, nullable=True, comment="调整建议")
+    
     # 关联关系 - 用户画像历史记录
     history = relationship("UserProfileHistory", back_populates="profile", cascade="all, delete-orphan")
     
@@ -70,6 +74,8 @@ class UserProfileBase(BaseModel):
     data_source: Optional[str] = Field(None, description="数据来源")
     confidence_score: Optional[int] = Field(None, description="置信度评分(0-100)")
     update_reason: Optional[str] = Field(None, description="更新原因")
+    accuracy_rating: Optional[str] = Field(None, description="准确率评价(accurate, partial, inaccurate)")
+    adjustment_text: Optional[str] = Field(None, description="调整建议")
 
 
 class UserProfileCreate(UserProfileBase):
@@ -89,6 +95,8 @@ class UserProfileUpdate(BaseModel):
     data_source: Optional[str] = Field(None, description="数据来源")
     confidence_score: Optional[int] = Field(None, description="置信度评分(0-100)")
     update_reason: Optional[str] = Field(None, description="更新原因")
+    accuracy_rating: Optional[str] = Field(None, description="准确率评价(accurate, partial, inaccurate)")
+    adjustment_text: Optional[str] = Field(None, description="调整建议")
 
 
 class UserProfileResponse(UserProfileBase):

@@ -8,7 +8,7 @@ from . import properties
 from . import scenes
 
 # 用户画像相关模块（已合并增强功能到user_profile）
-from . import profile_learning
-from . import profile_history
-from . import profile_review
-from . import profile_main
+from . import user_profile_learning
+from . import user_profile_history
+from . import user_profile_review
+from . import user_profile_main

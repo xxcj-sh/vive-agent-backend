@@ -3,15 +3,18 @@
 提供用户画像的智能分析、学习、洞察生成等功能
 """
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from app.database import get_db
-from app.services.profile_learning_service import ProfileLearningService
-from app.services.profile_review_service import ProfileReviewService
+from app.services.user_profile_learning_service import ProfileLearningService
+from app.services.user_profile_review_service import ProfileReviewService
 from app.utils.auth import get_current_user
 from app.models.user import User
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/profiles/learning", tags=["用户画像智能学习"])
 
@@ -29,7 +32,7 @@ def get_review_service(db: Session = Depends(get_db)) -> ProfileReviewService:
 @router.post("/analyze-interaction")
 async def analyze_user_interaction(
     interaction_data: Dict[str, Any],
-    current_user: User = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_user),
     service: ProfileLearningService = Depends(get_learning_service)
 ):
     """分析用户交互行为"""
@@ -38,7 +41,7 @@ async def analyze_user_interaction(
         raise HTTPException(status_code=400, detail="交互数据格式错误")
     
     # 分析交互
-    result = await service.analyze_user_interaction(current_user.id, interaction_data)
+    result = await service.analyze_user_interaction(current_user["id"], interaction_data)
     
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
@@ -49,12 +52,12 @@ async def analyze_user_interaction(
 @router.post("/behavioral-learning")
 async def perform_behavioral_learning(
     time_window: str = Query("30d", description="时间窗口: 7d, 30d, 90d"),
-    current_user: User = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_user),
     service: ProfileLearningService = Depends(get_learning_service)
 ):
     """基于用户行为模式进行学习"""
     # 执行行为学习
-    result = await service.perform_behavioral_learning(current_user.id, time_window)
+    result = await service.perform_behavioral_learning(current_user["id"], time_window)
     
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
@@ -65,7 +68,7 @@ async def perform_behavioral_learning(
 @router.post("/contextual-learning")
 async def perform_contextual_learning(
     context_data: Dict[str, Any],
-    current_user: User = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_user),
     service: ProfileLearningService = Depends(get_learning_service)
 ):
     """基于上下文信息进行学习"""
@@ -74,7 +77,7 @@ async def perform_contextual_learning(
         raise HTTPException(status_code=400, detail="上下文数据格式错误")
     
     # 执行上下文学习
-    result = await service.perform_contextual_learning(current_user.id, context_data)
+    result = await service.perform_contextual_learning(current_user["id"], context_data)
     
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
@@ -84,12 +87,12 @@ async def perform_contextual_learning(
 
 @router.get("/generate-insights")
 async def generate_profile_insights(
-    current_user: User = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_user),
     service: ProfileLearningService = Depends(get_learning_service)
 ):
     """生成用户画像洞察报告"""
     # 生成洞察
-    result = await service.generate_profile_insights(current_user.id)
+    result = await service.generate_profile_insights(current_user["id"])
     
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
@@ -97,39 +100,57 @@ async def generate_profile_insights(
     return result
 
 
-@router.get("/learning-summary")
-async def get_learning_summary(
-    time_period: str = Query("30d", description="时间周期: 7d, 30d, 90d"),
-    current_user: User = Depends(get_current_user),
-    learning_service: ProfileLearningService = Depends(get_learning_service),
-    review_service: ProfileReviewService = Depends(get_review_service)
+from pydantic import BaseModel, Field
+
+class InitializeProfileRequest(BaseModel):
+    """初始化用户画像请求"""
+    nickname: str = Field(..., description="用户昵称")
+    gender: str = Field(..., description="用户性别")
+    age: Optional[int] = Field(None, description="用户年龄")
+    location: Optional[str] = Field(None, description="用户地区")
+    bio: Optional[str] = Field(None, description="个人简介")
+    birthday: Optional[str] = Field(None, description="生日")
+
+
+@router.post("/initialize-profile")
+async def initialize_profile(
+    request: InitializeProfileRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    service: ProfileLearningService = Depends(get_learning_service)
 ):
-    """获取用户画像学习总结"""
-    # 获取洞察报告
-    insights = await learning_service.generate_profile_insights(current_user.id)
-    
-    # 获取回顾提醒
-    quarterly_reminder = await review_service.generate_review_reminder(current_user.id, "quarterly")
-    monthly_reminder = await review_service.generate_review_reminder(current_user.id, "monthly")
-    
-    # 构建总结
-    summary = {
-        "user_id": current_user.id,
-        "time_period": time_period,
-        "generated_at": datetime.now().isoformat(),
-        "insights": insights.get("insights", []),
-        "confidence_score": insights.get("confidence_score", 0),
-        "recommendations": insights.get("recommendations", []),
-        "review_reminders": {
-            "quarterly": quarterly_reminder.get("reminder_content", {}),
-            "monthly": monthly_reminder.get("reminder_content", {})
-        },
-        "learning_status": {
-            "behavioral_learning_enabled": True,
-            "contextual_learning_enabled": True,
-            "interaction_analysis_enabled": True,
-            "review_system_enabled": True
+    """基于用户基本资料初始化用户画像"""
+    try:
+        # 构建基本资料数据
+        basic_data = {
+            "nickname": request.nickname,
+            "gender": request.gender,
+            "age": request.age,
+            "location": request.location,
+            "bio": request.bio,
+            "birthday": request.birthday
         }
-    }
-    
-    return summary
+        
+        # 调用画像初始化服务 - current_user是字典，使用id字段
+        result = await service.initialize_user_profile(current_user["id"], basic_data)
+        
+        if "error" in result:
+            return {
+                "code": 400,
+                "message": result["error"],
+                "data": None
+            }
+        
+        return {
+            "code": 200,
+            "message": "用户画像初始化成功",
+            "data": result
+        }
+        
+    except Exception as e:
+        logger.error(f"用户画像初始化失败: {str(e)}")
+        return {
+            "code": 500,
+            "message": f"用户画像初始化失败: {str(e)}",
+            "data": None
+        }
+

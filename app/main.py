@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import card, users, matches, auth, membership, membership_orders, scenes, file, properties, llm, user_profile, subscribe_message, profile_main
+from app.routers import card, users, matches, auth, membership, membership_orders, scenes, file, properties, llm, user_profile, subscribe_message, user_profile_main
 from app.utils.db_init import init_db
 from app.config import settings
 import os
@@ -44,7 +44,7 @@ app.include_router(llm.router, prefix="/api/v1")
 app.include_router(subscribe_message.router, prefix="/api/v1")
 
 # 用户画像系统路由（包含所有画像相关功能）
-app.include_router(profile_main.router, prefix="/api/v1")
+app.include_router(user_profile_main.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
@@ -74,4 +74,16 @@ def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import sys
+    import argparse
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description="Vive Agent Backend Server")
+    parser.add_argument("--port", type=int, default=8000, help="服务器端口 (默认: 8000)")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="服务器主机 (默认: 0.0.0.0)")
+    
+    # 解析参数
+    args = parser.parse_args()
+    
+    print(f"🚀 启动服务器: {args.host}:{args.port}")
+    uvicorn.run(app, host=args.host, port=args.port)
