@@ -99,6 +99,7 @@ async def submit_profile_evaluation(
     同时更新用户画像的 accuracy_rating 和 adjustment_text 字段
     """
     from uuid import uuid4
+    from app.models.user_profile_feedback import UserProfileFeedback
     
     try:
         user_id = str(current_user.get("id"))
@@ -170,36 +171,183 @@ async def submit_profile_evaluation(
                 detail="更新用户画像失败"
             )
         
-        # 创建评价记录
-        evaluation_record = {
-            "id": str(uuid4()),
-            "user_id": user_id,
-            "profile_id": profile.id,
-            "rating": rating,
-            "evaluation_type": evaluation_data.evaluation_type.value,
-            "comment": comment,
-            "tags": evaluation_data.tags or [],
-            "created_at": datetime.now(),
-            "updated_at": datetime.now()
-        }
+        # 创建用户画像反馈记录
+        feedback = UserProfileFeedback(
+            user_id=user_id,
+            profile_id=profile.id,
+            rating=rating,
+            evaluation_type=evaluation_data.evaluation_type.value,
+            comment=comment,
+            feedback_content={
+                "tags": evaluation_data.tags or [],
+                "adjustment_suggestion": evaluation_data.adjustment_suggestion,
+                "accuracy_rating": evaluation_data.accuracy_rating
+            },
+            suggested_improvements=evaluation_data.tags or [],
+            is_processed=False  # 初始状态为未处理，等待调度器处理
+        )
+        
+        db.add(feedback)
+        db.commit()
         
         return ProfileEvaluationResponse(
-            id=evaluation_record["id"],
-            user_id=evaluation_record["user_id"],
-            rating=evaluation_record["rating"],
-            evaluation_type=evaluation_record["evaluation_type"],
-            comment=evaluation_record["comment"],
-            tags=evaluation_record["tags"],
-            created_at=evaluation_record["created_at"],
-            message=f"评价提交成功，用户画像已更新: accuracy_rating={new_accuracy_rating}"
+            id=feedback.id,
+            user_id=feedback.user_id,
+            rating=feedback.rating,
+            evaluation_type=feedback.evaluation_type,
+            comment=feedback.comment,
+            tags=evaluation_data.tags or [],
+            created_at=feedback.created_at,
+            message=f"评价提交成功，用户画像已更新: accuracy_rating={new_accuracy_rating}，反馈将自动处理"
         )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"提交评价失败: {str(e)}"
+        )
+
+
+@router.get("/me/evaluation/feedback")
+async def get_pending_feedback(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    获取待处理的用户评价反馈
+    返回当前用户未处理的用户画像反馈记录
+    """
+    try:
+        user_id = str(current_user.get("id"))
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User not authenticated")
+        
+        from app.models.user_profile_feedback import UserProfileFeedback
+        from datetime import datetime, timedelta
+        
+        # 查询未处理的反馈
+        pending_feedback = db.query(UserProfileFeedback).filter(
+            UserProfileFeedback.user_id == user_id,
+            UserProfileFeedback.is_processed == False
+        ).order_by(UserProfileFeedback.created_at.desc()).all()
+        
+        # 构建响应数据
+        feedback_list = []
+        for feedback in pending_feedback:
+            feedback_list.append({
+                "id": feedback.id,
+                "profile_id": feedback.profile_id,
+                "rating": feedback.rating,
+                "evaluation_type": feedback.evaluation_type,
+                "comment": feedback.comment,
+                "feedback_content": feedback.feedback_content,
+                "suggested_improvements": feedback.suggested_improvements,
+                "is_processed": feedback.is_processed,
+                "processed_at": feedback.processed_at,
+                "created_at": feedback.created_at
+            })
+        
+        return {
+            "total_count": len(feedback_list),
+            "pending_count": len([f for f in feedback_list if not f["is_processed"]]),
+            "feedback_list": feedback_list,
+            "message": f"找到 {len(feedback_list)} 条反馈记录，其中 {len([f for f in feedback_list if not f['is_processed']])} 条待处理"
+        }
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"提交评价失败: {str(e)}"
+            detail=f"获取待处理反馈失败: {str(e)}"
+        )
+
+
+@router.get("/me/evaluation/feedback/admin")
+async def get_all_pending_feedback(
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    processed_filter: Optional[str] = Query(None, description="过滤条件: all, pending, processed"),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    管理员获取所有待处理的用户评价反馈
+    需要管理员权限，用于查看系统范围内的反馈处理情况
+    """
+    try:
+        user_id = str(current_user.get("id"))
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User not authenticated")
+        
+        # 检查管理员权限（这里简化处理，实际应该检查角色权限）
+        # TODO: 实现基于角色的权限控制
+        
+        from app.models.user_profile_feedback import UserProfileFeedback
+        from sqlalchemy import func
+        
+        # 构建查询条件
+        query = db.query(UserProfileFeedback)
+        
+        if processed_filter == "pending":
+            query = query.filter(UserProfileFeedback.is_processed == False)
+        elif processed_filter == "processed":
+            query = query.filter(UserProfileFeedback.is_processed == True)
+        # processed_filter == "all" 或 None 时查询所有记录
+        
+        # 获取总数
+        total_count = query.count()
+        
+        # 分页查询
+        feedback_list = query.order_by(
+            UserProfileFeedback.created_at.desc()
+        ).offset((page - 1) * page_size).limit(page_size).all()
+        
+        # 构建响应数据
+        result_list = []
+        for feedback in feedback_list:
+            result_list.append({
+                "id": feedback.id,
+                "user_id": feedback.user_id,
+                "profile_id": feedback.profile_id,
+                "rating": feedback.rating,
+                "evaluation_type": feedback.evaluation_type,
+                "comment": feedback.comment,
+                "feedback_content": feedback.feedback_content,
+                "suggested_improvements": feedback.suggested_improvements,
+                "is_processed": feedback.is_processed,
+                "processed_at": feedback.processed_at,
+                "created_at": feedback.created_at
+            })
+        
+        # 统计信息
+        pending_count = db.query(UserProfileFeedback).filter(
+            UserProfileFeedback.is_processed == False
+        ).count()
+        processed_count = db.query(UserProfileFeedback).filter(
+            UserProfileFeedback.is_processed == True
+        ).count()
+        
+        return {
+            "total_count": total_count,
+            "pending_count": pending_count,
+            "processed_count": processed_count,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total_count + page_size - 1) // page_size,
+            "feedback_list": result_list,
+            "message": f"找到 {total_count} 条反馈记录，其中 {pending_count} 条待处理，{processed_count} 条已处理"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取反馈列表失败: {str(e)}"
         )
 
 

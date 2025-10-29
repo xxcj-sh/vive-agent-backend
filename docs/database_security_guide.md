@@ -28,7 +28,7 @@
 ```bash
 # 基础配置
 ENVIRONMENT=development
-DEBUG=true
+DEBUG=false
 
 # 数据库配置 (本地MySQL)
 MYSQL_HOST=localhost

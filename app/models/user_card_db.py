@@ -4,6 +4,19 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 import uuid
 
+# 可见性常量
+VISIBILITY_PUBLIC = "public"
+VISIBILITY_PRIVATE = "private" 
+VISIBILITY_ANONYMOUS = "anonymous"
+
+# 神秘人统一配置
+ANONYMOUS_CONFIG = {
+    "display_name": "神秘人",
+    "avatar_url": "/images/anonymous-avatar.png",  # 需要前端提供此图片
+    "bio": "一个神秘的存在...",
+    "anonymous_mode": True
+}
+
 class UserCard(Base):
     """用户角色资料数据库模型"""
     __tablename__ = "user_cards"
@@ -18,7 +31,7 @@ class UserCard(Base):
     trigger_and_output = Column(Text, nullable=True)
     profile_data = Column(JSON, nullable=True)
     preferences = Column(JSON, nullable=True)
-    visibility = Column(String(20), default="public")
+    visibility = Column(String(20), default="public")  # public, private, anonymous
     is_active = Column(Integer, default=1)
     is_deleted = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -27,3 +40,37 @@ class UserCard(Base):
     
     # 关系
     user = relationship("User", back_populates="cards")
+    
+    def to_dict(self, include_private=False):
+        """转换为字典，支持匿名模式处理"""
+        data = {
+            "id": self.id,
+            "user_id": self.user_id,
+            "role_type": self.role_type,
+            "scene_type": self.scene_type,
+            "visibility": self.visibility,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "search_code": self.search_code
+        }
+        
+        # 匿名模式处理
+        if self.visibility == VISIBILITY_ANONYMOUS and not include_private:
+            data["display_name"] = ANONYMOUS_CONFIG["display_name"]
+            data["avatar_url"] = ANONYMOUS_CONFIG["avatar_url"]
+            data["bio"] = ANONYMOUS_CONFIG["bio"]
+            data["anonymous_mode"] = True
+            # 匿名模式下不暴露原始profile_data
+            data["profile_data"] = {}
+            data["preferences"] = {}
+        else:
+            data["display_name"] = self.display_name
+            data["avatar_url"] = self.avatar_url
+            data["bio"] = self.bio
+            data["profile_data"] = self.profile_data or {}
+            data["preferences"] = self.preferences or {}
+            data["trigger_and_output"] = self.trigger_and_output or {}
+            data["anonymous_mode"] = False
+        
+        return data

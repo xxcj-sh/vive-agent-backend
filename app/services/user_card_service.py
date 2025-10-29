@@ -294,10 +294,12 @@ class UserCardService:
     
     @staticmethod
     def get_public_cards(db: Session, page: int = 1, page_size: int = 10, scene_type: str = None) -> Dict[str, Any]:
-        """获取公开的卡片列表"""
-        # 构建查询条件
+        """获取公开的卡片列表（包括匿名模式）"""
+        from app.models.user_card_db import VISIBILITY_PUBLIC, VISIBILITY_ANONYMOUS, ANONYMOUS_CONFIG
+        
+        # 构建查询条件 - 现在包括公开和匿名模式
         query = db.query(UserCard).filter(
-            UserCard.visibility == "public",  # 只查询公开可见的卡片
+            UserCard.visibility.in_([VISIBILITY_PUBLIC, VISIBILITY_ANONYMOUS]),  # 公开或匿名模式
             UserCard.is_deleted == 0,  # 排除已删除的卡片
             UserCard.is_active == 1    # 只查询激活状态的卡片
         )
@@ -347,22 +349,43 @@ class UserCardService:
                     "avatar_url": user.avatar_url if user else None
                 }
             
-            processed_card = {
-                "id": card.id,
-                "user_id": card.user_id,
-                "role_type": card.role_type,
-                "scene_type": card.scene_type,
-                "display_name": card.display_name,
-                "avatar_url": card.avatar_url,
-                "bio": card.bio,
-                "trigger_and_output": trigger_and_output,
-                "profile_data": profile_data,
-                "preferences": preferences,
-                "visibility": card.visibility,
-                "created_at": card.created_at,
-                "updated_at": card.updated_at,
-                "user_info": user_info
-            }
+            # 处理匿名模式
+            if card.visibility == VISIBILITY_ANONYMOUS:
+                # 匿名模式：使用统一配置，隐藏真实用户信息
+                processed_card = {
+                    "id": card.id,
+                    "user_id": card.user_id,
+                    "role_type": card.role_type,
+                    "scene_type": card.scene_type,
+                    "display_name": ANONYMOUS_CONFIG["display_name"],
+                    "avatar_url": ANONYMOUS_CONFIG["avatar_url"],
+                    "bio": card.bio,  # 匿名模式仍显示个人简介
+                    "trigger_and_output": trigger_and_output,
+                    "profile_data": profile_data,
+                    "preferences": preferences,
+                    "visibility": card.visibility,
+                    "created_at": card.created_at,
+                    "updated_at": card.updated_at,
+                    "user_info": None  # 匿名模式不返回用户信息
+                }
+            else:
+                # 公开模式：正常返回所有信息
+                processed_card = {
+                    "id": card.id,
+                    "user_id": card.user_id,
+                    "role_type": card.role_type,
+                    "scene_type": card.scene_type,
+                    "display_name": card.display_name,
+                    "avatar_url": card.avatar_url,
+                    "bio": card.bio,
+                    "trigger_and_output": trigger_and_output,
+                    "profile_data": profile_data,
+                    "preferences": preferences,
+                    "visibility": card.visibility,
+                    "created_at": card.created_at,
+                    "updated_at": card.updated_at,
+                    "user_info": user_info
+                }
             
             processed_cards.append(processed_card)
         

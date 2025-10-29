@@ -443,7 +443,8 @@ async def get_match_recommendation_cards(
                 "createdAt": user_card.created_at.isoformat() if user_card.created_at else "",
                 "recommendReason": '系统推荐',
                 "cardTitle": str(user_card.display_name),
-                "displayName": getattr(user_card, 'display_name', None)
+                "displayName": getattr(user_card, 'display_name', None),
+                "visibility": getattr(user_card, 'visibility', 'public')
             }
             
             cards.append(card_data)
