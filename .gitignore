@@ -15,7 +15,6 @@ docker-compose.override.yml
 *.temp
 .DS_Store
 Thumbs.db
-__pycache__/
 vmatch.db
 vmatch_dev.db
 
@@ -41,6 +40,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+*.pyc
 
 # Virtual environments
 venv/
@@ -52,3 +52,6 @@ ENV/
 .vscode/
 *.swp
 *.swo
+
+# 剔除 app/models/__pycache__ 目录
+app/models/__pycache__/
