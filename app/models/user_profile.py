@@ -45,17 +45,27 @@ class UserProfile(Base):
     data_source = Column(String(100), nullable=True, comment="数据来源")
     confidence_score = Column(Integer, nullable=True, comment="置信度评分(0-100)")
     
-    # 更新时间信息
-    update_reason = Column(String(255), nullable=True, comment="更新原因")
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), comment="更新时间")
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="创建时间")
-    
-    # 用户评价
-    accuracy_rating = Column(String(20), nullable=True, comment="准确率评价(accurate, partial, inaccurate)")
+    # 新增字段 - 准确率评价和调整建议
+    accuracy_rating = Column(String(20), nullable=True, index=True, comment="准确率评价(accurate, partial, inaccurate)")
     adjustment_text = Column(Text, nullable=True, comment="调整建议")
     
-    # 关联关系 - 用户画像历史记录
-    history = relationship("UserProfileHistory", back_populates="profile", cascade="all, delete-orphan")
+    # 更新原因和时间戳
+    update_reason = Column(Text, nullable=True, comment="更新原因")
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment="更新时间")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="创建时间")
+    
+    # 新增字段 - 用户画像回顾相关
+    last_review_date = Column(DateTime(timezone=True), nullable=True, comment="最后回顾日期")
+    is_user_edited = Column(Boolean, default=False, nullable=False, comment="是否用户编辑过")
+    review_status = Column(String(20), default="pending", nullable=False, comment="回顾状态")
+    
+    # 新增字段 - 画像回顾和编辑标记
+    last_review_date = Column(DateTime(timezone=True), nullable=True, comment="最后回顾日期")
+    is_user_edited = Column(Boolean, default=False, nullable=True, comment="是否用户编辑过")
+    review_status = Column(String(20), default="pending", nullable=True, comment="回顾状态(pending, completed, overdue)")
+    
+    # 关联关系 - 使用字符串引用避免循环导入
+    history = relationship("UserProfileHistory", back_populates="profile", cascade="all, delete-orphan", lazy="selectin")
     
 
 
@@ -76,6 +86,9 @@ class UserProfileBase(BaseModel):
     update_reason: Optional[str] = Field(None, description="更新原因")
     accuracy_rating: Optional[str] = Field(None, description="准确率评价(accurate, partial, inaccurate)")
     adjustment_text: Optional[str] = Field(None, description="调整建议")
+    last_review_date: Optional[datetime] = Field(None, description="最后回顾日期")
+    is_user_edited: Optional[bool] = Field(False, description="是否用户编辑过")
+    review_status: Optional[str] = Field("pending", description="回顾状态")
 
 
 class UserProfileCreate(UserProfileBase):
@@ -97,6 +110,20 @@ class UserProfileUpdate(BaseModel):
     update_reason: Optional[str] = Field(None, description="更新原因")
     accuracy_rating: Optional[str] = Field(None, description="准确率评价(accurate, partial, inaccurate)")
     adjustment_text: Optional[str] = Field(None, description="调整建议")
+    last_review_date: Optional[datetime] = Field(None, description="最后回顾日期")
+    review_status: Optional[str] = Field(None, description="回顾状态")
+    is_user_edit: Optional[bool] = Field(None, description="是否用户编辑")
+
+
+class UserProfileExplicitUpdate(BaseModel):
+    """显式更新用户画像模型 - 用户手动更新"""
+    preferences: Optional[Dict[str, Any]] = Field(None, description="用户偏好设置")
+    personality_traits: Optional[Dict[str, Any]] = Field(None, description="个性特征分析")
+    interest_tags: Optional[List[str]] = Field(None, description="兴趣标签")
+    social_preferences: Optional[Dict[str, Any]] = Field(None, description="社交偏好")
+    match_preferences: Optional[Dict[str, Any]] = Field(None, description="匹配偏好")
+    adjustment_text: Optional[str] = Field(None, description="调整建议")
+    update_reason: Optional[str] = Field("用户手动更新", description="更新原因")
 
 
 class UserProfileResponse(UserProfileBase):
@@ -106,9 +133,32 @@ class UserProfileResponse(UserProfileBase):
     is_active: int = Field(..., description="是否激活")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: Optional[datetime] = Field(None, description="更新时间")
+    last_review_date: Optional[datetime] = Field(None, description="最后回顾日期")
+    is_user_edited: Optional[bool] = Field(False, description="是否用户编辑过")
+    review_status: Optional[str] = Field("pending", description="回顾状态")
     
     class Config:
         from_attributes = True
+
+
+class ProfileReviewSuggestion(BaseModel):
+    """画像回顾建议模型"""
+    field_name: str = Field(..., description="字段名称")
+    current_value: Optional[Any] = Field(None, description="当前值")
+    suggested_value: Optional[Any] = Field(None, description="建议值")
+    confidence_level: float = Field(..., description="置信度")
+    reason: Optional[str] = Field(None, description="建议原因")
+    
+
+class ProfileReviewResponse(BaseModel):
+    """画像回顾响应模型"""
+    user_id: str = Field(..., description="用户ID")
+    profile_id: str = Field(..., description="画像ID")
+    last_review_date: Optional[datetime] = Field(None, description="最后回顾日期")
+    next_review_date: datetime = Field(..., description="下次回顾日期")
+    review_due: bool = Field(..., description="是否需要回顾")
+    suggestions: List[ProfileReviewSuggestion] = Field(default_factory=list, description="更新建议")
+    review_status: str = Field(..., description="回顾状态")
 
 
 class UserProfileListResponse(BaseModel):

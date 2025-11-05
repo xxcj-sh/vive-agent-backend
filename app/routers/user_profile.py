@@ -154,7 +154,8 @@ async def submit_profile_evaluation(
         update_data = UserProfileUpdate(
             accuracy_rating=new_accuracy_rating,
             adjustment_text=comment,
-            update_reason=f"用户画像评价: {evaluation_data.evaluation_type.value} - 评分: {rating}"
+            update_reason=f"用户画像评价: {evaluation_data.evaluation_type.value} - 评分: {rating}",
+            is_user_edit=True
         )
         
         # 更新用户画像
@@ -662,7 +663,13 @@ async def update_with_smart_suggestions(
     智能更新用户画像（基于AI建议）
     整合自user_profile_enhanced.py的增强功能
     """
-    result = await service.update_with_smart_suggestions(current_user.get("id"), update_data)
+    # Get user's profile first
+    profile = service.get_active_user_profile(current_user.get("id"))
+    if not profile:
+        raise HTTPException(status_code=404, detail="用户画像不存在")
+    
+    # Use apply_ai_suggestions method instead of the non-existent update_with_smart_suggestions
+    result = service.apply_ai_suggestions(profile.id, update_data)
     
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
