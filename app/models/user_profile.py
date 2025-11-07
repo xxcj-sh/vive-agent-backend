@@ -16,18 +16,21 @@ import uuid
 class UserProfile(Base):
     """用户画像数据表"""
     __tablename__ = "user_profiles"
-    
+
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), nullable=False, index=True, comment="用户ID")
-    
-    # 原始画像数据 - 存储LLM生成的完整用户画像
+
+    # 原始画像数据 - 存储LLM生成的完整用户画像（JSON格式，便于结构化数据处理）
     raw_profile = Column(Text, nullable=True, comment="原始用户画像数据（JSON格式）")
-    
+
+    # 生成的总结文本 - LLM生成的自然语言用户画像描述（可直接阅读的文本）
+    profile_summary = Column(Text, nullable=True, comment="用户画像总结文本（LLM生成的可读文本）")
+
     # 更新原因和时间戳
     update_reason = Column(String(500), nullable=True, comment="更新原因")
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment="更新时间")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="创建时间")
-    
+
     # 关联关系 - 使用字符串引用避免循环导入
     history = relationship("UserProfileHistory", back_populates="profile", cascade="all, delete-orphan", lazy="selectin")
 
@@ -37,6 +40,7 @@ class UserProfileBase(BaseModel):
     """用户画像基础模型"""
     user_id: str = Field(..., description="用户ID")
     raw_profile: Optional[str] = Field(None, description="原始用户画像数据（JSON格式）")
+    profile_summary: Optional[str] = Field(None, description="用户画像总结文本（LLM生成的可读文本）")
     update_reason: Optional[str] = Field(None, description="更新原因")
 
 
@@ -48,6 +52,7 @@ class UserProfileCreate(UserProfileBase):
 class UserProfileUpdate(BaseModel):
     """更新用户画像模型"""
     raw_profile: Optional[str] = Field(None, description="原始用户画像数据（JSON格式）")
+    profile_summary: Optional[str] = Field(None, description="用户画像总结文本（LLM生成的可读文本）")
     update_reason: Optional[str] = Field(None, description="更新原因")
 
 

@@ -79,7 +79,7 @@ async def update_user_profile(
 ):
     """更新用户画像"""
     try:
-        return service.update_profile(user_id, profile_update, change_source="user")
+        return await service.update_profile(user_id, profile_update, change_source="user")
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
