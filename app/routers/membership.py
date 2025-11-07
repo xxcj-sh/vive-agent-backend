@@ -19,7 +19,7 @@ async def get_membership_info(current_user: Dict[str, Any] = Depends(auth_servic
         "level": "free",
         "levelName": "普通会员",
         "expireDate": None,
-        "features": ["基础卡片流", "基础智能体卡片", "基础触发条件"]
+        "features": ["基础卡片流", "基础 AI 分身", "基础触发条件"]
     }
     
     return BaseResponse(

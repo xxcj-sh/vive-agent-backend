@@ -12,7 +12,7 @@ SCENE_CONFIGS = {
         label="交易",
         icon="/images/trade.svg",
         iconActive="/images/trade-active.svg",
-        description="寻找交易伙伴",
+        description="寻找伙伴",
         roles={
             "trade_landlord": SceneRole(
                 key="trade_landlord",
@@ -101,7 +101,7 @@ SCENE_CONFIGS = {
             # ),
             "social_interest": SceneRole(
                 key="social_interest",
-                label="兴趣社交",
+                label="兴趣社交名片",
                 description="寻找有共同兴趣的伙伴"
             )
         },

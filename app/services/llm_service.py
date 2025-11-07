@@ -840,28 +840,20 @@ class LLMService:
         card_bio = ""
         role_type = ""
         try:
-            from app.models.user_card_db import UserCard, VISIBILITY_ANONYMOUS, ANONYMOUS_CONFIG
+            from app.models.user_card_db import UserCard
             from app.services.user_card_service import UserCardService
-            
+
             user_card = UserCardService.get_card_by_id(self.db, card_id)
             if user_card:
-                # 检查是否为匿名模式
-                if user_card.visibility == VISIBILITY_ANONYMOUS:
-                    # 匿名模式下使用统一的神秘人配置
-                    card_owner_preferences = {}
-                    cart_trigger_and_output = []
-                    card_bio = "这是一个神秘人，保持神秘感是最好的选择。"
+                # 正常模式下的处理
+                if hasattr(user_card, 'preferences') and user_card.preferences:
+                    card_owner_preferences = user_card.preferences
+                if hasattr(user_card, 'trigger_and_output') and user_card.trigger_and_output:
+                    cart_trigger_and_output = user_card.trigger_and_output
+                if hasattr(user_card, 'bio') and user_card.bio:
+                    card_bio = user_card.bio
+                if hasattr(user_card, 'role_type'):
                     role_type = user_card.role_type
-                else:
-                    # 正常模式下的处理
-                    if hasattr(user_card, 'preferences') and user_card.preferences:
-                        card_owner_preferences = user_card.preferences
-                    if hasattr(user_card, 'trigger_and_output') and user_card.trigger_and_output:
-                        cart_trigger_and_output = user_card.trigger_and_output
-                    if hasattr(user_card, 'bio') and user_card.bio:
-                        card_bio = user_card.bio
-                    if hasattr(user_card, 'role_type'):
-                        role_type = user_card.role_type
         except Exception as e:
             logger.error(f"获取卡片主人信息失败: {str(e)}")
 
@@ -953,28 +945,20 @@ class LLMService:
         card_bio = ""
         role_type = ""
         try:
-            from app.models.user_card_db import UserCard, VISIBILITY_ANONYMOUS, ANONYMOUS_CONFIG
+            from app.models.user_card_db import UserCard
             from app.services.user_card_service import UserCardService
-            
+
             user_card = UserCardService.get_card_by_id(self.db, card_id)
             if user_card:
-                # 检查是否为匿名模式
-                if user_card.visibility == VISIBILITY_ANONYMOUS:
-                    # 匿名模式下使用统一的神秘人配置
-                    card_owner_preferences = {}
-                    cart_trigger_and_output = []
-                    card_bio = "这是一个神秘人，保持神秘感是最好的选择。"
+                # 正常模式下的处理
+                if hasattr(user_card, 'preferences') and user_card.preferences:
+                    card_owner_preferences = user_card.preferences
+                if hasattr(user_card, 'trigger_and_output') and user_card.trigger_and_output:
+                    cart_trigger_and_output = user_card.trigger_and_output
+                if hasattr(user_card, 'bio') and user_card.bio:
+                    card_bio = user_card.bio
+                if hasattr(user_card, 'role_type'):
                     role_type = user_card.role_type
-                else:
-                    # 正常模式下的处理
-                    if hasattr(user_card, 'preferences') and user_card.preferences:
-                        card_owner_preferences = user_card.preferences
-                    if hasattr(user_card, 'trigger_and_output') and user_card.trigger_and_output:
-                        cart_trigger_and_output = user_card.trigger_and_output
-                    if hasattr(user_card, 'bio') and user_card.bio:
-                        card_bio = user_card.bio
-                    if hasattr(user_card, 'role_type'):
-                        role_type = user_card.role_type
         except Exception as e:
             logger.warning(f"获取卡片主人信息失败: {str(e)}")
         
@@ -1023,22 +1007,16 @@ class LLMService:
         card_bio = ""
         card_preferences = {}
         try:
-            from app.models.user_card_db import UserCard, VISIBILITY_ANONYMOUS, ANONYMOUS_CONFIG
+            from app.models.user_card_db import UserCard
             from app.services.user_card_service import UserCardService
-            
+
             user_card = UserCardService.get_card_by_id(self.db, card_id)
             if user_card:
-                # 检查是否为匿名模式
-                if user_card.visibility == VISIBILITY_ANONYMOUS:
-                    # 匿名模式下使用统一的神秘人配置
-                    card_bio = "这是一个神秘人，保持神秘感是最好的选择。"
-                    card_preferences = {}
-                else:
-                    # 正常模式下的处理
-                    if hasattr(user_card, 'bio') and user_card.bio:
-                        card_bio = user_card.bio
-                    if hasattr(user_card, 'preferences') and user_card.preferences:
-                        card_preferences = user_card.preferences
+                # 正常模式下的处理
+                if hasattr(user_card, 'bio') and user_card.bio:
+                    card_bio = user_card.bio
+                if hasattr(user_card, 'preferences') and user_card.preferences:
+                    card_preferences = user_card.preferences
         except Exception as e:
             logger.warning(f"获取卡片信息失败: {str(e)}")
         

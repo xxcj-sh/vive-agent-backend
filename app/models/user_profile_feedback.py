@@ -33,6 +33,7 @@ class UserProfileFeedback(Base):
     
     # 处理状态
     is_processed = Column(Boolean, default=False, index=True)  # 是否已处理
+    processing_status = Column(String(20), default="pending", index=True, comment="处理状态: pending, processing, completed, failed")
     processed_at = Column(DateTime)  # 处理时间
     processing_result = Column(JSON)  # 处理结果
     
@@ -70,6 +71,7 @@ class UserProfileFeedbackCreate(UserProfileFeedbackBase):
 class UserProfileFeedbackUpdate(BaseModel):
     """更新用户画像反馈评价请求模型"""
     is_processed: Optional[bool] = Field(None, description="是否已处理")
+    processing_status: Optional[str] = Field(None, description="处理状态")
     processed_at: Optional[datetime] = Field(None, description="处理时间")
     processing_result: Optional[Dict[str, Any]] = Field(None, description="处理结果")
     updated_profile_id: Optional[str] = Field(None, description="更新后的画像ID")
@@ -79,6 +81,7 @@ class UserProfileFeedbackResponse(UserProfileFeedbackBase):
     """用户画像反馈评价响应模型"""
     id: str = Field(..., description="反馈ID")
     is_processed: bool = Field(..., description="是否已处理")
+    processing_status: str = Field(..., description="处理状态")
     processed_at: Optional[datetime] = Field(None, description="处理时间")
     processing_result: Optional[Dict[str, Any]] = Field(None, description="处理结果")
     updated_profile_id: Optional[str] = Field(None, description="更新后的画像ID")

@@ -11,3 +11,5 @@ from .llm_usage_log import LLMUsageLog, LLMProvider, LLMTaskType
 from .llm_schemas import *
 from .chat_message import ChatMessage
 from .subscribe_message import SubscribeMessage, UserSubscribeSetting
+from .user_profile import UserProfile
+from .user_profile_history import UserProfileHistory
