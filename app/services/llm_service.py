@@ -1040,13 +1040,168 @@ class LLMService:
         
         请直接给出回复内容：
         """
-        
+
         # 创建LLM请求
         llm_request = LLMRequest(
             user_id=user_id,
             task_type=LLMTaskType.CONVERSATION_SUGGESTION,
             prompt=prompt
         )
-        
+
         # 流式调用LLM API
         return await self.call_llm_api(llm_request, provider, model_name, stream=True)
+
+    async def generate_coffee_recommendation(
+        self,
+        user_id: str,
+        time_preference: str = None,
+        location_preference: str = None,
+        budget_range: str = None,
+        coffee_type: str = None,
+        atmosphere: str = None,
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
+    ) -> LLMResponse:
+        """
+        生成咖啡推荐
+
+        Args:
+            user_id: 用户ID
+            time_preference: 时间偏好
+            location_preference: 地点偏好
+            budget_range: 预算范围
+            coffee_type: 咖啡类型偏好
+            atmosphere: 氛围偏好
+
+        Returns:
+            LLM响应对象
+        """
+        prompt = f"""
+        请根据以下信息为用户推荐咖啡店和咖啡：
+
+        时间偏好：{time_preference or '无特殊要求'}
+        地点偏好：{location_preference or '无特殊要求'}
+        预算范围：{budget_range or '无特殊要求'}
+        咖啡类型：{coffee_type or '无特殊要求'}
+        氛围偏好：{atmosphere or '无特殊要求'}
+
+        请推荐3-5家咖啡店，包括：
+        1. 咖啡店名称
+        2. 地址
+        3. 距离
+        4. 评分
+        5. 价格等级（1-4）
+        6. 特色
+        7. 营业时间
+        8. 推荐理由
+
+        请用JSON格式回复，包含以下字段：
+        - locations: 地点推荐列表
+        - coffee_suggestions: 推荐咖啡列表
+        - summary: 总结
+        """
+
+        llm_request = LLMRequest(
+            user_id=user_id,
+            task_type=LLMTaskType.INTEREST_ANALYSIS,  # 使用现有任务类型
+            prompt=prompt
+        )
+
+        return await self.call_llm_api(llm_request, provider, model_name)
+
+    async def generate_activity_recommendation(
+        self,
+        user_id: str,
+        activity_type: str,
+        preferences: Dict[str, Any] = None,
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
+    ) -> LLMResponse:
+        """
+        生成活动推荐
+
+        Args:
+            user_id: 用户ID
+            activity_type: 活动类型（coffee, meal, movie, sport等）
+            preferences: 用户偏好
+
+        Returns:
+            LLM响应对象
+        """
+        prompt = f"""
+        请为用户推荐{activity_type}相关的活动：
+
+        活动类型：{activity_type}
+        用户偏好：{json.dumps(preferences, ensure_ascii=False) if preferences else '无特殊偏好'}
+
+        请推荐具体的活动方案，包括：
+        1. 活动标题
+        2. 活动描述
+        3. 建议时间
+        4. 建议地点
+        5. 预计费用
+        6. 参与人数
+        7. 注意事项
+
+        请用JSON格式回复：
+        - activities: 活动推荐列表
+        - summary: 推荐总结
+        """
+
+        llm_request = LLMRequest(
+            user_id=user_id,
+            task_type=LLMTaskType.PROFILE_ANALYSIS,  # 使用现有任务类型
+            prompt=prompt
+        )
+
+        return await self.call_llm_api(llm_request, provider, model_name)
+
+    async def generate_activity_invitation(
+        self,
+        inviter_name: str,
+        card_name: str,
+        activity_type: str,
+        preferences: Dict[str, Any] = None,
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
+    ) -> LLMResponse:
+        """
+        生成活动邀约内容
+
+        Args:
+            inviter_name: 发起人姓名
+            card_name: AI分身名称
+            activity_type: 活动类型
+            preferences: 偏好信息
+
+        Returns:
+            LLM响应对象
+        """
+        prompt = f"""
+        请为{inviter_name}生成一份向{card_name}发出的{activity_type}活动邀约：
+
+        发起人：{inviter_name}
+        AI分身：{card_name}
+        活动类型：{activity_type}
+        偏好信息：{json.dumps(preferences, ensure_ascii=False) if preferences else '无特殊偏好'}
+
+        请生成邀约内容，包括：
+        1. 友好的问候
+        2. 活动介绍
+        3. 建议时间
+        4. 建议地点
+        5. 期待回复
+
+        请用JSON格式回复：
+        - title: 邀约标题
+        - message: 邀约消息
+        - suggestions: 建议选项
+        """
+
+        llm_request = LLMRequest(
+            user_id=inviter_name,
+            task_type=LLMTaskType.CONVERSATION_SUGGESTION,
+            prompt=prompt
+        )
+
+        return await self.call_llm_api(llm_request, provider, model_name)
