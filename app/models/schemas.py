@@ -143,3 +143,30 @@ class SceneConfig(BaseModel):
 
 class SceneConfigResponse(BaseModel):
     scenes: Dict[str, SceneConfig] = Field(..., description="场景配置字典")
+
+
+# 聊天相关模型
+class ChatMessageResponse(BaseModel):
+    id: str = Field(..., description="消息ID")
+    content: str = Field(..., description="消息内容")
+    type: str = Field(..., description="消息类型，如text、image等")
+    sender: str = Field(..., description="发送者类型，如user、assistant等")
+    created_at: str = Field(..., description="创建时间，ISO格式")
+
+
+class ChatMessageCreate(BaseModel):
+    content: str = Field(..., description="消息内容")
+    type: Optional[str] = Field("text", description="消息类型，如text、image等")
+    is_anonymous: Optional[bool] = Field(False, description="是否为匿名消息")
+    
+    @field_validator('content')
+    @classmethod
+    def content_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError('消息内容不能为空')
+        return v
+
+
+class ChatListResponse(BaseModel):
+    chats: List[Dict[str, Any]] = Field(..., description="聊天会话列表")
+    total: int = Field(..., description="总数")

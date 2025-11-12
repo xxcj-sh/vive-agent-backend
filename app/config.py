@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # ===========================
     SECRET_KEY: str = "your_secret_key_here"  # 生产环境必须修改
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 43200  # 720小时 = 720 * 60分钟
     
     # ===========================
     # 数据库配置

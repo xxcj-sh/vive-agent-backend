@@ -14,7 +14,7 @@ class ChatMessage(Base):
     __tablename__ = "chat_messages"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)  # 用户ID
+    user_id = Column(String(36), nullable=True, index=True)  # 用户ID（移除外键约束，允许为NULL，支持匿名聊天）
     card_id = Column(String(36), ForeignKey('user_cards.id'), nullable=True, index=True)  # 卡片ID（可选）
     content = Column(Text, nullable=False)  # 消息内容
     message_type = Column(String(20), default='text')  # 消息类型: text, image, audio, video
