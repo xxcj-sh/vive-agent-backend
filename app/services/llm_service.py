@@ -17,10 +17,9 @@ from openai import AsyncOpenAI
 from app.config import settings
 from app.models.llm_usage_log import LLMUsageLog, LLMProvider, LLMTaskType
 from app.models.llm_schemas import (
-    LLMRequest, ProfileAnalysisRequest, InterestAnalysisRequest,
-    QuestionAnsweringRequest,
-    LLMResponse, ProfileAnalysisResponse, InterestAnalysisResponse,
-    QuestionAnsweringResponse, ConversationSuggestionResponse
+    LLMRequest,
+    LLMResponse, ConversationSuggestionResponse, ProfileAnalysisResponse,
+    ActivityInfoExtractionRequest, ActivityInfoExtractionResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -342,16 +341,22 @@ class LLMService:
             提供深入的洞察和个性化建议。请用中文回复，
             确保分析结果准确、有用且易于理解。
             """,
-            LLMTaskType.INTEREST_ANALYSIS: """
+        LLMTaskType.INTEREST_ANALYSIS: """
             你是一个兴趣匹配专家。请分析用户的兴趣爱好，
             识别兴趣类别，并提供相关的匹配建议。
             请用中文回复，确保分析结果实用且有趣。
             """,
 
-            LLMTaskType.QUESTION_ANSWERING: """
+        LLMTaskType.QUESTION_ANSWERING: """
             你是一个智能助手，专门帮助用户解答关于交友、租房、
             活动等方面的问题。请基于提供的上下文信息，
             给出准确、有用的回答。请用中文回复。
+            """,
+        LLMTaskType.ACTIVITY_INFO_EXTRACTION: """
+            你是一个专业的信息提取助手。请从对话历史中提取
+            关于活动的关键信息，如时间、地点、偏好等。
+            请用中文思考，严格按照JSON格式输出结果，
+            确保提取的信息准确且完整。
             """,
 
         }
@@ -427,6 +432,83 @@ class LLMService:
         except Exception as e:
             logger.error(f"LLM使用日志处理失败: {str(e)}")
     
+    # 活动信息提取功能
+    async def extract_activity_info(
+        self,
+        user_id: str,
+        conversation_history: List[Dict[str, Any]],
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
+    ) -> ActivityInfoExtractionResponse:
+        """
+        从对话历史中提取活动相关信息
+        
+        Args:
+            user_id: 用户ID
+            conversation_history: 对话历史记录
+            provider: LLM服务提供商
+            model_name: 模型名称
+            
+        Returns:
+            包含提取的活动信息的响应对象
+        """
+        prompt = f"""
+        请从以下对话历史中提取活动相关的关键信息，包括但不限于：
+        1. 时间 (time)：活动计划的时间
+        2. 地点 (location)：活动计划的地点
+        3. 偏好 (preferences)：用户表达的任何偏好
+        
+        对话历史：
+        {json.dumps(conversation_history, ensure_ascii=False)}
+        
+        请严格按照以下JSON格式输出，不要包含任何额外的说明文字：
+        {{
+            "time": "提取的时间信息，如果未提取到则为null",
+            "location": "提取的地点信息，如果未提取到则为null",
+            "preferences": {{}}
+        }}
+        """
+        
+        request = ActivityInfoExtractionRequest(
+            user_id=user_id,
+            task_type=LLMTaskType.ACTIVITY_INFO_EXTRACTION,
+            conversation_history=conversation_history,
+            prompt=prompt
+        )
+        
+        response = await self.call_llm_api(request, provider, model_name)
+        
+        if response.success and response.data:
+            try:
+                data = json.loads(response.data)
+                # 确保返回的数据结构完整
+                data.setdefault('time', None)
+                data.setdefault('location', None)
+                data.setdefault('preferences', {})
+                
+                return ActivityInfoExtractionResponse(
+                    success=True,
+                    data=json.dumps(data, ensure_ascii=False),
+                    usage=response.usage,
+                    duration=response.duration,
+                    time_info=data.get('time'),
+                    location_info=data.get('location'),
+                    preference_info=data.get('preferences')
+                )
+            except json.JSONDecodeError:
+                pass
+        
+        # 默认返回
+        return ActivityInfoExtractionResponse(
+            success=False,
+            data=None,
+            usage=response.usage,
+            duration=response.duration,
+            time_info=None,
+            location_info=None,
+            preference_info={}
+        )
+    
     # 特定任务的便捷方法
     async def analyze_user_profile(
         self,
@@ -486,206 +568,7 @@ class LLMService:
             recommendations=[]
         )
     
-    async def analyze_user_interests(
-        self,
-        user_id: str,
-        user_interests: List[str],
-        context_data: Optional[Dict[str, Any]] = None,
-        provider: LLMProvider = LLMProvider.VOLCENGINE,
-        model_name: str = settings.LLM_MODEL
-    ) -> InterestAnalysisResponse:
-        """分析用户兴趣"""
-        prompt = f"""
-        请分析用户的兴趣爱好：
-        
-        兴趣列表：{json.dumps(user_interests, ensure_ascii=False)}
-        上下文数据：{json.dumps(context_data, ensure_ascii=False) if context_data else "无"}
-        
-        请提供：
-        1. 识别出的核心兴趣
-        2. 兴趣分类（按类别分组）
-        3. 基于兴趣的匹配建议
-        
-        请以JSON格式回复，包含interests、categories和match_suggestions字段。
-        """
-        
-        request = InterestAnalysisRequest(
-            user_id=user_id,
-            task_type=LLMTaskType.INTEREST_ANALYSIS,
-            user_interests=user_interests,
-            context_data=context_data,
-            prompt=prompt
-        )
-        
-        response = await self.call_llm_api(request, provider, model_name)
-        
-        if response.success and response.data:
-            try:
-                data = json.loads(response.data)
-                return InterestAnalysisResponse(
-                    success=True,
-                    data=data,
-                    usage=response.usage,
-                    duration=response.duration,
-                    interests=data.get("interests", []),
-                    categories=data.get("categories", {}),
-                    match_suggestions=data.get("match_suggestions", [])
-                )
-            except json.JSONDecodeError:
-                pass
-        
-        return InterestAnalysisResponse(
-            success=False,
-            data=None,
-            usage=response.usage,
-            duration=response.duration,
-            interests=[],
-            categories={},
-            match_suggestions=[]
-        )
-    
 
-    
-    async def answer_user_question(
-        self,
-        user_id: str,
-        question: str,
-        context: Optional[Dict[str, Any]] = None,
-        provider: LLMProvider = LLMProvider.VOLCENGINE,
-        model_name: str = settings.LLM_MODEL
-    ) -> QuestionAnsweringResponse:
-        """回答用户问题"""
-        context_str = json.dumps(context, ensure_ascii=False) if context else "无上下文信息"
-        
-        prompt = f"""
-        用户问题：{question}
-        
-        上下文信息：{context_str}
-        
-        请基于提供的上下文信息，给出准确、有用的回答。
-        如果上下文信息不足，请明确说明。
-        
-        请以JSON格式回复，包含answer、confidence和sources字段。
-        """
-        
-        request = QuestionAnsweringRequest(
-            user_id=user_id,
-            task_type=LLMTaskType.QUESTION_ANSWERING,
-            question=question,
-            context=context,
-            prompt=prompt
-        )
-        
-        response = await self.call_llm_api(request, provider, model_name)
-        
-        if response.success and response.data:
-            try:
-                data = json.loads(response.data)
-                return QuestionAnsweringResponse(
-                    success=True,
-                    data=data,
-                    usage=response.usage,
-                    duration=response.duration,
-                    answer=data.get("answer", ""),
-                    confidence=data.get("confidence", 0.8),
-                    sources=data.get("sources", [])
-                )
-            except json.JSONDecodeError:
-                pass
-        
-        return QuestionAnsweringResponse(
-            success=False,
-            data=None,
-            usage=response.usage,
-            duration=response.duration,
-            answer="",
-            confidence=0,
-            sources=[]
-        )
-
-    async def comprehensive_analysis(
-        self,
-        user_id: str,
-        profile_data: Dict[str, Any],
-        interests: List[str],
-        context: Optional[Dict[str, Any]] = None,
-        analysis_types: Optional[List[str]] = None,
-        provider: LLMProvider = LLMProvider.VOLCENGINE,
-        model_name: str = settings.LLM_MODEL
-    ) -> Dict[str, Any]:
-        """
-        综合分析：一次性完成用户画像、兴趣的综合分析
-        
-        Args:
-            user_id: 用户ID
-            profile_data: 用户资料数据
-            user_interests: 用户兴趣列表
-            context: 额外上下文信息
-            provider: LLM服务提供商
-            model_name: 模型名称
-            
-        Returns:
-            包含所有分析结果的字典
-        """
-        
-        # 构建综合分析提示词
-        prompt = f"""
-        请对以下用户进行综合分析：
-        
-        用户资料：{json.dumps(profile_data, ensure_ascii=False)}
-        兴趣列表：{json.dumps(interests, ensure_ascii=False)}
-        额外上下文：{json.dumps(context, ensure_ascii=False) if context else "无"}
-        分析类型：{json.dumps(analysis_types, ensure_ascii=False) if analysis_types else "全部"}
-        
-        请提供以下方面的综合分析：
-        1. 用户画像分析（性格、价值观、生活方式等）
-        2. 兴趣分析与分类
-        3. 个性化推荐与建议
-        4. 匹配建议与潜在伙伴类型
-        
-        请以JSON格式回复，包含以下字段：
-        - profile_analysis: 用户画像分析结果
-        - interest_analysis: 兴趣分析结果
-        - overall_insights: 综合洞察要点
-        - recommendations: 个性化建议列表
-        - match_suggestions: 匹配建议
-        """
-        
-        # 创建LLM请求
-        request = LLMRequest(
-            user_id=user_id,
-            task_type=LLMTaskType.COMPREHENSIVE_ANALYSIS,
-            prompt=prompt
-        )
-        
-        # 调用LLM API
-        response = await self.call_llm_api(request, provider, model_name)
-        
-        if response.success and response.data:
-            try:
-                analysis_result = json.loads(response.data)
-                return {
-                    "success": True,
-                    "data": analysis_result,
-                    "usage": response.usage,
-                    "duration": response.duration
-                }
-            except json.JSONDecodeError:
-                return {
-                    "success": False,
-                    "data": None,
-                    "usage": response.usage,
-                    "duration": response.duration,
-                    "error": "分析结果格式错误"
-                }
-        
-        return {
-            "success": False,
-            "data": None,
-            "usage": response.usage,
-            "duration": response.duration,
-            "error": "综合分析失败"
-        }
     def _get_role_specific_prompt(
         self,
         role_type: str,
@@ -1109,99 +992,103 @@ class LLMService:
 
         return await self.call_llm_api(llm_request, provider, model_name)
 
-    async def generate_activity_recommendation(
+    async def generate_coffee_chat_response(
         self,
         user_id: str,
-        activity_type: str,
-        preferences: Dict[str, Any] = None,
+        user_message: str,
+        conversation_history: List[Dict[str, Any]] = None,
+        extracted_info: Dict[str, Any] = None,
+        dialog_count: int = 0,
         provider: LLMProvider = LLMProvider.VOLCENGINE,
         model_name: str = settings.LLM_MODEL
     ) -> LLMResponse:
         """
-        生成活动推荐
-
+        生成咖啡聊天场景下的对话回复
+        
         Args:
             user_id: 用户ID
-            activity_type: 活动类型（coffee, meal, movie, sport等）
-            preferences: 用户偏好
-
+            user_message: 用户输入消息
+            conversation_history: 对话历史记录
+            extracted_info: 已提取的信息（时间、地点、偏好等）
+            dialog_count: 对话轮数
+            provider: LLM服务提供商
+            model_name: 模型名称
+            
         Returns:
             LLM响应对象
         """
-        prompt = f"""
-        请为用户推荐{activity_type}相关的活动：
-
-        活动类型：{activity_type}
-        用户偏好：{json.dumps(preferences, ensure_ascii=False) if preferences else '无特殊偏好'}
-
-        请推荐具体的活动方案，包括：
-        1. 活动标题
-        2. 活动描述
-        3. 建议时间
-        4. 建议地点
-        5. 预计费用
-        6. 参与人数
-        7. 注意事项
-
-        请用JSON格式回复：
-        - activities: 活动推荐列表
-        - summary: 推荐总结
-        """
+        # 构建上下文信息
+        time_info = extracted_info.get('time') if extracted_info else None
+        location_info = extracted_info.get('location') if extracted_info else None
+        preferences = extracted_info.get('preferences') if extracted_info else {}
+        
+        # 根据对话进度构建不同的提示词
+        if dialog_count == 0:
+            # 初次对话
+            prompt = f"""
+            你是一个友好的咖啡约会安排助手。用户说："{user_message}"
+            
+            请用温暖、自然的语气回复，表达你帮助安排咖啡约会的意愿。
+            回复要简洁友好，像真人对话一样，可以询问用户的基本偏好。
+            
+            直接给出回复内容，不要包含其他解释。
+            """
+        elif time_info and location_info:
+            # 已有足够信息，提供推荐
+            prompt = f"""
+            用户说："{user_message}"
+            
+            已收集的信息：
+            - 时间：{time_info}
+            - 地点：{location_info}
+            - 偏好：{json.dumps(preferences, ensure_ascii=False) if preferences else '无特殊要求'}
+            
+            请基于这些信息为用户推荐具体的咖啡店，包括店名、地址、特色等。
+            语气要热情专业，提供实用建议。
+            
+            直接给出回复内容，不要包含其他解释。
+            """
+        elif time_info and not location_info:
+            # 有时间缺地点
+            prompt = f"""
+            用户说："{user_message}"
+            
+            已知用户希望在 {time_info} 见面。
+            
+            请用自然的语气询问用户希望在哪个区域或具体地点喝咖啡，
+            可以提供一些热门区域作为参考。
+            
+            直接给出回复内容，不要包含其他解释。
+            """
+        elif location_info and not time_info:
+            # 有地点缺时间
+            prompt = f"""
+            用户说："{user_message}"
+            
+            已知用户希望在 {location_info} 区域喝咖啡。
+            
+            请用自然的语气询问用户希望什么时间见面，
+            可以提供一些时间建议。
+            
+            直接给出回复内容，不要包含其他解释。
+            """
+        else:
+            # 信息不足，继续收集
+            prompt = f"""
+            用户说："{user_message}"
+            
+            对话历史：{json.dumps(conversation_history[-3:], ensure_ascii=False) if conversation_history else '无历史'}
+            
+            请用友好、耐心的语气继续收集用户的信息，
+            可以询问时间、地点或偏好，帮助用户明确需求。
+            
+            直接给出回复内容，不要包含其他解释。
+            """
 
         llm_request = LLMRequest(
             user_id=user_id,
-            task_type=LLMTaskType.PROFILE_ANALYSIS,  # 使用现有任务类型
-            prompt=prompt
-        )
-
-        return await self.call_llm_api(llm_request, provider, model_name)
-
-    async def generate_activity_invitation(
-        self,
-        inviter_name: str,
-        card_name: str,
-        activity_type: str,
-        preferences: Dict[str, Any] = None,
-        provider: LLMProvider = LLMProvider.VOLCENGINE,
-        model_name: str = settings.LLM_MODEL
-    ) -> LLMResponse:
-        """
-        生成活动邀约内容
-
-        Args:
-            inviter_name: 发起人姓名
-            card_name: AI分身名称
-            activity_type: 活动类型
-            preferences: 偏好信息
-
-        Returns:
-            LLM响应对象
-        """
-        prompt = f"""
-        请为{inviter_name}生成一份向{card_name}发出的{activity_type}活动邀约：
-
-        发起人：{inviter_name}
-        AI分身：{card_name}
-        活动类型：{activity_type}
-        偏好信息：{json.dumps(preferences, ensure_ascii=False) if preferences else '无特殊偏好'}
-
-        请生成邀约内容，包括：
-        1. 友好的问候
-        2. 活动介绍
-        3. 建议时间
-        4. 建议地点
-        5. 期待回复
-
-        请用JSON格式回复：
-        - title: 邀约标题
-        - message: 邀约消息
-        - suggestions: 建议选项
-        """
-
-        llm_request = LLMRequest(
-            user_id=inviter_name,
             task_type=LLMTaskType.CONVERSATION_SUGGESTION,
-            prompt=prompt
+            prompt=prompt.strip()
         )
 
         return await self.call_llm_api(llm_request, provider, model_name)

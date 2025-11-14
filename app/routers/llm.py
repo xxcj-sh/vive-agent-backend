@@ -12,7 +12,7 @@ import logging
 from app.database import get_db
 from app.services.auth import auth_service
 from app.services.llm_service import LLMService
-from app.models.llm_schemas import ConversationSuggestionRequest, SimpleChatStreamRequest
+from app.models.llm_schemas import ConversationSuggestionRequest, SimpleChatStreamRequest, ActivityInfoExtractionRequest, ActivityInfoExtractionResponse
 
 logger = logging.getLogger(__name__)
 
@@ -301,3 +301,103 @@ async def generate_conversation_suggestions(
             "preference_judgement": response.preference_judgement
         }
     }
+
+
+@router.post("/extract-activity-info")
+async def extract_activity_info(
+    request: ActivityInfoExtractionRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    提取活动信息
+    
+    从对话历史中提取活动相关信息，包括时间、地点和用户偏好等
+    用于咖啡聊天等场景的信息自动提取，优化用户体验
+    """
+    service = LLMService(db)
+    
+    # 如果request中没有user_id，使用当前登录用户
+    if not request.user_id:
+        request.user_id = current_user["id"]
+    
+    response = await service.extract_activity_info(
+        user_id=request.user_id,
+        conversation_history=request.conversation_history,
+        provider=settings.LLM_PROVIDER,
+        model_name=settings.LLM_MODEL
+    )
+    
+    if not response.success:
+        raise HTTPException(status_code=500, detail="提取活动信息失败")
+    
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "time_info": response.time_info,
+            "location_info": response.location_info,
+            "preference_info": response.preference_info,
+            "usage": response.usage,
+            "duration": response.duration
+        }
+    }
+
+
+@router.post("/generate-coffee-chat-response")
+async def generate_coffee_chat_response(
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    生成咖啡聊天对话回复
+    
+    专为咖啡聊天场景设计的对话生成接口，根据用户消息、对话历史和已提取的信息
+    生成自然、友好的咖啡约会安排对话回复
+    
+    测试接口，无需认证
+    """
+    service = LLMService(db)
+    
+    # 获取用户ID，默认为测试用户
+    user_id = request.get("user_id", "test-coffee-user")
+    user_message = request.get("user_message", "")
+    conversation_history = request.get("conversation_history", [])
+    extracted_info = request.get("extracted_info", {})
+    dialog_count = request.get("dialog_count", 0)
+    
+    try:
+        response = await service.generate_coffee_chat_response(
+            user_id=user_id,
+            user_message=user_message,
+            conversation_history=conversation_history,
+            extracted_info=extracted_info,
+            dialog_count=dialog_count,
+            provider=settings.LLM_PROVIDER,
+            model_name=settings.LLM_MODEL
+        )
+        
+        if not response.success:
+            raise HTTPException(status_code=500, detail="生成咖啡聊天回复失败")
+        
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {
+                "response": response.data,
+                "usage": response.usage,
+                "duration": response.duration
+            }
+        }
+    except Exception as e:
+        logger.error(f"生成咖啡聊天回复失败: {str(e)}")
+        return {
+            "code": 500,
+            "message": f"生成失败: {str(e)}",
+            "data": {
+                "response": "抱歉，我现在无法生成回复，请稍后再试。",
+                "usage": {},
+                "duration": 0,
+                "error": str(e)
+            }
+        }
