@@ -258,6 +258,81 @@ async def generate_simple_chat_stream(
         }
     )
 
+
+@router.post("/guest-chat/stream")
+async def generate_guest_chat_stream(
+    request: SimpleChatStreamRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    访客聊天流式接口 - 无需登录即可使用
+    
+    专为未登录用户设计的流式聊天接口，使用临时生成的访客用户ID
+    支持微信小程序在未登录状态下的聊天功能
+    """
+    from fastapi.responses import StreamingResponse
+    
+    service = LLMService(db)
+    
+    # 生成临时访客用户ID
+    guest_user_id = f"guest_{uuid.uuid4().hex}"
+    if not request.userId:
+        request.userId = guest_user_id
+    
+    async def generate_guest_stream():
+        """生成访客流式响应"""
+        import json
+        try:
+            # 调用简单聊天流式方法，使用访客用户ID
+            stream_response = await service.generate_simple_chat_stream(
+                user_id=request.userId,
+                card_id=request.cardId,
+                chat_id=request.chatId or f"guest_chat_{uuid.uuid4().hex}",
+                message=request.message,
+                context=request.context,
+                personality=request.personality,
+                provider=settings.LLM_PROVIDER,
+                model_name=settings.LLM_MODEL
+            )
+            
+            # 流式发送纯文本内容
+            async for chunk in stream_response:
+                if chunk["type"] == "text":
+                    content = chunk["content"]
+                    print("guest content:", content)
+                    # 直接发送纯文本数据，格式更简洁
+                    data = {
+                        "type": "text", 
+                        "content": content,
+                        "finished": chunk.get("finished", False)
+                    }
+                    yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                elif chunk["type"] == "end":
+                    break
+            
+            # 发送结束标记
+            yield f"data: {json.dumps({'type': 'end'}, ensure_ascii=False)}\n\n"
+            
+        except Exception as e:
+            logger.error(f"访客聊天流式生成失败: {str(e)}")
+            # 发送错误信息
+            error_data = {
+                "type": "error",
+                "message": str(e)
+            }
+            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+    
+    return StreamingResponse(
+        generate_guest_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive", 
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 @router.post("/conversation-suggestions")
 async def generate_conversation_suggestions(
     request: ConversationSuggestionRequest,

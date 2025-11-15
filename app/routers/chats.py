@@ -109,3 +109,43 @@ async def send_chat_message(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"发送消息失败: {str(e)}")
+
+
+@router.post("/guest/messages", response_model=ChatMessageResponse)
+async def send_guest_message(
+    message_data: ChatMessageCreate,
+    db: Session = Depends(get_db)
+):
+    """访客发送聊天消息
+    
+    无需登录即可发送消息，自动生成会话ID
+    """
+    try:
+        # 生成访客会话ID
+        guest_chat_id = f"guest_{uuid.uuid4().hex}"
+        
+        # 创建访客消息对象
+        new_message = {
+            'id': str(uuid.uuid4()),
+            'user_id': None,
+            'content': message_data.content,
+            'message_type': message_data.type or "text",
+            'sender_type': "guest",
+            'session_id': guest_chat_id,
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        
+        # 保存到模拟存储
+        mock_messages.append(new_message)
+        
+        # 返回响应
+        return {
+            "id": new_message['id'],
+            "content": new_message['content'],
+            "type": new_message['message_type'],
+            "sender": new_message['sender_type'],
+            "created_at": new_message['created_at'].isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"访客发送消息失败: {str(e)}")
