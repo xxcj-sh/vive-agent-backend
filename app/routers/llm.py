@@ -335,9 +335,9 @@ async def extract_activity_info(
         "code": 0,
         "message": "success",
         "data": {
-            "time_info": response.time_info,
-            "location_info": response.location_info,
-            "preference_info": response.preference_info,
+            "time": response.time_info,
+            "location": response.location_info,
+            "preference": response.preference_info,
             "usage": response.usage,
             "duration": response.duration
         }
