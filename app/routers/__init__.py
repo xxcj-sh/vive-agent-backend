@@ -15,3 +15,6 @@ from . import activity_invitation
 
 # 聊天相关模块
 from . import chats
+
+# AI技能模块
+from . import ai_skills

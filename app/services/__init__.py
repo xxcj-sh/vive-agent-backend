@@ -13,6 +13,7 @@ from .media_service import MediaService
 from .subscribe_message_service import SubscribeMessageService
 from .user_card_service import UserCardService
 from .user_stats_service import UserStatsService
+from .coffee_recommendation_service import CoffeeRecommendationService
 
 __all__ = [
     # 用户画像服务
@@ -24,5 +25,6 @@ __all__ = [
     'MediaService',
     'SubscribeMessageService',
     'UserCardService',
-    'UserStatsService'
+    'UserStatsService',
+    'CoffeeRecommendationService'
 ]

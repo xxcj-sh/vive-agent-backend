@@ -8,7 +8,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
 
@@ -111,3 +111,43 @@ class UserCardSkillListResponse(BaseModel):
     """用户卡片技能关联列表响应模型"""
     skills: List[UserCardSkillResponse] = Field(..., description="技能列表")
     total_count: int = Field(..., description="总数量")
+
+
+# 咖啡店推荐相关模型
+class CoffeeShopRecommendation(BaseModel):
+    """咖啡店推荐模型"""
+    name: str = Field(..., description="咖啡店名称")
+    address: str = Field(..., description="地址")
+    distance: str = Field(..., description="距离")
+    walking_time: str = Field(..., description="步行时间")
+    rating: float = Field(..., description="评分")
+    price_range: str = Field(..., description="价格区间")
+    coffee_types: List[str] = Field(..., description="咖啡类型")
+    features: List[str] = Field(..., description="特色功能")
+    image: str = Field(..., description="图片URL")
+    location: Dict[str, float] = Field(..., description="地理位置")
+    recommendation_reason: str = Field(..., description="推荐理由")
+    match_score: int = Field(..., description="匹配分数，基于用户画像计算")
+    atmosphere_tags: List[str] = Field(default_factory=list, description="氛围标签")
+    crowd_type: str = Field(..., description="人群类型")
+    best_visit_time: str = Field(..., description="最佳访问时间")
+
+
+class CoffeeShopRecommendationRequest(BaseModel):
+    """咖啡店推荐请求模型"""
+    user_card_id: str = Field(..., description="用户卡片ID")
+    location: str = Field(..., description="目标地点")
+    preferred_time: Optional[str] = Field(None, description="偏好时间")
+    coffee_preferences: Optional[List[str]] = Field(None, description="咖啡偏好")
+    atmosphere_preferences: Optional[List[str]] = Field(None, description="氛围偏好")
+    budget_range: Optional[str] = Field(None, description="预算范围")
+    max_distance: Optional[int] = Field(1000, description="最大距离（米）")
+
+
+class CoffeeShopRecommendationResponse(BaseModel):
+    """咖啡店推荐响应模型"""
+    main_recommendation: CoffeeShopRecommendation = Field(..., description="主要推荐")
+    alternative_options: List[CoffeeShopRecommendation] = Field(..., description="备选推荐")
+    user_profile_match: Dict[str, Any] = Field(..., description="用户画像匹配分析")
+    recommendation_strategy: str = Field(..., description="推荐策略说明")
+    total_found: int = Field(..., description="找到的咖啡店总数")
