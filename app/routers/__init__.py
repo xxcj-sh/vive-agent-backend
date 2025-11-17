@@ -18,3 +18,6 @@ from . import chats
 
 # AI技能模块
 from . import ai_skills
+
+# 话题卡片模块
+from . import topic_cards

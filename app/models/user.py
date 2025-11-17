@@ -41,6 +41,9 @@ class User(Base):
     # 关系
     matches = relationship("Match", back_populates="user")
     cards = relationship("UserCard", back_populates="user")
+    topic_cards = relationship("TopicCard", back_populates="user")
+    topic_discussions_as_participant = relationship("TopicDiscussion", foreign_keys="TopicDiscussion.participant_id", back_populates="participant")
+    topic_discussions_as_host = relationship("TopicDiscussion", foreign_keys="TopicDiscussion.host_id", back_populates="host")
 
 # Pydantic 模型用于API
 class UserBase(BaseModel):

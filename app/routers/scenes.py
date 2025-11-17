@@ -42,36 +42,6 @@ SCENE_CONFIGS = {
             "市场销售"
         ]
     ),
-    # "activity": SceneConfig(
-    #     key="activity",
-    #     label="活动",
-    #     icon="/images/interest.svg",
-    #     iconActive="/images/interest-active.svg",
-    #     description="寻找活动伙伴",
-    #     roles={
-    #         "activity_recorder": SceneRole(
-    #             key="activity_recorder",
-    #             label="活动记录",
-    #             description="记录活动"
-    #         ),
-    #         "activity_situation_puzzle": SceneRole(
-    #             key="activity_situation_puzzle",
-    #             label="海龟汤",
-    #             description="分析提问，完成故事拼图"
-    #         )
-    #     },
-    #     CardFields=["interests", "skillLevel", "availableTime", "groupSize", "budget"],
-    #     tags=[
-    #         "户外运动",
-    #         "音乐",
-    #         "摄影",
-    #         "美食",
-    #         "阅读",
-    #         "旅行",
-    #         "健身",
-    #         "游戏"
-    #     ]
-    # ),
     "social": SceneConfig(
         key="social",
         label="社交",
@@ -84,21 +54,6 @@ SCENE_CONFIGS = {
                 label="身份名片",
                 description="更生动地向别人介绍你"
             ),
-            # "social_business": SceneRole(
-            #     key="social_business",
-            #     label="商务拓展",
-            #     description="寻找商务合作、投资机会"
-            # ),
-            # "social_business": SceneRole(
-            #     key="social_business",
-            #     label="商务拓展",
-            #     description="寻找商务合作、投资机会"
-            # ),
-            # "social_career": SceneRole(
-            #     key="social_career",
-            #     label="职业发展",
-            #     description="寻求职业指导、跳槽机会"
-            # ),
             "social_interest": SceneRole(
                 key="social_interest",
                 label="兴趣社交名片",
@@ -139,6 +94,63 @@ SCENE_CONFIGS = {
             "技术开发",
             "运营管理",
             "市场销售"
+        ]
+    ),
+    "topic": SceneConfig(
+        key="topic",
+        label="话题",
+        icon="/images/icon-ai.svg",
+        iconActive="/images/icon-ai.svg",
+        description="分享想法，发起讨论，寻找共鸣",
+        roles={
+            "topic_discussion": SceneRole(
+                key="topic_discussion",
+                label="话题讨论",
+                description="发起话题讨论，分享观点见解"
+            ),
+            "topic_question": SceneRole(
+                key="topic_question",
+                label="问题求助",
+                description="提出问题，寻求帮助和建议"
+            ),
+            "topic_sharing": SceneRole(
+                key="topic_sharing",
+                label="经验分享",
+                description="分享经验心得，启发他人"
+            )
+        },
+        CardFields=[
+            "topicTitle",
+            "topicContent",
+            "topicCategory",
+            "tags",
+            "targetAudience",
+            "discussionGoals",
+            "backgroundInfo",
+            "keyPoints",
+            "callToAction"
+        ],
+        tags=[
+            "技术讨论",
+            "职场经验",
+            "生活分享",
+            "学习心得",
+            "行业洞察",
+            "创业故事",
+            "职业规划",
+            "技能提升",
+            "项目管理",
+            "团队协作",
+            "产品设计",
+            "用户体验",
+            "数据分析",
+            "人工智能",
+            "区块链",
+            "云计算",
+            "移动开发",
+            "前端技术",
+            "后端架构",
+            "数据库"
         ]
     )
 }

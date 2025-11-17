@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import card, users, matches, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, activity_invitation, chats
+from app.routers import card, users, matches, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, activity_invitation, chats, topic_cards
 from app.routers.user_profile import router as user_profile_router
 from app.routers.ai_skills import router as ai_skills_router
 from app.utils.db_init import init_db
@@ -40,6 +40,8 @@ app.include_router(matches.router, prefix="/api/v1")
 app.include_router(membership.router, prefix="/api/v1")
 app.include_router(membership_orders.router, prefix="/api/v1")
 app.include_router(file.router, prefix="/files")
+# 话题卡片路由（需要在properties之前注册，避免被通配符路由拦截）
+app.include_router(topic_cards.router, prefix="/api/v1/topic-cards")
 app.include_router(properties.router, prefix="/api/v1")
 app.include_router(card.router, prefix="/api/v1")
 app.include_router(llm.router, prefix="/api/v1")
