@@ -1,3 +1,5 @@
+# 先导入基础模型，避免循环依赖
+from .topic_card_db import TopicCard, TopicDiscussion, TopicTriggerCondition
 from .user import User
 from .match import Match, MatchDetail
 from .match_action import MatchResult

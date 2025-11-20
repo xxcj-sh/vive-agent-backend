@@ -17,6 +17,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         if not user:
             raise HTTPException(status_code=401, detail="无效的token")
         return user
+    except HTTPException:
+        # 如果是HTTPException，直接抛出
+        raise
     except Exception as e:
-
+        print(f"Token验证异常: {str(e)}")
         raise HTTPException(status_code=401, detail="Token验证失败")

@@ -11,7 +11,7 @@ from app.services.match_service.core import MatchService
 from app.services.user_card_service import UserCardService
 from app.database import get_db
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 from sqlalchemy import and_
 from app.models.match_action import MatchAction
 from app.models.enums import MatchActionType
@@ -80,26 +80,17 @@ async def get_match_cards(
     userRole: Optional[str] = Query(None),
     page: int = Query(1),
     pageSize: int = Query(10),
-    current_user: User = Depends(get_current_user),
-    db_session: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user)
 ):
     """获取匹配卡片"""
     try:
         print("current_user:", current_user)
-        # 将 User 对象转换为字典格式
-        current_user_dict = None
-        if current_user:
-            current_user_dict = {
-                "id": current_user['id'],
-                "nickName": current_user['nickName'],
-                "gender": Gender(current_user.get('gender', 0)).name,
-                "interests": getattr(current_user, 'interests', []),
-                "location": getattr(current_user, 'location', []),
-                "preferences": getattr(current_user, 'preferences', {}),
-            }
+        # 使用当前用户信息
+        current_user_dict = current_user
         
         # 创建匹配卡片策略服务实例
-        match_card_strategy = MatchCardStrategy(db_session)
+        match_card_strategy = MatchCardStrategy(db)
         
         # 获取通用匹配卡片（不区分场景）
         result = match_card_strategy.get_universal_match_cards(
