@@ -21,3 +21,6 @@ from . import ai_skills
 
 # 话题卡片模块
 from . import topic_cards
+
+# 用户卡片模块
+from . import user_card

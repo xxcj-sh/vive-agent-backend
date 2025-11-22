@@ -19,7 +19,6 @@ class UserCard(Base):
     display_name = Column(String(100), nullable=False)
     avatar_url = Column(String(500), nullable=True)
     bio = Column(Text, nullable=True)
-    trigger_and_output = Column(Text, nullable=True)
     profile_data = Column(JSON, nullable=True)
     preferences = Column(JSON, nullable=True)
     visibility = Column(String(20), default="public")  # public, private
@@ -31,6 +30,7 @@ class UserCard(Base):
     
     # 关系
     user = relationship("User", back_populates="cards")
+    topic_relations = relationship("UserCardTopicRelation", back_populates="user_card", cascade="all, delete-orphan")
     
     def to_dict(self, include_private=False):
         """转换为字典"""
@@ -60,6 +60,5 @@ class UserCard(Base):
             data["bio"] = self.bio
             data["profile_data"] = self.profile_data or {}
             data["preferences"] = self.preferences or {}
-            data["trigger_and_output"] = self.trigger_and_output or {}
 
         return data

@@ -21,15 +21,6 @@ class UserCardService:
         card_id = f"card_{card_data.scene_type}_{card_data.role_type}_{uuid.uuid4().hex[:8]}"
         
         # 处理 JSON 字段，确保正确序列化
-        trigger_and_output = card_data.trigger_and_output
-        if trigger_and_output is not None:
-            if isinstance(trigger_and_output, (list, dict)):
-                trigger_and_output = json.dumps(trigger_and_output, ensure_ascii=False)
-            else:
-                trigger_and_output = json.dumps([], ensure_ascii=False)
-        else:
-            trigger_and_output = json.dumps([], ensure_ascii=False)
-        
         profile_data = card_data.profile_data
         if profile_data is not None and isinstance(profile_data, dict):
             profile_data = json.dumps(profile_data, ensure_ascii=False)
@@ -50,7 +41,6 @@ class UserCardService:
             display_name=card_data.display_name,
             avatar_url=card_data.avatar_url,
             bio=card_data.bio,
-            trigger_and_output=trigger_and_output,
             profile_data=profile_data,
             preferences=preferences,
             visibility=card_data.visibility or "public",
@@ -100,11 +90,6 @@ class UserCardService:
         # 构建基础card信息
         # 解析 JSON 字符串
         try:
-            trigger_and_output = json.loads(card.trigger_and_output) if card.trigger_and_output else []
-        except (json.JSONDecodeError, TypeError):
-            trigger_and_output = []
-            
-        try:
             profile_data = json.loads(card.profile_data) if card.profile_data else {}
         except (json.JSONDecodeError, TypeError):
             profile_data = {}
@@ -122,7 +107,6 @@ class UserCardService:
             "display_name": card.display_name,
             "avatar_url": card.avatar_url,
             "bio": card.bio or "",
-            "trigger_and_output": trigger_and_output,
             "profile_data": profile_data,
             "preferences": preferences,
             "visibility": card.visibility,
@@ -168,27 +152,19 @@ class UserCardService:
             
         # 更新允许修改的字段
         for field, value in update_data.items():
-            if field in ["bio", "trigger_and_output", "profile_data", "preferences", "visibility", "search_code", "avatar_url", "display_name"]:
+            if field in ["bio", "profile_data", "preferences", "visibility", "search_code", "avatar_url", "display_name"]:
                 # 对 JSON 字段进行序列化
-                if field in ["trigger_and_output", "profile_data", "preferences"]:
+                if field in ["profile_data", "preferences"]:
                     if value is not None:
-                        if field == "trigger_and_output" and isinstance(value, (list, dict)):
-                            value = json.dumps(value, ensure_ascii=False)
-                        elif field in ["profile_data", "preferences"] and isinstance(value, dict):
+                        if isinstance(value, dict):
                             value = json.dumps(value, ensure_ascii=False)
                             print(f"更新{field}后:", value)
                         else:
                             # 如果不是预期的类型，使用默认值
-                            if field == "trigger_and_output":
-                                value = json.dumps([], ensure_ascii=False)
-                            else:
-                                value = json.dumps({}, ensure_ascii=False)
+                            value = json.dumps({}, ensure_ascii=False)
                     else:
                         # 空值使用默认值
-                        if field == "trigger_and_output":
-                            value = json.dumps([], ensure_ascii=False)
-                        else:
-                            value = json.dumps({}, ensure_ascii=False)
+                        value = json.dumps({}, ensure_ascii=False)
                 setattr(card, field, value)
                 
         card.updated_at = datetime.now()
@@ -241,12 +217,6 @@ class UserCardService:
         processed_cards = []
         for card in active_cards:
             # 确保 JSON 字段正确解析
-            if isinstance(card.trigger_and_output, str):
-                try:
-                    card.trigger_and_output = json.loads(card.trigger_and_output)
-                except (json.JSONDecodeError, TypeError):
-                    card.trigger_and_output = []
-            
             if isinstance(card.profile_data, str):
                 try:
                     card.profile_data = json.loads(card.profile_data)
@@ -320,11 +290,6 @@ class UserCardService:
         for card in cards:
             # 解析JSON字段
             try:
-                trigger_and_output = json.loads(card.trigger_and_output) if card.trigger_and_output else []
-            except (json.JSONDecodeError, TypeError):
-                trigger_and_output = []
-            
-            try:
                 profile_data = json.loads(card.profile_data) if card.profile_data else {}
             except (json.JSONDecodeError, TypeError):
                 profile_data = {}
@@ -358,7 +323,6 @@ class UserCardService:
                 "display_name": card.display_name,
                 "avatar_url": card.avatar_url,
                 "bio": card.bio,
-                "trigger_and_output": trigger_and_output,
                 "profile_data": profile_data,
                 "preferences": preferences,
                 "visibility": card.visibility,

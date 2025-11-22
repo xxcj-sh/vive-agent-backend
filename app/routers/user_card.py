@@ -7,8 +7,8 @@ from app.dependencies import get_current_user
 from typing import Dict, Any, Optional
 
 router = APIRouter(
-    prefix="/cards",
-    tags=["cards"],
+    prefix="/user-cards",
+    tags=["user-cards"],
     responses={404: {"description": "Not found"}},
 )
 
@@ -64,7 +64,6 @@ def get_card_details(
         "display_name": card.display_name,
         "avatar_url": card.avatar_url,
         "bio": card.bio,
-        "trigger_and_output": card.trigger_and_output or {},
         "profile_data": card.profile_data or {},
         "preferences": card.preferences or {},
         "visibility": card.visibility,
@@ -113,7 +112,6 @@ def create_card(
                 "display_name": new_card.display_name,
                 "avatar_url": new_card.avatar_url,
                 "bio": new_card.bio,
-                "trigger_and_output": new_card.trigger_and_output or {},
                 "profile_data": new_card.profile_data or {},
                 "preferences": new_card.preferences or {},
                 "visibility": new_card.visibility,
@@ -159,8 +157,7 @@ def update_card(
             "display_name": updated_card.display_name,
             "avatar_url": updated_card.avatar_url,
             "bio": updated_card.bio,
-            "trigger_and_output": updated_card.trigger_and_output or {},
-            "profile_data": updated_card.profile_data or {},
+                "profile_data": updated_card.profile_data or {},
             "preferences": updated_card.preferences or {},
             "visibility": updated_card.visibility,
             "updated_at": updated_card.updated_at

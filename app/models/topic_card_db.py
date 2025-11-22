@@ -30,6 +30,7 @@ class TopicCard(Base):
     user = relationship("User", back_populates="topic_cards")
     discussions = relationship("TopicDiscussion", back_populates="topic_card", cascade="all, delete-orphan")
     trigger_conditions = relationship("TopicTriggerCondition", back_populates="topic_card", cascade="all, delete-orphan")
+    user_card_relations = relationship("UserCardTopicRelation", back_populates="topic_card", cascade="all, delete-orphan")
 
 class TopicDiscussion(Base):
     """话题讨论记录数据库模型"""
@@ -74,3 +75,21 @@ class TopicTriggerCondition(Base):
     
     # 关系
     topic_card = relationship("TopicCard", back_populates="trigger_conditions")
+
+
+class UserCardTopicRelation(Base):
+    """用户卡片与话题卡片的关联关系表"""
+    __tablename__ = "user_card_topic_relations"
+
+    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_card_id = Column(String(36), ForeignKey("user_cards.id"), index=True, nullable=False)
+    topic_card_id = Column(String(36), ForeignKey("topic_cards.id"), index=True, nullable=False)
+    relation_type = Column(String(20), nullable=False, comment="关系类型: created(创建), interested(感兴趣)")
+    is_active = Column(Integer, default=1, comment="是否激活")
+    is_deleted = Column(Integer, default=0, comment="是否删除")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # 关系
+    user_card = relationship("UserCard", back_populates="topic_relations")
+    topic_card = relationship("TopicCard", back_populates="user_card_relations")
