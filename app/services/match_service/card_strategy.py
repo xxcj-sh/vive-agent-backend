@@ -255,8 +255,8 @@ class MatchCardStrategy:
                     "gender": getattr(user, 'gender', 0),
                     "education": profile_data.get('education', getattr(user, 'education', '')),
                     "height": profile_data.get('height', getattr(user, 'height', 170)),
-                    # 额外的卡片特定字段
-                    "triggerAndOutput": card.trigger_and_output,
+                    # 额外的卡片特定字段 - 使用防御性编程
+                    "triggerAndOutput": getattr(card, 'trigger_and_output', {}) if hasattr(card, 'trigger_and_output') else {},
                     "preferences": preferences_data,
                     "visibility": card.visibility
                 }

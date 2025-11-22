@@ -317,9 +317,9 @@ async def dev_quick_login(
         if not phone:
             return BaseResponse(code=422, message="手机号不能为空", data={})
         
-        # 验证手机号格式
-        if not phone.startswith('1') or len(phone) != 11:
-            return BaseResponse(code=422, message="手机号格式不正确", data={})
+        # 验证手机号格式 - 限定为测试手机号，首位数字为0
+        if not phone.startswith('100') or len(phone) != 11:
+            return BaseResponse(code=422, message="仅限测试手机号（首位为100）", data={})
         
         # 调用服务层的开发者快速登录方法
         login_result = AuthService.dev_quick_login(phone, db)
