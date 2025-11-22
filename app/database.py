@@ -12,7 +12,7 @@ engine = create_engine(
     pool_size=settings.MYSQL_POOL_SIZE,
     max_overflow=settings.MYSQL_MAX_OVERFLOW,
     pool_recycle=settings.MYSQL_POOL_RECYCLE,
-    echo=settings.DEBUG
+    echo=False  # 禁用SQLAlchemy SQL日志输出
 )
 
 # 创建会话
