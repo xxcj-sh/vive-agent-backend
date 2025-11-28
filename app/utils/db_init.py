@@ -87,7 +87,8 @@ def init_database():
     完整的数据库初始化流程
     1. 检查并创建数据库
     2. 创建所有数据表
-    3. 初始化基础数据（如果需要）
+    3. 执行必要的数据库结构更新（如字段重命名）
+    4. 初始化基础数据（如果需要）
     """
     # 步骤1: 创建数据库（如果不存在）
     create_database_if_not_exists()
@@ -95,7 +96,15 @@ def init_database():
     # 步骤2: 创建数据表
     create_tables()
     
-    # 步骤3: 初始化基础数据（如有需要）
+    # 步骤3: 执行必要的数据库结构更新
+    # 导入并执行user_connections表字段重命名操作
+    try:
+        from app.utils.update_user_connection_fields import update_user_connection_fields
+        update_user_connection_fields()
+    except Exception as e:
+        logger.warning(f"执行字段重命名时出现非致命错误: {str(e)}")
+    
+    # 步骤4: 初始化基础数据（如有需要）
     # init_base_data()
     
     return True

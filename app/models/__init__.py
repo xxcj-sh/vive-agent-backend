@@ -15,3 +15,4 @@ from .chat_message import ChatMessage
 from .subscribe_message import SubscribeMessage, UserSubscribeSetting
 from .user_profile import UserProfile
 from .user_profile_history import UserProfileHistory
+from .user_connection import UserConnection, ConnectionType, ConnectionStatus

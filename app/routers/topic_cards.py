@@ -118,8 +118,19 @@ async def update_topic_card(
         if not card:
             raise HTTPException(status_code=404, detail="话题卡片不存在")
         
+        # 调试日志：检查用户ID比较
+        print(f"🔍 调试信息 - 权限验证:")
+        print(f"   当前用户ID: '{user_id}' (类型: {type(user_id)})")
+        print(f"   话题创建者ID: '{card.user_id}' (类型: {type(card.user_id)})")
+        print(f"   比较结果: {card.user_id != user_id}")
+        print(f"   相等结果: {card.user_id == user_id}")
+        print(f"   长度比较: len('{user_id}')={len(user_id)}, len('{card.user_id}')={len(card.user_id)}")
+        
         if card.user_id != user_id:
-            raise HTTPException(status_code=403, detail="无权限修改此话题卡片")
+            raise HTTPException(
+                status_code=403, 
+                detail=f"无权限修改此话题卡片 (当前用户: {user_id}, 创建者: {card.user_id})"
+            )
         
         # 更新话题卡片
         updated_card = TopicCardService.update_topic_card(db, card_id, update_data)

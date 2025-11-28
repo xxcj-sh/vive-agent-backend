@@ -19,6 +19,7 @@ class TopicCard(Base):
     cover_image = Column(String(500), nullable=True, comment="封面图片URL")
     is_active = Column(Integer, default=1, comment="是否激活")
     is_deleted = Column(Integer, default=0, comment="是否删除")
+    is_anonymous = Column(Integer, default=0, comment="是否匿名")
     visibility = Column(String(20), default="public", comment="可见性: public, private")
     view_count = Column(Integer, default=0, comment="浏览次数")
     like_count = Column(Integer, default=0, comment="点赞次数")

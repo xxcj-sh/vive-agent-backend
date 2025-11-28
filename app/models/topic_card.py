@@ -17,6 +17,7 @@ class TopicCardBase(BaseModel):
     tags: Optional[List[str]] = Field(default_factory=list, description="话题标签")
     cover_image: Optional[str] = Field(None, description="封面图片URL")
     visibility: str = Field("public", description="可见性: public, private")
+    is_anonymous: bool = Field(default=False, description="是否匿名")
     trigger_conditions: Optional[List[TriggerCondition]] = Field(default_factory=list, description="触发条件列表")
 
 class TopicCardCreate(TopicCardBase):
@@ -32,6 +33,7 @@ class TopicCardUpdate(BaseModel):
     tags: Optional[List[str]] = Field(None, description="话题标签")
     cover_image: Optional[str] = Field(None, description="封面图片URL")
     visibility: Optional[str] = Field(None, description="可见性: public, private")
+    is_anonymous: Optional[bool] = Field(None, description="是否匿名")
     is_active: Optional[int] = Field(None, description="是否激活")
 
 class TopicCardResponse(BaseModel):
@@ -46,6 +48,7 @@ class TopicCardResponse(BaseModel):
     cover_image: Optional[str] = Field(None, description="封面图片URL")
     visibility: str = Field(..., description="可见性")
     is_active: int = Field(..., description="是否激活")
+    is_anonymous: int = Field(..., description="是否匿名")
     view_count: int = Field(0, description="浏览次数")
     like_count: int = Field(0, description="点赞次数")
     discussion_count: int = Field(0, description="讨论次数")

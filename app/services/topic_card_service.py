@@ -24,7 +24,8 @@ class TopicCardService:
                 cover_image=card_data.cover_image,
                 visibility=card_data.visibility,
                 is_active=1,
-                is_deleted=0
+                is_deleted=0,
+                is_anonymous=1 if card_data.is_anonymous else 0
             )
             
             db.add(topic_card)
@@ -46,13 +47,15 @@ class TopicCardService:
                 cover_image=topic_card.cover_image,
                 visibility=topic_card.visibility,
                 is_active=topic_card.is_active,
+                is_anonymous=topic_card.is_anonymous,
                 view_count=topic_card.view_count,
                 like_count=topic_card.like_count,
                 discussion_count=topic_card.discussion_count,
                 created_at=topic_card.created_at,
                 updated_at=topic_card.updated_at,
-                creator_nickname=creator.nick_name if creator else None,
-                creator_avatar=creator.avatar_url if creator else None,
+                # 匿名话题不返回创建者信息
+                creator_nickname=None if topic_card.is_anonymous else (creator.nick_name if creator else None),
+                creator_avatar=None if topic_card.is_anonymous else (creator.avatar_url if creator else None),
                 trigger_conditions=[]  # 添加缺失的触发条件字段
             )
         except Exception as e:
@@ -114,13 +117,15 @@ class TopicCardService:
                     cover_image=topic_card.cover_image,
                     visibility=topic_card.visibility,
                     is_active=topic_card.is_active,
+                    is_anonymous=topic_card.is_anonymous,
                     view_count=topic_card.view_count,
                     like_count=topic_card.like_count,
                     discussion_count=topic_card.discussion_count,
                     created_at=topic_card.created_at,
                     updated_at=topic_card.updated_at,
-                    creator_nickname=creator.nick_name if creator else None,
-                    creator_avatar=creator.avatar_url if creator else None,
+                    # 匿名话题不返回创建者信息
+                    creator_nickname=None if topic_card.is_anonymous else (creator.nick_name if creator else None),
+                    creator_avatar=None if topic_card.is_anonymous else (creator.avatar_url if creator else None),
                     trigger_conditions=[]  # 添加缺失的触发条件字段
                 )
                 cards.append(card_response)
@@ -170,13 +175,15 @@ class TopicCardService:
                 cover_image=topic_card.cover_image,
                 visibility=topic_card.visibility,
                 is_active=topic_card.is_active,
+                is_anonymous=topic_card.is_anonymous,
                 view_count=topic_card.view_count,
                 like_count=topic_card.like_count,
                 discussion_count=topic_card.discussion_count,
                 created_at=topic_card.created_at,
                 updated_at=topic_card.updated_at,
-                creator_nickname=creator.nick_name if creator else None,
-                creator_avatar=creator.avatar_url if creator else None,
+                # 匿名话题不返回创建者信息
+                creator_nickname=None if topic_card.is_anonymous else (creator.nick_name if creator else None),
+                creator_avatar=None if topic_card.is_anonymous else (creator.avatar_url if creator else None),
                 trigger_conditions=[]  # 添加缺失的触发条件字段
             )
         except Exception as e:
