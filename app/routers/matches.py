@@ -362,14 +362,19 @@ async def get_match_recommendation_cards(
     """
     获取匹配推荐列表
     
+    推荐逻辑：
+    1. 根据用户上次访问(VISIT)时间顺序排列，选取最久未访问的若干用户
+    2. 剔除最近两周曾经浏览(VIEW)过的用户
+    3. 按顺序展示给用户
+    
     统一使用 /api/v1/matches/recommendation-cards 端点
     """
 
     try:
-        # 直接从user_cards表获取所有非用户本人创建的卡片
         from sqlalchemy import and_, or_
         from app.models.user import User
         from app.models.user_card_db import UserCard
+        from app.services.user_connection_service import UserConnectionService
         
         # 获取当前用户ID
         if isinstance(current_user, dict):
@@ -383,32 +388,67 @@ async def get_match_recommendation_cards(
         print(f"用户角色: {roleType}")
         print(f"分页: page={page}, pageSize={pageSize}")
         
-        # 从user_cards表查询所有非当前用户创建的活跃卡片
-        print("正在查询用户卡片...")
+        # 获取推荐用户列表（根据访问时间排序，排除最近浏览过的）
+        print("正在获取推荐用户列表...")
+        recommended_users = UserConnectionService.get_recommended_users(
+            db=db,
+            current_user_id=user_id,
+            limit=pageSize * 3  # 获取更多的用户用于筛选有卡片的用户
+        )
         
-        # 基础查询：获取所有活跃的、非当前用户创建的卡片
+        print(f"推荐用户数量: {len(recommended_users)}")
+        
+        # 获取推荐用户的ID列表
+        recommended_user_ids = [user['id'] for user in recommended_users]
+        print(f"推荐用户ID列表: {recommended_user_ids}")
+        
+        if not recommended_user_ids:
+            # 如果没有推荐用户，返回空结果
+            return BaseResponse(
+                code=0,
+                message="success",
+                data={
+                    "cards": [],
+                    "pagination": {
+                        "page": page,
+                        "pageSize": pageSize,
+                        "total": 0,
+                        "totalPages": 0
+                    },
+                    "source": "recommendation_with_visit_logic"
+                }
+            )
+        
+        # 查询这些用户的活跃卡片
+        print("正在查询推荐用户的卡片...")
         card_query = db.query(UserCard).filter(
             and_(
                 UserCard.is_active == 1,
-                UserCard.user_id != user_id  # 排除用户自己创建的卡片
+                UserCard.user_id.in_(recommended_user_ids)
             )
         )
-    
         
         # 获取总数
         total_cards = card_query.count()
         print(f"符合条件的卡片总数: {total_cards}")
         
-        # 分页获取卡片
+        # 按推荐顺序排序卡片（保持用户的访问时间顺序）
+        user_id_order = {user_id: index for index, user_id in enumerate(recommended_user_ids)}
+        all_cards = card_query.all()
+        
+        # 按推荐用户顺序排序卡片
+        sorted_cards = sorted(all_cards, key=lambda card: user_id_order.get(card.user_id, float('inf')))
+        
+        # 分页处理
         offset = (page - 1) * pageSize
-        user_cards = card_query.order_by(UserCard.created_at.desc()).offset(offset).limit(pageSize).all()
-        print(f"当前页获取卡片数量: {len(user_cards)}")
+        paginated_cards = sorted_cards[offset:offset + pageSize]
+        print(f"当前页获取卡片数量: {len(paginated_cards)}")
         
         # 构建返回数据
         cards = []
         print("开始处理卡片数据...")
         
-        for i, user_card in enumerate(user_cards):
+        for i, user_card in enumerate(paginated_cards):
             print(f"处理第{i+1}个卡片: card_id={user_card.id}, user_id={user_card.user_id}")
             
             # 获取卡片创建者信息
@@ -416,6 +456,9 @@ async def get_match_recommendation_cards(
             if not card_creator:
                 print(f"跳过: 找不到卡片创建者 user_id={user_card.user_id}")
                 continue
+            
+            # 获取用户的推荐信息
+            user_recommend_info = next((user for user in recommended_users if user['id'] == user_card.user_id), {})
             
             # 构建卡片数据
             card_data = {
@@ -432,10 +475,13 @@ async def get_match_recommendation_cards(
                 "bio": getattr(user_card, 'bio', ''),
                 "creatorInterests": getattr(card_creator, 'interests', []) if isinstance(getattr(card_creator, 'interests', []), list) else [],
                 "createdAt": user_card.created_at.isoformat() if user_card.created_at else "",
-                "recommendReason": '系统推荐',
+                "recommendReason": '最久未访问',
                 "cardTitle": str(user_card.display_name),
                 "displayName": getattr(user_card, 'display_name', None),
-                "visibility": getattr(user_card, 'visibility', 'public')
+                "visibility": getattr(user_card, 'visibility', 'public'),
+                "lastVisitTime": user_recommend_info.get('last_visit_time', None),
+                "hasVisited": user_recommend_info.get('connection_info', {}).get('has_visited', False),
+                "visitCount": user_recommend_info.get('connection_info', {}).get('visit_count', 0)
             }
             
             cards.append(card_data)
@@ -453,7 +499,7 @@ async def get_match_recommendation_cards(
                     "total": total_cards,
                     "totalPages": (total_cards + pageSize - 1) // pageSize
                 },
-                "source": "user_cards"
+                "source": "recommendation_with_visit_logic"
             }
         )
             

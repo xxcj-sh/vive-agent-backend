@@ -10,16 +10,19 @@ import enum
 
 # 关系类型枚举
 class ConnectionType(str, enum.Enum):
-    FOLLOW = "follow"  # 关注关系
-    VISIT = "visit"  # 曾经访问过对方的主页
-    VIEW = "view"  # 曾经浏览过对方的主页
+    FOLLOW = "FOLLOW"  # 关注关系
+    FRIEND = "FRIEND"  # 好友关系
+    MENTOR = "MENTOR"  # 导师关系
+    PARTNER = "PARTNER"  # 合作伙伴关系
+    VISIT = "VISIT"  # 访问关系（访问他人主页）
+    VIEW = "VIEW"  # 浏览关系（在推荐页面浏览卡片）
 
 # 关系状态枚举
 class ConnectionStatus(str, enum.Enum):
-    PENDING = "pending"  # 待确认
-    ACCEPTED = "accepted"  # 已接受
-    REJECTED = "rejected"  # 已拒绝
-    BLOCKED = "blocked"  # 已拉黑
+    PENDING = "PENDING"  # 待确认
+    ACCEPTED = "ACCEPTED"  # 已接受
+    REJECTED = "REJECTED"  # 已拒绝
+    BLOCKED = "BLOCKED"  # 已拉黑
 
 class UserConnection(Base):
     __tablename__ = "user_connections"
@@ -31,8 +34,8 @@ class UserConnection(Base):
     to_user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # 关系类型和状态
-    connection_type = Column(SQLEnum(ConnectionType), default=ConnectionType.FRIEND, nullable=False)
-    status = Column(SQLEnum(ConnectionStatus), default=ConnectionStatus.PENDING, nullable=False)
+    connection_type = Column(SQLEnum(ConnectionType), default=ConnectionType.FOLLOW, nullable=False)
+    status = Column(SQLEnum(ConnectionStatus), default=ConnectionStatus.ACCEPTED, nullable=False)
     
     # 添加时间和更新时间
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -56,7 +59,7 @@ def generate_user_connection_id() -> str:
 
 class UserConnectionBase(BaseModel):
     to_user_id: str
-    connection_type: ConnectionType = Field(default=ConnectionType.FRIEND)
+    connection_type: ConnectionType = Field(default=ConnectionType.FOLLOW)
     remark: Optional[str] = None
 
 class UserConnectionCreate(UserConnectionBase):

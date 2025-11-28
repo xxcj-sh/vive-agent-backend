@@ -1,12 +1,186 @@
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 from fastapi import HTTPException, status
-from app.models import UserConnection, ConnectionStatus, ConnectionType, User
+from app.models import UserConnection, ConnectionStatus, ConnectionType
+from app.models.user import User
 from app.models.user_connection import UserConnectionCreate, UserConnectionUpdate
+from datetime import datetime, timedelta
 
 class UserConnectionService:
     """用户连接服务类，处理用户之间的人脉关系管理"""
+    
+    @staticmethod
+    def record_visit(db: Session, from_user_id: str, to_user_id: str) -> UserConnection:
+        """
+        记录用户访问行为（访问他人主页）
+        
+        Args:
+            db: 数据库会话
+            from_user_id: 访问者的用户ID
+            to_user_id: 被访问者的用户ID
+            
+        Returns:
+            创建或更新的连接对象
+        """
+        # 检查是否是自己访问自己
+        if from_user_id == to_user_id:
+            return None
+        
+        # 查找是否已存在VISIT类型的连接
+        existing_connection = db.query(UserConnection).filter(
+            UserConnection.from_user_id == from_user_id,
+            UserConnection.to_user_id == to_user_id,
+            UserConnection.connection_type == ConnectionType.VISIT
+        ).first()
+        
+        if existing_connection:
+            # 更新访问时间
+            existing_connection.updated_at = func.now()
+            db.commit()
+            db.refresh(existing_connection)
+            return existing_connection
+        else:
+            # 创建新的访问记录
+            db_connection = UserConnection(
+                from_user_id=from_user_id,
+                to_user_id=to_user_id,
+                connection_type=ConnectionType.VISIT,
+                status=ConnectionStatus.ACCEPTED
+            )
+            db.add(db_connection)
+            db.commit()
+            db.refresh(db_connection)
+            return db_connection
+    
+    @staticmethod
+    def get_recommended_users(db: Session, current_user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        获取推荐用户列表
+        
+        推荐逻辑：
+        1. 根据用户上次访问(VISIT)时间顺序排列，选取最久未访问的若干用户
+        2. 从中剔除最近两周曾经浏览(VIEW)过的用户
+        3. 按顺序展示给用户
+        
+        Args:
+            db: 数据库会话
+            current_user_id: 当前用户ID
+            limit: 返回用户数量限制
+            
+        Returns:
+            推荐用户列表，包含用户信息和连接信息
+        """
+        # 获取最近两周的时间
+        two_weeks_ago = datetime.now() - timedelta(weeks=2)
+        
+        # 获取最近两周浏览过的用户ID列表（VIEW类型）
+        recent_viewed_user_ids = db.query(UserConnection.to_user_id).filter(
+            UserConnection.from_user_id == current_user_id,
+            UserConnection.connection_type == ConnectionType.VIEW,
+            UserConnection.updated_at >= two_weeks_ago
+        ).distinct().all()
+        
+        # 提取用户ID
+        excluded_user_ids = [user_id[0] for user_id in recent_viewed_user_ids]
+        
+        # 获取所有访问过的用户，按访问时间升序排列（最久未访问的在前）
+        visited_connections = db.query(UserConnection).filter(
+            UserConnection.from_user_id == current_user_id,
+            UserConnection.connection_type == ConnectionType.VISIT
+        ).order_by(UserConnection.updated_at.asc()).all()
+        
+        # 提取访问过的用户ID
+        visited_user_ids = [conn.to_user_id for conn in visited_connections]
+        
+        # 如果没有访问记录，获取所有用户（排除自己）
+        if not visited_user_ids:
+            candidate_users = db.query(User).filter(
+                User.id != current_user_id
+            ).limit(limit * 2).all()
+        else:
+            # 获取访问过的用户，按访问时间排序
+            candidate_users = db.query(User).filter(
+                User.id.in_(visited_user_ids)
+            ).all()
+            
+            # 按访问时间排序（最久未访问的在前）
+            user_visit_map = {conn.to_user_id: conn.updated_at for conn in visited_connections}
+            candidate_users.sort(key=lambda user: user_visit_map.get(user.id, datetime.min))
+        
+        # 过滤掉最近两周浏览过的用户
+        filtered_users = [user for user in candidate_users if user.id not in excluded_user_ids]
+        
+        # 限制返回数量
+        recommended_users = filtered_users[:limit]
+        
+        # 构建返回数据
+        result = []
+        for user in recommended_users:
+            # 获取该用户的访问记录
+            visit_record = next((conn for conn in visited_connections if conn.to_user_id == user.id), None)
+            
+            user_data = {
+                "id": user.id,
+                "nick_name": user.nick_name,
+                "avatar_url": user.avatar_url,
+                "gender": user.gender,
+                "age": user.age,
+                "occupation": user.occupation,
+                "location": user.location,
+                "bio": user.bio,
+                "last_visit_time": visit_record.updated_at if visit_record else None,
+                "connection_info": {
+                    "has_visited": visit_record is not None,
+                    "visit_count": len([conn for conn in visited_connections if conn.to_user_id == user.id])
+                }
+            }
+            result.append(user_data)
+        
+        return result
+    
+    @staticmethod
+    def record_view(db: Session, from_user_id: str, to_user_id: str) -> UserConnection:
+        """
+        记录用户浏览行为（在Index页面浏览用户卡片）
+        
+        Args:
+            db: 数据库会话
+            from_user_id: 浏览者的用户ID
+            to_user_id: 被浏览者的用户ID
+            
+        Returns:
+            创建或更新的连接对象
+        """
+        # 检查是否是自己浏览自己
+        if from_user_id == to_user_id:
+            return None
+        
+        # 查找是否已存在VIEW类型的连接
+        existing_connection = db.query(UserConnection).filter(
+            UserConnection.from_user_id == from_user_id,
+            UserConnection.to_user_id == to_user_id,
+            UserConnection.connection_type == ConnectionType.VIEW
+        ).first()
+        
+        if existing_connection:
+            # 更新浏览时间
+            existing_connection.updated_at = func.now()
+            db.commit()
+            db.refresh(existing_connection)
+            return existing_connection
+        else:
+            # 创建新的浏览记录
+            db_connection = UserConnection(
+                from_user_id=from_user_id,
+                to_user_id=to_user_id,
+                connection_type=ConnectionType.VIEW,  # 使用VIEW类型
+                status=ConnectionStatus.ACCEPTED  # 关系直接接受
+            )
+            db.add(db_connection)
+            db.commit()
+            db.refresh(db_connection)
+            return db_connection
     
     @staticmethod
     def create_connection(db: Session, from_user_id: str, connection_data: UserConnectionCreate) -> UserConnection:
@@ -81,7 +255,7 @@ class UserConnectionService:
     
     @staticmethod
     def update_connection_status(db: Session, connection_id: str, user_id: str, 
-                               update_data: UserConnectionUpdate) -> UserConnection:
+                                update_data: UserConnectionUpdate) -> UserConnection:
         """
         更新连接状态（接受/拒绝/拉黑）
         
@@ -131,9 +305,9 @@ class UserConnectionService:
     
     @staticmethod
     def get_user_connections(db: Session, user_id: str, 
-                            connection_type: Optional[ConnectionType] = None,
-                            status: Optional[ConnectionStatus] = None,
-                            as_requester: bool = True, as_addressee: bool = True) -> List[UserConnection]:
+                             connection_type: Optional[ConnectionType] = None,
+                             status: Optional[ConnectionStatus] = None,
+                             as_requester: bool = True, as_addressee: bool = True) -> List[UserConnection]:
         """
         获取用户的连接列表
         
