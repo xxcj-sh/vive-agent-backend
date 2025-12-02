@@ -32,6 +32,7 @@ class TopicCard(Base):
     discussions = relationship("TopicDiscussion", back_populates="topic_card", cascade="all, delete-orphan")
     trigger_conditions = relationship("TopicTriggerCondition", back_populates="topic_card", cascade="all, delete-orphan")
     user_card_relations = relationship("UserCardTopicRelation", back_populates="topic_card", cascade="all, delete-orphan")
+    invitations = relationship("TopicInvitation", back_populates="topic", cascade="all, delete-orphan")
 
 class TopicDiscussion(Base):
     """话题讨论记录数据库模型"""

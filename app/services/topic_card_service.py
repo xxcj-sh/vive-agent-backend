@@ -53,9 +53,9 @@ class TopicCardService:
                 discussion_count=topic_card.discussion_count,
                 created_at=topic_card.created_at,
                 updated_at=topic_card.updated_at,
-                # 匿名话题不返回创建者信息
-                creator_nickname=None if topic_card.is_anonymous else (creator.nick_name if creator else None),
-                creator_avatar=None if topic_card.is_anonymous else (creator.avatar_url if creator else None),
+                # 返回创建者信息（前端会根据需要处理匿名显示）
+                creator_nickname=creator.nick_name if creator else None,
+                creator_avatar=creator.avatar_url if creator else None,
                 trigger_conditions=[]  # 添加缺失的触发条件字段
             )
         except Exception as e:
@@ -123,9 +123,9 @@ class TopicCardService:
                     discussion_count=topic_card.discussion_count,
                     created_at=topic_card.created_at,
                     updated_at=topic_card.updated_at,
-                    # 匿名话题不返回创建者信息
-                    creator_nickname=None if topic_card.is_anonymous else (creator.nick_name if creator else None),
-                    creator_avatar=None if topic_card.is_anonymous else (creator.avatar_url if creator else None),
+                    # 返回创建者信息（前端会根据需要处理匿名显示）
+                    creator_nickname=creator.nick_name if creator else None,
+                    creator_avatar=creator.avatar_url if creator else None,
                     trigger_conditions=[]  # 添加缺失的触发条件字段
                 )
                 cards.append(card_response)
@@ -142,7 +142,7 @@ class TopicCardService:
             raise e
     
     @staticmethod
-    def get_topic_card_detail(db: Session, card_id: str, user_id: Optional[str] = None) -> Optional[TopicCardResponse]:
+    def get_topic_card_detail(db: Session, card_id: str, user_id: Optional[str] = None, invitation_id: Optional[str] = None) -> Optional[TopicCardResponse]:
         """获取话题卡片详情"""
         try:
             # 查询话题卡片和创建者信息
@@ -164,6 +164,33 @@ class TopicCardService:
             topic_card.view_count += 1
             db.commit()
             
+            # 初始化邀请者信息
+            inviter_nickname = None
+            inviter_avatar = None
+            is_invited = False
+            
+            # 如果有邀请ID，获取邀请者信息
+            if invitation_id and user_id:
+                from app.models.topic_invitation import TopicInvitation
+                invitation = db.query(TopicInvitation).filter(
+                    TopicInvitation.id == invitation_id,
+                    TopicInvitation.topic_id == card_id,
+                    TopicInvitation.invitee_id == user_id,
+                    TopicInvitation.status == "accepted"
+                ).first()
+                
+                if invitation:
+                    is_invited = True
+                    # 如果邀请不是匿名，获取邀请者信息
+                    if not invitation.is_anonymous:
+                        inviter = db.query(User).filter(User.id == invitation.inviter_id).first()
+                        if inviter:
+                            inviter_nickname = inviter.nick_name
+                            inviter_avatar = inviter.avatar_url
+                    else:
+                        inviter_nickname = "匿名用户"
+                        inviter_avatar = None
+            
             return TopicCardResponse(
                 id=topic_card.id,
                 user_id=topic_card.user_id,
@@ -181,9 +208,13 @@ class TopicCardService:
                 discussion_count=topic_card.discussion_count,
                 created_at=topic_card.created_at,
                 updated_at=topic_card.updated_at,
-                # 匿名话题不返回创建者信息
-                creator_nickname=None if topic_card.is_anonymous else (creator.nick_name if creator else None),
-                creator_avatar=None if topic_card.is_anonymous else (creator.avatar_url if creator else None),
+                # 返回创建者信息（前端会根据需要处理匿名显示）
+                creator_nickname=creator.nick_name if creator else None,
+                creator_avatar=creator.avatar_url if creator else None,
+                # 返回邀请者信息
+                inviter_nickname=inviter_nickname,
+                inviter_avatar=inviter_avatar,
+                is_invited=is_invited,
                 trigger_conditions=[]  # 添加缺失的触发条件字段
             )
         except Exception as e:

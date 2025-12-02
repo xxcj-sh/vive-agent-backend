@@ -7,39 +7,32 @@ router = APIRouter(prefix="/scenes", tags=["scenes"], dependencies=[])
 
 # 场景配置数据 - 使用与 schemas.py 一致的格式
 SCENE_CONFIGS = {
-    "trade": SceneConfig(
-        key="trade",
-        label="交易",
-        icon="/images/trade.svg",
-        iconActive="/images/trade-active.svg",
-        description="寻找伙伴",
+    "vote": SceneConfig(
+        key="vote",
+        label="投票",
+        icon="/images/icon-vote.svg",
+        iconActive="/images/icon-vote-active.svg",
+        description="发起投票，收集意见，做出决策",
         roles={
-            "trade_landlord": SceneRole(
-                key="trade_landlord",
-                label="出租房源",
-                description="提供可租赁的房屋"
+            "vote_selection": SceneRole(
+                key="vote_selection",
+                label="选择投票",
+                description="在多个选项中进行选择"
             )
-            # "trade_buyer": SceneRole(
-            #     key="trade_buyer",
-            #     label="购买者",
-            #     description="寻找商品或服务"
-            # ),
-            # "trade_seller": SceneRole(
-            #     key="trade_seller",
-            #     label="销售者",
-            #     description="提供商品或服务"
-            # )
         },
-        CardFields=["currentRole", "currentCompany", "industry", "yearsOfExperience", "skills", "expertiseAreas", "socialInterests", "valueOfferings", "seekingOpportunities", "professionalLevel", "companySize"],
+        CardFields=[
+            "voteTitle",
+            "voteDescription",
+            "voteOptions",
+            "voteType",
+            "endTime",
+            "allowMultiple",
+            "anonymous",
+            "targetAudience",
+            "votingPurpose",
+            "resultVisibility"
+        ],
         tags=[
-            "房屋出租",
-            "企业服务",
-            "咨询顾问",
-            "创业投资",
-            "产品设计",
-            "技术开发",
-            "运营管理",
-            "市场销售"
         ]
     ),
     "social": SceneConfig(
@@ -53,11 +46,6 @@ SCENE_CONFIGS = {
                 key="social_identity",
                 label="身份名片",
                 description="更生动地向别人介绍你"
-            ),
-            "social_interest": SceneRole(
-                key="social_interest",
-                label="兴趣社交名片",
-                description="寻找有共同兴趣的伙伴"
             )
         },
         CardFields=[
@@ -74,26 +62,6 @@ SCENE_CONFIGS = {
             "companySize"
         ],
         tags=[
-            "互联网科技",
-            "人工智能",
-            "金融科技",
-            "企业服务",
-            "电子商务",
-            "教育培训",
-            "医疗健康",
-            "新能源",
-            "区块链",
-            "大数据",
-            "云计算",
-            "物联网",
-            "游戏娱乐",
-            "广告营销",
-            "咨询顾问",
-            "创业投资",
-            "产品设计",
-            "技术开发",
-            "运营管理",
-            "市场销售"
         ]
     ),
     "topic": SceneConfig(
@@ -105,18 +73,8 @@ SCENE_CONFIGS = {
         roles={
             "topic_discussion": SceneRole(
                 key="topic_discussion",
-                label="话题讨论",
-                description="发起话题讨论，分享观点见解"
-            ),
-            "topic_question": SceneRole(
-                key="topic_question",
-                label="问题求助",
-                description="提出问题，寻求帮助和建议"
-            ),
-            "topic_sharing": SceneRole(
-                key="topic_sharing",
-                label="经验分享",
-                description="分享经验心得，启发他人"
+                label="话题记录",
+                description="记录分享感兴趣的话题"
             )
         },
         CardFields=[
@@ -130,28 +88,7 @@ SCENE_CONFIGS = {
             "keyPoints",
             "callToAction"
         ],
-        tags=[
-            "技术讨论",
-            "职场经验",
-            "生活分享",
-            "学习心得",
-            "行业洞察",
-            "创业故事",
-            "职业规划",
-            "技能提升",
-            "项目管理",
-            "团队协作",
-            "产品设计",
-            "用户体验",
-            "数据分析",
-            "人工智能",
-            "区块链",
-            "云计算",
-            "移动开发",
-            "前端技术",
-            "后端架构",
-            "数据库"
-        ]
+        tags=[        ]
     )
 }
 

@@ -13,6 +13,8 @@ from .membership_orders import router as membership_orders_router
 from .scenes import router as scenes_router
 from .activity_invitation import router as activity_invitation_router
 from .user_connections import router as user_connections_router
+from .topic_invitation import router as topic_invitation_router
+from .vote_cards import router as vote_cards_router
 
 __all__ = [
     "auth_router",
@@ -29,5 +31,7 @@ __all__ = [
     "membership_orders_router",
     "scenes_router",
     "activity_invitation_router",
-    "user_connections_router"
+    "user_connections_router",
+    "topic_invitation_router",
+    "vote_cards_router"
 ]

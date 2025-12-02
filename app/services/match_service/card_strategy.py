@@ -227,6 +227,14 @@ class MatchCardStrategy:
                 user = self.db.query(User).filter(User.id == card.user_id).first()
                 if not user:
                     continue
+                
+                # 获取用户访问记录
+                from app.models.user_connection import UserConnection
+                visit_record = self.db.query(UserConnection).filter(
+                    UserConnection.from_user_id == current_user["id"],
+                    UserConnection.to_user_id == card.user_id,
+                    UserConnection.connection_type == "VIEW"
+                ).first()
             
                 
                 # 解析 JSON 字段
@@ -257,7 +265,8 @@ class MatchCardStrategy:
                     # 额外的卡片特定字段 - 使用防御性编程
                     "triggerAndOutput": getattr(card, 'trigger_and_output', {}) if hasattr(card, 'trigger_and_output') else {},
                     "preferences": preferences_data,
-                    "visibility": card.visibility
+                    "visibility": card.visibility,
+                    "lastVisitTime": visit_record.updated_at.isoformat() if visit_record else None
                 }
                 
                 result_cards.append(card_data)

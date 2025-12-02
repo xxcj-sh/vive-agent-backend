@@ -57,6 +57,10 @@ class TopicCardResponse(BaseModel):
     # 创建者信息
     creator_nickname: Optional[str] = Field(None, description="创建者昵称")
     creator_avatar: Optional[str] = Field(None, description="创建者头像")
+    # 邀请者信息（当通过邀请访问时）
+    inviter_nickname: Optional[str] = Field(None, description="邀请者昵称")
+    inviter_avatar: Optional[str] = Field(None, description="邀请者头像")
+    is_invited: bool = Field(False, description="是否通过邀请访问")
     trigger_conditions: Optional[List[TriggerCondition]] = Field(default_factory=list, description="触发条件列表")
     
     class Config:

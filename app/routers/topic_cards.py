@@ -76,6 +76,7 @@ async def get_topic_cards(
 @router.get("/{card_id}", response_model=TopicCardResponse)
 async def get_topic_card_detail(
     card_id: str,
+    invitation_id: Optional[str] = Query(None, description="邀请ID，用于显示邀请者信息"),
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -83,7 +84,7 @@ async def get_topic_card_detail(
     try:
         user_id = str(current_user.get("id")) if current_user else None
         
-        card_detail = TopicCardService.get_topic_card_detail(db, card_id, user_id)
+        card_detail = TopicCardService.get_topic_card_detail(db, card_id, user_id, invitation_id)
         if not card_detail:
             raise HTTPException(status_code=404, detail="话题卡片不存在")
         
