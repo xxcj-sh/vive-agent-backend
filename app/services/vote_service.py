@@ -321,13 +321,30 @@ class VoteService:
         
         return result
     
-    def get_hot_vote_cards(self, limit: int = 10) -> List[VoteCard]:
-        """获取热门投票卡片"""
-        return self.db.query(VoteCard).filter(
+    def get_hot_vote_cards(self, limit: int = 10, user_id: Optional[str] = None) -> List[VoteCard]:
+        """获取热门投票卡片
+        
+        Args:
+            limit: 返回卡片数量限制
+            user_id: 用户ID，如果提供则过滤掉该用户已参与投票的卡片
+        """
+        query = self.db.query(VoteCard).filter(
             VoteCard.is_deleted == 0,
             VoteCard.is_active == 1,
             VoteCard.visibility == "public"
-        ).order_by(
+        )
+        
+        # 如果提供了用户ID，过滤掉该用户已参与投票的卡片
+        if user_id:
+            # 子查询：获取用户已参与投票的卡片ID
+            user_voted_card_ids = self.db.query(VoteRecord.vote_card_id).filter(
+                VoteRecord.user_id == user_id
+            ).distinct()
+            
+            # 排除这些卡片
+            query = query.filter(~VoteCard.id.in_(user_voted_card_ids))
+        
+        return query.order_by(
             VoteCard.total_votes.desc(),
             VoteCard.view_count.desc()
         ).limit(limit).all()

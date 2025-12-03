@@ -366,7 +366,8 @@ async def get_hot_vote_cards(
     """获取热门投票卡片"""
     try:
         vote_service = VoteService(db)
-        hot_votes = vote_service.get_hot_vote_cards(limit)
+        # 传递用户ID以过滤已参与投票的卡片
+        hot_votes = vote_service.get_hot_vote_cards(limit, user_id=current_user["id"])
         print(f"[DEBUG] 获取到 {len(hot_votes)} 个热门投票卡片")
         
         # 为每个卡片添加投票状态
