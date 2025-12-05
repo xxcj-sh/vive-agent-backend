@@ -2,12 +2,6 @@ from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-class TriggerCondition(BaseModel):
-    """触发条件模型"""
-    condition_type: str = Field(..., description="条件类型: time, keyword, participant_count, manual")
-    condition_value: Optional[Dict[str, Any]] = Field(None, description="条件值")
-    is_enabled: int = Field(1, description="是否启用")
-
 class TopicCardBase(BaseModel):
     """话题卡片基础模型"""
     title: str = Field(..., description="话题标题", min_length=1, max_length=200)
@@ -18,7 +12,6 @@ class TopicCardBase(BaseModel):
     cover_image: Optional[str] = Field(None, description="封面图片URL")
     visibility: str = Field("public", description="可见性: public, private")
     is_anonymous: bool = Field(default=False, description="是否匿名")
-    trigger_conditions: Optional[List[TriggerCondition]] = Field(default_factory=list, description="触发条件列表")
 
 class TopicCardCreate(TopicCardBase):
     """创建话题卡片模型"""
@@ -61,7 +54,6 @@ class TopicCardResponse(BaseModel):
     inviter_nickname: Optional[str] = Field(None, description="邀请者昵称")
     inviter_avatar: Optional[str] = Field(None, description="邀请者头像")
     is_invited: bool = Field(False, description="是否通过邀请访问")
-    trigger_conditions: Optional[List[TriggerCondition]] = Field(default_factory=list, description="触发条件列表")
     
     class Config:
         """Pydantic配置"""
@@ -76,21 +68,6 @@ class TopicCardListResponse(BaseModel):
     page: int = Field(..., description="当前页码")
     pageSize: int = Field(..., description="每页数量")
     totalPages: int = Field(..., description="总页数")
-
-class TriggerConditionResponse(BaseModel):
-    """触发条件响应模型"""
-    id: str = Field(..., description="触发条件ID")
-    topic_card_id: str = Field(..., description="话题卡片ID")
-    condition_type: str = Field(..., description="条件类型: time, keyword, participant_count, manual")
-    condition_value: Optional[Dict[str, Any]] = Field(None, description="条件值")
-    is_enabled: int = Field(1, description="是否启用")
-    created_at: datetime = Field(..., description="创建时间")
-    updated_at: Optional[datetime] = Field(None, description="更新时间")
-
-class TriggerConditionListResponse(BaseModel):
-    """触发条件列表响应模型"""
-    items: List[TriggerConditionResponse] = Field(..., description="触发条件列表")
-    total: int = Field(..., description="总数")
 
 class TopicDiscussionBase(BaseModel):
     """话题讨论基础模型"""
@@ -120,3 +97,30 @@ class TopicDiscussionListResponse(BaseModel):
     """话题讨论列表响应模型"""
     total: int = Field(..., description="总数")
     list: List[TopicDiscussionResponse] = Field(..., description="讨论记录列表")
+
+class TopicOpinionSummaryResponse(BaseModel):
+    """话题观点总结响应模型"""
+    id: str = Field(..., description="观点总结ID")
+    topic_card_id: str = Field(..., description="话题卡片ID")
+    user_id: str = Field(..., description="用户ID")
+    opinion_summary: str = Field(..., description="观点总结内容")
+    key_points: Optional[List[str]] = Field(None, description="关键要点")
+    sentiment: Optional[str] = Field(None, description="情感倾向: positive, negative, neutral")
+    confidence_score: int = Field(0, description="置信度评分，0-100")
+    is_anonymous: int = Field(0, description="是否匿名")
+    created_at: datetime = Field(..., description="创建时间")
+    updated_at: Optional[datetime] = Field(None, description="更新时间")
+    # 用户信息（匿名时不显示）
+    user_nickname: Optional[str] = Field(None, description="用户昵称")
+    user_avatar: Optional[str] = Field(None, description="用户头像")
+    
+    class Config:
+        """Pydantic配置"""
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
+
+class TopicOpinionSummaryListResponse(BaseModel):
+    """话题观点总结列表响应模型"""
+    total: int = Field(..., description="总数")
+    list: List[TopicOpinionSummaryResponse] = Field(..., description="观点总结列表")

@@ -2,8 +2,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from app.models.topic_card_db import TopicCard, TopicDiscussion
-from app.models.topic_card import TopicCardCreate, TopicCardUpdate, TopicCardResponse, TopicDiscussionCreate, TopicDiscussionResponse
+from app.models.topic_card_db import TopicCard, TopicDiscussion, TopicOpinionSummary
+from app.models.topic_card import (
+    TopicCardCreate, TopicCardUpdate, TopicCardResponse, TopicCardListResponse,
+    TopicDiscussionCreate, TopicDiscussionResponse, TopicDiscussionListResponse,
+    TopicOpinionSummaryResponse, TopicOpinionSummaryListResponse
+)
 from app.models.user import User
 
 class TopicCardService:
@@ -55,8 +59,7 @@ class TopicCardService:
                 updated_at=topic_card.updated_at,
                 # 返回创建者信息（前端会根据需要处理匿名显示）
                 creator_nickname=creator.nick_name if creator else None,
-                creator_avatar=creator.avatar_url if creator else None,
-                trigger_conditions=[]  # 添加缺失的触发条件字段
+                creator_avatar=creator.avatar_url if creator else None
             )
         except Exception as e:
             db.rollback()
@@ -125,8 +128,7 @@ class TopicCardService:
                     updated_at=topic_card.updated_at,
                     # 返回创建者信息（前端会根据需要处理匿名显示）
                     creator_nickname=creator.nick_name if creator else None,
-                    creator_avatar=creator.avatar_url if creator else None,
-                    trigger_conditions=[]  # 添加缺失的触发条件字段
+                    creator_avatar=creator.avatar_url if creator else None
                 )
                 cards.append(card_response)
             
@@ -214,8 +216,7 @@ class TopicCardService:
                 # 返回邀请者信息
                 inviter_nickname=inviter_nickname,
                 inviter_avatar=inviter_avatar,
-                is_invited=is_invited,
-                trigger_conditions=[]  # 添加缺失的触发条件字段
+                is_invited=is_invited
             )
         except Exception as e:
             raise e
@@ -257,8 +258,7 @@ class TopicCardService:
                 created_at=topic_card.created_at,
                 updated_at=topic_card.updated_at,
                 creator_nickname=creator.nick_name if creator else None,
-                creator_avatar=creator.avatar_url if creator else None,
-                trigger_conditions=[]  # 添加缺失的触发条件字段
+                creator_avatar=creator.avatar_url if creator else None
             )
         except Exception as e:
             db.rollback()
@@ -399,4 +399,58 @@ class TopicCardService:
             return True
         except Exception as e:
             db.rollback()
+            raise e
+
+    @staticmethod
+    def get_topic_opinion_summaries(
+        db: Session, 
+        card_id: str, 
+        page: int = 1, 
+        page_size: int = 10
+    ) -> Dict[str, Any]:
+        """获取话题观点总结列表"""
+        try:
+            # 查询观点总结和用户信息
+            query = db.query(TopicOpinionSummary, User).join(
+                User, TopicOpinionSummary.user_id == User.id
+            ).filter(
+                TopicOpinionSummary.topic_card_id == card_id,
+                TopicOpinionSummary.is_deleted == 0
+            )
+            
+            # 获取总数
+            total = query.count()
+            
+            # 分页查询
+            offset = (page - 1) * page_size
+            results = query.order_by(TopicOpinionSummary.created_at.desc()).offset(offset).limit(page_size).all()
+            
+            # 构建响应数据
+            opinion_summaries = []
+            for opinion_summary, user in results:
+                opinion_response = TopicOpinionSummaryResponse(
+                    id=opinion_summary.id,
+                    topic_card_id=opinion_summary.topic_card_id,
+                    user_id=opinion_summary.user_id,
+                    opinion_summary=opinion_summary.opinion_summary,
+                    key_points=opinion_summary.key_points,
+                    sentiment=opinion_summary.sentiment,
+                    confidence_score=opinion_summary.confidence_score,
+                    is_anonymous=opinion_summary.is_anonymous,
+                    created_at=opinion_summary.created_at,
+                    updated_at=opinion_summary.updated_at,
+                    # 用户信息（匿名时不显示）
+                    user_nickname=user.nick_name if not opinion_summary.is_anonymous else None,
+                    user_avatar=user.avatar_url if not opinion_summary.is_anonymous else None
+                )
+                opinion_summaries.append(opinion_response)
+            
+            return {
+                "total": total,
+                "list": opinion_summaries,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": (total + page_size - 1) // page_size
+            }
+        except Exception as e:
             raise e
