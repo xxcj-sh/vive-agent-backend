@@ -251,6 +251,27 @@ async def get_user_vote_cards(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{vote_card_id}/voted-users")
+async def get_voted_users(
+    vote_card_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取已投票用户列表"""
+    try:
+        vote_service = VoteService(db)
+        result = vote_service.get_voted_users(vote_card_id, page, page_size)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        print(f"[DEBUG] 获取已投票用户列表时出错: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/submit", response_model=VoteSubmitResponse)
 async def submit_vote(
     vote_request: VoteSubmitRequest,

@@ -121,7 +121,7 @@ class AuthService:
             db = SessionLocal()
             try:
                 user = get_user(db, user_id)
-                if user:
+                if user and user.status != 'deleted':  # 只返回非删除状态的用户
                     return {
                         "id": user.id,
                         "nickName": user.nick_name,

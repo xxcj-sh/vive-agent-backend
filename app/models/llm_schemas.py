@@ -136,3 +136,17 @@ class ActivityInfoExtractionResponse(LLMResponse):
     
     class Config:
         populate_by_name = True
+
+class OpinionSummarizationRequest(LLMRequest):
+    """观点总结请求"""
+    task_type: LLMTaskType = Field(default=LLMTaskType.OPINION_SUMMARIZATION, description="任务类型")
+    conversation_history: List[Dict[str, Any]] = Field(..., description="对话历史记录")
+    topic_title: str = Field(..., description="话题标题")
+    topic_description: str = Field(..., description="话题描述")
+
+class OpinionSummarizationResponse(LLMResponse):
+    """观点总结响应"""
+    summary: str = Field(..., description="观点总结")
+    key_points: List[str] = Field(..., description="关键观点")
+    sentiment: str = Field(..., description="情感倾向")
+    confidence_score: float = Field(..., description="置信度分数")

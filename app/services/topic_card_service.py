@@ -9,6 +9,7 @@ from app.models.topic_card import (
     TopicOpinionSummaryResponse, TopicOpinionSummaryListResponse
 )
 from app.models.user import User
+from app.utils.logger import logger
 
 class TopicCardService:
     """话题卡片服务类"""
@@ -62,6 +63,113 @@ class TopicCardService:
                 creator_avatar=creator.avatar_url if creator else None
             )
         except Exception as e:
+            db.rollback()
+            raise e
+
+    @staticmethod
+    async def generate_opinion_summary(
+        db: Session,
+        card_id: str,
+        user_id: str,
+        user_messages: List[Dict[str, str]],
+        llm_service: Optional[Any] = None
+    ) -> TopicOpinionSummaryResponse:
+        """
+        生成话题观点总结（AI自动生成）
+        
+        Args:
+            db: 数据库会话
+            card_id: 话题卡片ID
+            user_id: 用户ID
+            llm_service: LLM服务实例（可选）
+            
+        Returns:
+            观点总结响应对象
+        """
+        try:
+            # 验证用户是否存在
+            from app.services.db_service import get_user
+            user = get_user(db, user_id)
+            if not user:
+                logger.error(f"用户不存在: user_id={user_id}")
+                raise ValueError("用户不存在，无法生成观点总结")
+            
+            logger.info(f"用户验证成功，开始生成观点总结: user_id={user_id}, card_id={card_id}")
+            
+            # 获取话题卡片信息
+            topic_card = db.query(TopicCard).filter(
+                TopicCard.id == card_id,
+                TopicCard.is_deleted == 0
+            ).first()
+            
+            if not topic_card:
+                raise ValueError("话题卡片不存在")
+            
+            # 处理用户消息数据
+            if not user_messages:
+                # 如果没有讨论内容，返回默认总结
+                return TopicCardService.save_topic_opinion_summary(
+                    db=db,
+                    card_id=card_id,
+                    user_id=user_id,
+                    opinion_summary="暂无用户观点数据",
+                    key_points=["暂无讨论内容"],
+                    sentiment="neutral",
+                    confidence_score=0.0,
+                    is_anonymous=True
+                )
+            
+            # 构建对话历史 - 适配前端消息结构
+            conversation_history = []
+            for message in user_messages:
+                # 前端消息结构: {id, content, sender, time, type}
+                if message and message.get('content'):
+                    conversation_history.append({
+                        "role": "user",
+                        "content": message['content'],
+                        "timestamp": message.get('time', '')
+                    })
+            
+            # 如果没有有效的用户消息，返回默认总结
+            if not conversation_history:
+                return TopicCardService.save_topic_opinion_summary(
+                    db=db,
+                    card_id=card_id,
+                    user_id=user_id,
+                    opinion_summary="暂无有效用户观点数据",
+                    key_points=["暂无有效讨论内容"],
+                    sentiment="neutral",
+                    confidence_score=0.0,
+                    is_anonymous=True
+                )
+            
+            # 获取LLM服务实例
+            if llm_service is None:
+                from app.services.llm_service import LLMService
+                llm_service = LLMService(db)
+            
+            # 调用LLM生成观点总结
+            opinion_response = await llm_service.summarize_opinions(
+                user_id=user_id,
+                conversation_history=conversation_history,
+                topic_title=topic_card.title,
+                topic_description=topic_card.description or ""
+            )
+            
+            # 保存观点总结
+            return TopicCardService.save_topic_opinion_summary(
+                db=db,
+                card_id=card_id,
+                user_id=user_id,
+                opinion_summary=opinion_response.summary,
+                key_points=opinion_response.key_points,
+                sentiment=opinion_response.sentiment,
+                confidence_score=opinion_response.confidence_score,
+                is_anonymous=True  # AI生成的总结标记为匿名
+            )
+            
+        except Exception as e:
+            logger.error(f"生成话题观点总结失败: {str(e)}")
             db.rollback()
             raise e
     
@@ -453,4 +561,74 @@ class TopicCardService:
                 "total_pages": (total + page_size - 1) // page_size
             }
         except Exception as e:
+            raise e
+
+    @staticmethod
+    def save_topic_opinion_summary(
+        db: Session,
+        card_id: str,
+        user_id: str,
+        opinion_summary: str,
+        key_points: List[str],
+        sentiment: str,
+        confidence_score: float,
+        is_anonymous: bool = False
+    ) -> TopicOpinionSummaryResponse:
+        """保存话题观点总结"""
+        try:
+            # 检查是否已存在该用户的观点总结
+            existing_summary = db.query(TopicOpinionSummary).filter(
+                TopicOpinionSummary.topic_card_id == card_id,
+                TopicOpinionSummary.user_id == user_id,
+                TopicOpinionSummary.is_deleted == 0
+            ).first()
+            
+            if existing_summary:
+                # 更新现有总结
+                existing_summary.opinion_summary = opinion_summary
+                existing_summary.key_points = key_points
+                existing_summary.sentiment = sentiment
+                existing_summary.confidence_score = confidence_score
+                existing_summary.is_anonymous = is_anonymous
+                existing_summary.updated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(existing_summary)
+                opinion_summary_obj = existing_summary
+            else:
+                # 创建新的观点总结
+                new_summary = TopicOpinionSummary(
+                    topic_card_id=card_id,
+                    user_id=user_id,
+                    opinion_summary=opinion_summary,
+                    key_points=key_points,
+                    sentiment=sentiment,
+                    confidence_score=confidence_score,
+                    is_anonymous=is_anonymous,
+                    is_deleted=0
+                )
+                db.add(new_summary)
+                db.commit()
+                db.refresh(new_summary)
+                opinion_summary_obj = new_summary
+            
+            # 获取用户信息
+            user = db.query(User).filter(User.id == user_id).first()
+            
+            return TopicOpinionSummaryResponse(
+                id=opinion_summary_obj.id,
+                topic_card_id=opinion_summary_obj.topic_card_id,
+                user_id=opinion_summary_obj.user_id,
+                opinion_summary=opinion_summary_obj.opinion_summary,
+                key_points=opinion_summary_obj.key_points,
+                sentiment=opinion_summary_obj.sentiment,
+                confidence_score=opinion_summary_obj.confidence_score,
+                is_anonymous=opinion_summary_obj.is_anonymous,
+                created_at=opinion_summary_obj.created_at,
+                updated_at=opinion_summary_obj.updated_at,
+                # 用户信息（匿名时不显示）
+                user_nickname=user.nick_name if not is_anonymous else None,
+                user_avatar=user.avatar_url if not is_anonymous else None
+            )
+        except Exception as e:
+            db.rollback()
             raise e

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from app.database import get_db
@@ -7,7 +8,7 @@ from app.models.topic_card_db import TopicCard, TopicDiscussion
 from app.models.topic_card import (
     TopicCardCreate, TopicCardUpdate, TopicCardResponse, TopicCardListResponse,
     TopicDiscussionCreate, TopicDiscussionResponse, TopicDiscussionListResponse,
-    TopicOpinionSummaryResponse, TopicOpinionSummaryListResponse
+    TopicOpinionSummaryCreate, TopicOpinionSummaryResponse, TopicOpinionSummaryListResponse
 )
 from app.dependencies import get_current_user
 from app.core.response import BaseResponse
@@ -336,5 +337,121 @@ async def get_topic_opinion_summaries(
         return BaseResponse(
             code=500,
             message=f"获取观点总结失败: {str(e)}",
+            data=None
+        )
+
+
+
+@router.post("/{card_id}/opinion-summaries")
+async def save_topic_opinion_summary(
+    card_id: str,
+    summary_data: TopicOpinionSummaryCreate,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """保存话题观点总结"""
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        user_id = str(current_user.get("id"))
+        if not user_id:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        # 验证话题卡片存在且可访问
+        card = db.query(TopicCard).filter(TopicCard.id == card_id).first()
+        if not card:
+            raise HTTPException(status_code=404, detail="话题卡片不存在")
+        
+        if card.visibility == "private" and card.user_id != user_id:
+            raise HTTPException(status_code=403, detail="无权限访问此话题卡片")
+        
+        # 保存观点总结
+        summary = TopicCardService.save_topic_opinion_summary(
+            db=db,
+            card_id=card_id,
+            user_id=user_id,
+            opinion_summary=summary_data.opinion_summary,
+            key_points=summary_data.key_points,
+            sentiment=summary_data.sentiment,
+            confidence_score=summary_data.confidence_score,
+            is_anonymous=summary_data.is_anonymous
+        )
+        
+        return BaseResponse(
+            code=0,
+            message="观点总结保存成功",
+            data=summary
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"保存话题观点总结异常: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return BaseResponse(
+            code=500,
+            message=f"保存观点总结失败: {str(e)}",
+            data=None
+        )
+
+
+class GenerateOpinionSummaryRequest(BaseModel):
+    user_messages: List[Dict[str, Any]]
+
+@router.post("/{card_id}/generate-opinion-summary")
+async def generate_opinion_summary(
+    card_id: str,
+    request_data: GenerateOpinionSummaryRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """生成话题观点总结（AI自动生成）"""
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        user_id = str(current_user.get("id"))
+        if not user_id:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        # 验证话题卡片存在且可访问
+        card = db.query(TopicCard).filter(TopicCard.id == card_id).first()
+        if not card:
+            raise HTTPException(status_code=404, detail="话题卡片不存在")
+        
+        if card.visibility == "private" and card.user_id != user_id:
+            raise HTTPException(status_code=403, detail="无权限访问此话题卡片")
+        
+        # 获取用户消息
+        user_messages = request_data.user_messages
+        
+        # 导入LLM服务
+        from app.services.llm_service import LLMService
+        llm_service = LLMService(db)
+        
+        # 生成观点总结
+        summary = await TopicCardService.generate_opinion_summary(
+            db=db,
+            card_id=card_id,
+            user_messages=user_messages,
+            user_id=user_id,
+            llm_service=llm_service
+        )
+        
+        return BaseResponse(
+            code=0,
+            message="观点总结生成成功",
+            data=summary
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"生成话题观点总结异常: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return BaseResponse(
+            code=500,
+            message=f"生成观点总结失败: {str(e)}",
             data=None
         )

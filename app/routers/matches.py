@@ -382,12 +382,6 @@ async def get_match_recommendation_cards(
         else:
             user_id = str(current_user.id)
         
-        print(f"=== 获取匹配推荐 - 调试信息 ===")
-        print(f"当前用户ID: {user_id}")
-        print(f"场景类型: {sceneType}")
-        print(f"用户角色: {roleType}")
-        print(f"分页: page={page}, pageSize={pageSize}")
-        
         # 获取推荐用户列表（根据访问时间排序，排除最近浏览过的）
         print("正在获取推荐用户列表...")
         recommended_users = UserConnectionService.get_recommended_users(
@@ -395,8 +389,6 @@ async def get_match_recommendation_cards(
             current_user_id=user_id,
             limit=pageSize * 3  # 获取更多的用户用于筛选有卡片的用户
         )
-        
-        print(f"推荐用户数量: {len(recommended_users)}")
         
         # 获取推荐用户的ID列表
         recommended_user_ids = [user['id'] for user in recommended_users]

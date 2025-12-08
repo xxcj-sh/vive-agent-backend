@@ -98,6 +98,14 @@ class TopicDiscussionListResponse(BaseModel):
     total: int = Field(..., description="总数")
     list: List[TopicDiscussionResponse] = Field(..., description="讨论记录列表")
 
+class TopicOpinionSummaryCreate(BaseModel):
+    """创建话题观点总结模型"""
+    opinion_summary: str = Field(..., description="观点总结内容", min_length=1, max_length=2000)
+    key_points: Optional[List[str]] = Field(None, description="关键要点")
+    sentiment: Optional[str] = Field(None, description="情感倾向: positive, negative, neutral")
+    confidence_score: float = Field(0, description="置信度评分，0-100")
+    is_anonymous: bool = Field(default=False, description="是否匿名")
+
 class TopicOpinionSummaryResponse(BaseModel):
     """话题观点总结响应模型"""
     id: str = Field(..., description="观点总结ID")

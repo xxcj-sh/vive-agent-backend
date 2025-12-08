@@ -247,6 +247,85 @@ class VoteService:
             "user_votes": user_votes
         }
     
+    def get_voted_users(self, vote_card_id: str, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+        """获取已投票用户列表
+        
+        Args:
+            vote_card_id: 投票卡片ID
+            page: 页码
+            page_size: 每页数量
+            
+        Returns:
+            包含用户列表、总数、分页信息的字典
+        """
+        from sqlalchemy.orm import joinedload
+        from app.models.user import User
+        
+        # 验证投票卡片是否存在
+        vote_card = self.db.query(VoteCard).filter(
+            VoteCard.id == vote_card_id,
+            VoteCard.is_deleted == 0
+        ).first()
+        
+        if not vote_card:
+            raise ValueError("投票卡片不存在")
+        
+        offset = (page - 1) * page_size
+        
+        # 查询已投票的用户（去重）
+        query = self.db.query(User).join(
+            VoteRecord, User.id == VoteRecord.user_id
+        ).filter(
+            VoteRecord.vote_card_id == vote_card_id
+        ).distinct()
+        
+        total = query.count()
+        users = query.order_by(User.created_at.desc()).offset(offset).limit(page_size).all()
+        
+        # 构建用户列表数据
+        user_list = []
+        for user in users:
+            # 获取该用户的投票记录
+            vote_records = self.db.query(VoteRecord).filter(
+                VoteRecord.vote_card_id == vote_card_id,
+                VoteRecord.user_id == user.id
+            ).all()
+            
+            # 获取用户投票的选项
+            voted_options = []
+            for record in vote_records:
+                option = self.db.query(VoteOption).filter(
+                    VoteOption.id == record.option_id
+                ).first()
+                if option:
+                    voted_options.append({
+                        "option_id": option.id,
+                        "option_text": option.option_text
+                    })
+            
+            user_data = {
+                "id": user.id,
+                "nick_name": user.nick_name or "匿名用户",
+                "avatar_url": user.avatar_url or "",
+                "gender": user.gender,
+                "age": user.age,
+                "occupation": user.occupation,
+                "education": user.education,
+                "location": user.location,
+                "voted_at": vote_records[0].created_at.isoformat() if vote_records else None,
+                "voted_options": voted_options,
+                "vote_count": len(vote_records)
+            }
+            user_list.append(user_data)
+        
+        return {
+            "users": user_list,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total + page_size - 1) // page_size
+        }
+    
     def increment_view_count(self, vote_card_id: str) -> bool:
         """增加浏览次数"""
         vote_card = self.db.query(VoteCard).filter(

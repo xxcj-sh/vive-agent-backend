@@ -19,7 +19,8 @@ from app.models.llm_usage_log import LLMUsageLog, LLMProvider, LLMTaskType
 from app.models.llm_schemas import (
     LLMRequest,
     LLMResponse, ConversationSuggestionResponse, ProfileAnalysisResponse,
-    ActivityInfoExtractionRequest, ActivityInfoExtractionResponse
+    ActivityInfoExtractionRequest, ActivityInfoExtractionResponse,
+    OpinionSummarizationResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -358,6 +359,11 @@ class LLMService:
             请用中文思考，严格按照JSON格式输出结果，
             确保提取的信息准确且完整。
             """,
+        LLMTaskType.OPINION_SUMMARIZATION: """
+            你是一个专业的观点总结助手。请分析用户在话题讨论中表达的观点，
+            提取关键信息并生成简洁准确的总结。请用中文回复，
+            确保总结客观、全面且易于理解。
+            """,
 
         }
         return prompts.get(task_type, "你是一个智能助手，请帮助用户解决问题。")
@@ -383,10 +389,27 @@ class LLMService:
         注意：如果日志记录失败，不会影响主要功能
         """
         try:
+            # 验证用户是否存在，如果不存在则使用None作为user_id
+            validated_user_id = None
+            if user_id:
+                try:
+                    from app.services.db_service import get_user
+                    user = get_user(self.db, user_id)
+                    validated_user_id = user_id if user else None
+                    if not user:
+                        logger.warning(f"用户不存在，日志记录将使用null user_id: {user_id}")
+                    else:
+                        logger.info(f"用户验证成功，记录LLM使用日志: user_id={user_id}")
+                except Exception as user_check_error:
+                    logger.warning(f"验证用户存在性失败，使用null user_id: {user_check_error}")
+                    validated_user_id = None
+            else:
+                logger.info("user_id为null，记录匿名LLM使用日志")
+            
             # 使用简单的dict记录，避免数据库操作失败影响主流程
             log_data = {
                 "id": log_id,
-                "user_id": user_id,
+                "user_id": validated_user_id,
                 "task_type": task_type,
                 "provider": provider,
                 "model_name": model_name,
@@ -406,7 +429,7 @@ class LLMService:
                 current_time = datetime.utcnow()
                 log_entry = LLMUsageLog(
                     id=log_id,
-                    user_id=user_id,
+                    user_id=validated_user_id,  # 使用验证后的user_id
                     task_type=task_type,
                     provider=provider,
                     llm_model_name=model_name,
@@ -991,6 +1014,104 @@ class LLMService:
         )
 
         return await self.call_llm_api(llm_request, provider, model_name)
+
+    async def summarize_opinions(
+        self,
+        user_id: str,
+        conversation_history: List[Dict[str, Any]],
+        topic_title: str,
+        topic_description: str,
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
+    ) -> OpinionSummarizationResponse:
+        """
+        生成观点总结
+        
+        Args:
+            user_id: 用户ID
+            conversation_history: 对话历史记录
+            topic_title: 话题标题
+            topic_description: 话题描述
+            provider: LLM服务提供商
+            model_name: 模型名称
+            
+        Returns:
+            观点总结响应对象
+        """
+        # 构建用户提示词
+        user_prompt = f"""
+        请分析以下话题讨论中的用户观点：
+        
+        话题标题：{topic_title}
+        话题描述：{topic_description}
+        讨论内容：{json.dumps(conversation_history, ensure_ascii=False)}
+        
+        请提取并总结用户的观点，包括：
+        1. 观点总结：用简洁的语言概括用户表达的主要观点
+        2. 关键点：列出3-5个核心要点
+        3. 情感分析：分析用户的情感倾向（积极/中性/消极）
+        4. 置信度：给出你对分析结果的置信度（0-1之间）
+        
+        请严格按照以下JSON格式回复：
+        {{
+            "summary": "用户的观点总结",
+            "key_points": ["要点1", "要点2", "要点3"],
+            "sentiment": "positive/neutral/negative",
+            "confidence_score": 0.85
+        }}
+        """
+
+        # 创建LLM请求
+        llm_request = LLMRequest(
+            user_id=user_id,
+            task_type=LLMTaskType.OPINION_SUMMARIZATION,
+            prompt=user_prompt
+        )
+
+        # 调用LLM API
+        response = await self.call_llm_api(llm_request, provider, model_name)
+        
+        if response.success and response.data:
+            try:
+                # 解析LLM返回的JSON数据
+                result = json.loads(response.data)
+                
+                # 创建响应对象
+                return OpinionSummarizationResponse(
+                    success=True,
+                    data=response.data,
+                    usage=response.usage,
+                    duration=response.duration,
+                    summary=result.get("summary", ""),
+                    key_points=result.get("key_points", []),
+                    sentiment=result.get("sentiment", "neutral"),
+                    confidence_score=result.get("confidence_score", 0.5)
+                )
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.error(f"解析观点总结结果失败: {str(e)}, 原始数据: {response.data}")
+                # 如果解析失败，返回默认值
+                return OpinionSummarizationResponse(
+                    success=False,
+                    data=None,
+                    usage=response.usage if hasattr(response, 'usage') else {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                    duration=response.duration if hasattr(response, 'duration') else 0.0,
+                    summary="观点总结生成失败",
+                    key_points=[],
+                    sentiment="neutral",
+                    confidence_score=0.0
+                )
+        else:
+            logger.error(f"观点总结LLM调用失败: {response.error_message}")
+            return OpinionSummarizationResponse(
+                success=False,
+                data=None,
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                duration=0.0,
+                summary="观点总结生成失败",
+                key_points=[],
+                sentiment="neutral",
+                confidence_score=0.0
+            )
 
     async def generate_coffee_chat_response(
         self,

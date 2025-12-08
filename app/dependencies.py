@@ -9,7 +9,7 @@ async def get_current_user(request: Request) -> Optional[Dict[str, Any]]:
     """获取当前用户信息（可选认证）"""
     # 测试模式：允许无令牌直接使用默认测试用户
     if request.headers.get("X-Test-Mode", "").lower() == "true":
-        user = auth_service.get_user_from_token("test_token_001")
+        user = auth_service.get_user_from_token("022a82d4-8f66-4d03-833d-35b75477cb30")  # 使用活跃用户ID
         if user:
             return user
 
