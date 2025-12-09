@@ -97,10 +97,13 @@ class VoteService:
             "page_size": page_size
         }
     
-    def submit_vote(self, user_id: str, vote_card_id: str, option_indices: List[int], 
+    def submit_vote(self, user_id: Optional[str], vote_card_id: str, option_indices: List[int], 
                    ip_address: Optional[str] = None, user_agent: Optional[str] = None) -> Dict[str, Any]:
         """提交投票"""
         # 验证用户是否存在
+        if not user_id:
+            raise ValueError("用户未认证")
+            
         user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
             raise ValueError("用户不存在")
@@ -232,8 +235,15 @@ class VoteService:
             "show_realtime_result": vote_card.is_realtime_result
         }
     
-    def get_user_vote_status(self, user_id: str, vote_card_id: str) -> Dict[str, Any]:
+    def get_user_vote_status(self, user_id: Optional[str], vote_card_id: str) -> Dict[str, Any]:
         """获取用户投票状态"""
+        # 如果用户ID为None，表示未认证用户
+        if not user_id:
+            return {
+                "has_voted": False,
+                "user_votes": []
+            }
+        
         vote_records = self.db.query(VoteRecord).filter(
             VoteRecord.vote_card_id == vote_card_id,
             VoteRecord.user_id == user_id
@@ -421,7 +431,8 @@ class VoteService:
             ).distinct()
             
             # 排除这些卡片
-            query = query.filter(~VoteCard.id.in_(user_voted_card_ids))
+            # TEST
+            # query = query.filter(~VoteCard.id.in_(user_voted_card_ids))
         
         return query.order_by(
             VoteCard.total_votes.desc(),
@@ -460,3 +471,55 @@ class VoteService:
             "page": page,
             "page_size": page_size
         }
+    
+    def delete_vote_card(self, vote_card_id: str, user_id: str) -> bool:
+        """删除投票卡片（软删除）"""
+        try:
+            # 获取投票卡片
+            vote_card = self.db.query(VoteCard).filter(
+                VoteCard.id == vote_card_id,
+                VoteCard.is_deleted == 0
+            ).first()
+            
+            if not vote_card:
+                raise ValueError("投票卡片不存在")
+            
+            # 验证用户是否有权限删除（只有创建者可以删除）
+            if vote_card.user_id != user_id:
+                raise ValueError("没有权限删除此投票卡片")
+            
+            # 软删除投票卡片
+            vote_card.is_deleted = 1
+            
+            # 软删除相关的投票选项
+            vote_options = self.db.query(VoteOption).filter(
+                VoteOption.vote_card_id == vote_card_id
+            ).all()
+            for option in vote_options:
+                option.is_active = 0
+            
+            # 软删除相关的投票记录
+            vote_records = self.db.query(VoteRecord).filter(
+                VoteRecord.vote_card_id == vote_card_id
+            ).all()
+            for record in vote_records:
+                record.is_deleted = 1
+            
+            # 软删除相关的讨论
+            discussions = self.db.query(VoteDiscussion).filter(
+                VoteDiscussion.vote_card_id == vote_card_id
+            ).all()
+            for discussion in discussions:
+                discussion.is_deleted = 1
+            
+            # 删除用户卡片关联
+            self.db.query(UserCardVoteRelation).filter(
+                UserCardVoteRelation.vote_card_id == vote_card_id
+            ).delete()
+            
+            self.db.commit()
+            return True
+            
+        except Exception as e:
+            self.db.rollback()
+            raise e

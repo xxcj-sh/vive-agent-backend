@@ -104,7 +104,11 @@ async def create_vote_card(
     """创建投票卡片"""
     try:
         # 获取当前用户ID
-        user_id = current_user.get("id")
+        user_id = current_user.get("id") if current_user else None
+        if not user_id:
+            raise HTTPException(status_code=401, detail="用户未认证") if current_user else None
+        if not user_id:
+            raise HTTPException(status_code=401, detail="用户未认证") if current_user else None
         if not user_id:
             raise HTTPException(status_code=401, detail="用户未认证")
         
@@ -159,7 +163,7 @@ async def get_vote_card(
     try:
         vote_service = VoteService(db)
         # 获取当前用户ID
-        user_id = current_user.get("id")
+        user_id = current_user.get("id") if current_user else None
         if not user_id:
             raise HTTPException(status_code=401, detail="用户未认证")
         
@@ -276,7 +280,7 @@ async def get_voted_users(
 async def submit_vote(
     vote_request: VoteSubmitRequest,
     request: Request,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """提交投票"""
@@ -288,7 +292,7 @@ async def submit_vote(
         user_agent = request.headers.get("user-agent")
         
         # 获取当前用户ID
-        user_id = current_user.get("id")
+        user_id = current_user.get("id") if current_user else None
         if not user_id:
             raise HTTPException(status_code=401, detail="用户未认证")
         
@@ -318,13 +322,13 @@ async def submit_vote(
 @router.get("/status/{vote_card_id}")
 async def get_vote_status(
     vote_card_id: str,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取用户投票状态"""
     try:
         vote_service = VoteService(db)
-        user_id = current_user.get("id")
+        user_id = current_user.get("id") if current_user else None
         status = vote_service.get_user_vote_status(user_id, vote_card_id)
         
         return status
@@ -335,7 +339,7 @@ async def get_vote_status(
 async def add_vote_discussion(
     vote_card_id: str,
     discussion_data: VoteDiscussionCreate,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """添加投票讨论"""
@@ -347,7 +351,10 @@ async def add_vote_discussion(
         if not vote_card:
             raise HTTPException(status_code=404, detail="投票卡片不存在")
         
-        user_id = current_user.get("id")
+        user_id = current_user.get("id") if current_user else None
+        if not user_id:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
         discussion = vote_service.add_discussion(
             vote_card_id=vote_card_id,
             participant_id=user_id,
@@ -366,7 +373,7 @@ async def get_vote_discussions(
     vote_card_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取投票讨论列表"""
@@ -381,14 +388,15 @@ async def get_vote_discussions(
 @router.get("/hot/list")
 async def get_hot_vote_cards(
     limit: int = Query(10, ge=1, le=50),
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取热门投票卡片"""
     try:
         vote_service = VoteService(db)
         # 传递用户ID以过滤已参与投票的卡片
-        hot_votes = vote_service.get_hot_vote_cards(limit, user_id=current_user["id"])
+        user_id = current_user.get("id") if current_user else None
+        hot_votes = vote_service.get_hot_vote_cards(limit, user_id=user_id)
         print(f"[DEBUG] 获取到 {len(hot_votes)} 个热门投票卡片")
         
         # 为每个卡片添加投票状态
@@ -405,7 +413,7 @@ async def get_hot_vote_cards(
                     card_title = card.title
                     print(f"[DEBUG] 处理对象卡片: {card_id}, 标题: {card_title}")
                 
-                vote_results = vote_service.get_vote_results(card_id, current_user["id"])
+                vote_results = vote_service.get_vote_results(card_id, current_user.get("id") if current_user else None)
                 print(f"[DEBUG] 投票结果类型: {type(vote_results)}")
                 
                 if isinstance(card, dict):
@@ -484,7 +492,7 @@ async def search_vote_cards(
     category: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """搜索投票卡片"""
@@ -495,7 +503,7 @@ async def search_vote_cards(
         # 为每个卡片添加投票状态
         cards_with_status = []
         for card in result["cards"]:
-            vote_results = vote_service.get_vote_results(card.id, current_user.id)
+            vote_results = vote_service.get_vote_results(card.id, current_user.get("id") if current_user else None)
             card_response = VoteCardResponse(
                 id=card.id,
                 user_id=card.user_id,
@@ -528,5 +536,37 @@ async def search_vote_cards(
             page=result["page"],
             page_size=result["page_size"]
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{vote_card_id}")
+async def delete_vote_card(
+    vote_card_id: str,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """删除投票卡片（软删除）"""
+    try:
+        # 检查用户是否已认证
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        # 获取当前用户ID
+        user_id = current_user.get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        vote_service = VoteService(db)
+        success = vote_service.delete_vote_card(vote_card_id, user_id)
+        
+        if success:
+            return {"success": True, "message": "投票卡片删除成功"}
+        else:
+            raise HTTPException(status_code=500, detail="删除投票卡片失败")
+            
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

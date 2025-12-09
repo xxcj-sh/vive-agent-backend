@@ -36,13 +36,23 @@ def update_user_connection_fields():
                     return True
                 
                 # 检查字段是否存在并执行重命名
-                # 重命名requester_id为from_user_id
-                conn.execute(text("ALTER TABLE user_connections CHANGE COLUMN requester_id from_user_id VARCHAR(36) NOT NULL"))
-                logger.info("已将requester_id字段重命名为from_user_id")
+                # 检查requester_id字段是否存在
+                result = conn.execute(text("SHOW COLUMNS FROM user_connections LIKE 'requester_id'"))
+                if result.fetchone():
+                    # 重命名requester_id为from_user_id
+                    conn.execute(text("ALTER TABLE user_connections CHANGE COLUMN requester_id from_user_id VARCHAR(36) NOT NULL"))
+                    logger.info("已将requester_id字段重命名为from_user_id")
+                else:
+                    logger.info("requester_id字段不存在，跳过重命名操作")
                 
-                # 重命名addressee_id为to_user_id
-                conn.execute(text("ALTER TABLE user_connections CHANGE COLUMN addressee_id to_user_id VARCHAR(36) NOT NULL"))
-                logger.info("已将addressee_id字段重命名为to_user_id")
+                # 检查addressee_id字段是否存在
+                result = conn.execute(text("SHOW COLUMNS FROM user_connections LIKE 'addressee_id'"))
+                if result.fetchone():
+                    # 重命名addressee_id为to_user_id
+                    conn.execute(text("ALTER TABLE user_connections CHANGE COLUMN addressee_id to_user_id VARCHAR(36) NOT NULL"))
+                    logger.info("已将addressee_id字段重命名为to_user_id")
+                else:
+                    logger.info("addressee_id字段不存在，跳过重命名操作")
                 
                 # 提交事务
                 transaction.commit()
