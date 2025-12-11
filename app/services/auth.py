@@ -432,10 +432,10 @@ class AuthService:
             raise ValueError("无效的验证码")
         
         user_dict = None
-        
+        print("user_data:", user_data)
         # 使用数据库
         if db:
-            create_user_func, get_user_by_phone_func, get_user_func = get_db_services()
+            create_user_func, get_user_by_phone_func = get_db_services()
             # 检查手机号是否已注册
             existing_user = get_user_by_phone_func(db, phone)
             if existing_user:

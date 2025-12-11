@@ -65,6 +65,7 @@ class UserCardService:
     @staticmethod
     def get_card_by_id(db: Session, card_id: str) -> Optional[UserCard]:
         """根据卡片ID获取角色卡片"""
+        print(f"get_card_by_id: {card_id}")
         return db.query(UserCard).filter(UserCard.id == card_id).first()
     
     @staticmethod

@@ -12,34 +12,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-
-@router.get("/public")
-def get_public_cards(
-    page: int = 1,
-    page_size: int = 10,
-    scene_type: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
-    """获取公开卡片列表"""
-    try:
-        # 验证页码和每页数量
-        if page < 1:
-            page = 1
-        if page_size < 1 or page_size > 100:
-            page_size = 10
-            
-        # 调用服务获取公开卡片列表
-        result = UserCardService.get_public_cards(db, page, page_size, scene_type)
-        
-        return {
-            "code": 0,
-            "message": "success",
-            "data": result
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取公开卡片列表失败: {str(e)}")
-
-
 @router.get("/{card_id}")
 def get_card_details(
     card_id: str,
@@ -51,6 +23,10 @@ def get_card_details(
     card = UserCardService.get_card_by_id(db, card_id)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
+    
+    # 检查卡片是否被删除或未激活
+    if card.is_deleted == 1 or card.is_active == 0:
+        raise HTTPException(status_code=404, detail="Card not found or inactive")
     
     # 获取用户基础信息
     user = db.query(User).filter(User.id == card.user_id).first()
