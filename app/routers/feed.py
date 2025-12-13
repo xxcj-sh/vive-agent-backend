@@ -66,12 +66,11 @@ async def get_feed_cards(
         # 获取投票卡片
         if card_type in ["vote", "all", None]:
             vote_service = VoteService(db)
-            hot_votes = vote_service.get_hot_vote_cards(limit=page_size)
+            recall_votes = vote_service.get_recall_vote_cards(limit=page_size)
             
             # 为每个卡片添加投票状态
-            for card in hot_votes:
+            for card in recall_votes:
                 vote_results = vote_service.get_vote_results(card.id, user_id)
-                
                 # 获取用户信息
                 user = db.query(User).filter(User.id == card.user_id).first()
                 user_avatar = user.avatar_url if user else ''
@@ -80,7 +79,7 @@ async def get_feed_cards(
                 formatted_card = {
                     "id": card.id,
                     "type": "vote",
-                    "vote_type": "vote",
+                    "vote_type": card.vote_type,
                     "title": card.title,
                     "content": card.description or card.title,
                     "category": card.category,
@@ -110,7 +109,6 @@ async def get_feed_cards(
         end_idx = start_idx + page_size
         items = all_cards[start_idx:end_idx]
         
-        print("Sorted all card", all_cards)
         return {
             "items": items,
             "total": total,
@@ -122,106 +120,10 @@ async def get_feed_cards(
         }
         
     except Exception as e:
+        print(f"获取卡片流失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取卡片流失败: {str(e)}")
 
-    """
-    获取热门卡片（综合排序）
-    
-    基于点赞数、评论数、投票数等综合指标排序
-    """
-    try:
-        user_id = str(current_user.get("id")) if current_user else None
-        all_cards = []
-        
-        # 获取热门话题卡片
-        topic_result = TopicCardService.get_topic_cards(
-            db=db,
-            user_id=user_id,
-            page=1,
-            page_size=limit
-        )
-        
-        # 获取热门投票卡片
-        vote_service = VoteService(db)
-        hot_votes = vote_service.get_hot_vote_cards(limit=limit)
-        
-        # 格式化话题卡片
-        if topic_result and "items" in topic_result:
-            for card in topic_result["items"]:
-                # 计算热门分数（点赞数 + 评论数 * 2）
-                hot_score = (card.like_count or 0 + (card.discussion_count or 0) * 2)
-                
-                formatted_card = {
-                    "id": card.id,
-                    "type": "topic",
-                    "title": card.title,
-                    "content": card.description or card.title,
-                    "category": card.category,
-                    "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
-                    "user_id": card.user_id,
-                    "user_avatar": card.creator_avatar or '',
-                    "user_nickname": card.creator_nickname or '匿名用户',
-                    "like_count": card.like_count or 0,
-                    "comment_count": card.discussion_count or 0,
-                    "has_liked": False,  # 默认False，因为TopicCardResponse没有has_liked属性
-                    "images": [card.cover_image] if card.cover_image else [],
-                    "is_liked": False,  # 默认False，因为TopicCardResponse没有has_liked属性
-                    "sceneType": "topic",
-                    "hot_score": hot_score
-                }
-                all_cards.append(formatted_card)
-        
-        # 格式化投票卡片
-        for card in hot_votes:
-            # 计算热门分数（投票数 + 浏览数 * 0.5）
-            hot_score = (card.total_votes or 0 + (card.view_count or 0) * 0.5)
-            
-            # 获取用户信息
-            user = db.query(User).filter(User.id == card.user_id).first()
-            user_avatar = user.avatar_url if user else ''
-            user_nickname = user.nick_name if user else '匿名用户'  # 使用nick_name字段
-            
-            # 获取投票结果
-            vote_results = vote_service.get_vote_results(card.id, user_id)
-            
-            formatted_card = {
-                "id": card.id,
-                "type": "vote",
-                "vote_type": "vote",
-                "title": card.title,
-                "content": card.description or card.title,
-                "category": card.category,
-                "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
-                "user_id": card.user_id,
-                "user_avatar": user_avatar,
-                "user_nickname": user_nickname,
-                "vote_options": vote_results["options"],
-                "total_votes": card.total_votes or 0,
-                "has_voted": vote_results["has_voted"],
-                "user_votes": vote_results["user_votes"],
-                "vote_deadline": card.end_time.isoformat() if hasattr(card, 'end_time') and card.end_time else None,
-                "max_selections": 1,
-                "allow_discussion": True,
-                "images": [card.cover_image] if card.cover_image else [],
-                "sceneType": "vote",
-                "hot_score": hot_score
-            }
-            all_cards.append(formatted_card)
-        
-        # 按热门分数排序
-        all_cards.sort(key=lambda x: x.get("hot_score", 0), reverse=True)
-        
-        # 限制返回数量
-        result_cards = all_cards[:limit]
-        
-        return {
-            "items": result_cards,
-            "total": len(result_cards)
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取热门卡片失败: {str(e)}")
-
+   
 @router.get("/recommendation-user-cards")
 async def get_recommendation_user_cards(
     sceneType: Optional[str] = Query(None, description="匹配类型"),

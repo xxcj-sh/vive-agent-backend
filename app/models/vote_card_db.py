@@ -63,6 +63,7 @@ class VoteRecord(Base):
     user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
     option_id = Column(String(36), ForeignKey("vote_options.id"), index=True, nullable=False)
     is_anonymous = Column(Integer, default=0, comment="是否匿名投票")
+    is_deleted = Column(Integer, default=0, comment="是否删除")
     ip_address = Column(String(50), nullable=True, comment="投票者IP地址")
     user_agent = Column(String(500), nullable=True, comment="用户代理信息")
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -31,7 +31,7 @@ async def get_user_profile(
 ):
     """获取用户画像（不存在时自动创建）"""
     try:
-        return service.get_or_create_profile(user_id)
+        return await service.get_or_create_profile(user_id)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -61,7 +61,7 @@ async def create_user_profile(
             raw_profile=profile.raw_profile,
             update_reason=profile.update_reason or "初始创建"
         )
-        return service.create_user_profile(profile_data)
+        return await service.create_user_profile(profile_data)
     except HTTPException:
         raise
     except Exception as e:

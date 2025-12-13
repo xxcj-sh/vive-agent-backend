@@ -319,6 +319,40 @@ async def submit_vote(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/{vote_card_id}/cancel")
+async def cancel_vote(
+    vote_card_id: str,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """取消用户投票"""
+    try:
+        # 检查用户是否已认证
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        # 获取当前用户ID
+        user_id = current_user.get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        vote_service = VoteService(db)
+        result = vote_service.cancel_user_vote(user_id, vote_card_id)
+        
+        return VoteSubmitResponse(
+            success=result["success"],
+            message=result["message"],
+            total_votes=result["total_votes"],
+            options=result["options"]
+        )
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/status/{vote_card_id}")
 async def get_vote_status(
     vote_card_id: str,
@@ -386,7 +420,7 @@ async def get_vote_discussions(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/hot/list")
-async def get_hot_vote_cards(
+async def get_recall_vote_cards(
     limit: int = Query(10, ge=1, le=50),
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -396,7 +430,7 @@ async def get_hot_vote_cards(
         vote_service = VoteService(db)
         # 传递用户ID以过滤已参与投票的卡片
         user_id = current_user.get("id") if current_user else None
-        hot_votes = vote_service.get_hot_vote_cards(limit, user_id=user_id)
+        hot_votes = vote_service.get_recall_vote_cards(limit, user_id=user_id)
         print(f"[DEBUG] 获取到 {len(hot_votes)} 个热门投票卡片")
         
         # 为每个卡片添加投票状态

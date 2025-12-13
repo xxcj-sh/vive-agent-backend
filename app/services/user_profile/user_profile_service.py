@@ -366,7 +366,7 @@ class UserProfileService:
             logger.error(f"生成基础总结失败: {e}")
             return "用户画像生成中..."
 
-    def get_or_create_profile(self, user_id: str) -> UserProfile:
+    async def get_or_create_profile(self, user_id: str) -> UserProfile:
         """获取或创建用户画像"""
         profile = self.get_user_profile(user_id)
         if not profile:
@@ -376,6 +376,6 @@ class UserProfileService:
                 raw_profile=None,
                 update_reason="自动创建默认画像"
             )
-            profile = self.create_user_profile(profile_data)
+            profile = await self.create_user_profile(profile_data)
         
         return profile
