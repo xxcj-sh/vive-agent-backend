@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.utils.db_config import get_db
 from app.services.user_card_service import UserCardService
+from app.services.data_adapter import DataService
 from app.models.user_card import CardCreate, CardUpdate
 from app.dependencies import get_current_user
 from typing import Dict, Any, Optional
@@ -170,5 +171,45 @@ def delete_card(
         "message": "success",
         "data": {"deleted": True}
     }
+
+
+@router.get("/{user_id}/recent-topics")
+def get_user_recent_topics(
+    user_id: str,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    """获取指定用户最近参与讨论的话题信息，包括标题和观点总结"""
+    try:
+        # 创建DataService实例
+        data_service = DataService()
+        
+        # 验证用户是否存在
+        user = data_service.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # 获取用户最近参与的话题及观点总结
+        recent_topics = UserCardService.get_user_recent_topics_with_opinion_summaries(
+            db, user_id, limit
+        )
+        
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {
+                "user_id": user_id,
+                "recent_topics": recent_topics,
+                "total_count": len(recent_topics)
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"获取用户最近话题失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"获取用户最近话题失败: {str(e)}")
 
 

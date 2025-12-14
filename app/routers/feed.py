@@ -143,6 +143,9 @@ async def get_recommendation_user_cards(
     """
     try:
         # 获取当前用户ID
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未登录")
+        
         if isinstance(current_user, dict):
             user_id = str(current_user.get('id', ''))
         else:
@@ -158,7 +161,6 @@ async def get_recommendation_user_cards(
         
         # 获取推荐用户的ID列表
         recommended_user_ids = [user['id'] for user in recommended_users]
-        print(f"推荐用户ID列表: {recommended_user_ids}")
         
         if not recommended_user_ids:
             # 如果没有推荐用户，返回空结果
@@ -178,7 +180,6 @@ async def get_recommendation_user_cards(
             }
         
         # 查询这些用户的活跃卡片
-        print("正在查询推荐用户的卡片...")
         card_query = db.query(UserCard).filter(
             and_(
                 UserCard.is_active == 1,
@@ -188,7 +189,6 @@ async def get_recommendation_user_cards(
         
         # 获取总数
         total_cards = card_query.count()
-        print(f"符合条件的卡片总数: {total_cards}")
         
         # 按推荐顺序排序卡片（保持用户的访问时间顺序）
         user_id_order = {user_id: index for index, user_id in enumerate(recommended_user_ids)}
@@ -200,11 +200,9 @@ async def get_recommendation_user_cards(
         # 分页处理
         offset = (page - 1) * pageSize
         paginated_cards = sorted_cards[offset:offset + pageSize]
-        print(f"当前页获取卡片数量: {len(paginated_cards)}")
         
         # 构建返回数据
         cards = []
-        print("开始处理卡片数据...")
         
         for i, user_card in enumerate(paginated_cards):
             print(f"处理第{i+1}个卡片: card_id={user_card.id}, user_id={user_card.user_id}")
@@ -237,9 +235,9 @@ async def get_recommendation_user_cards(
                 "cardTitle": str(user_card.display_name),
                 "displayName": getattr(user_card, 'display_name', None),
                 "visibility": getattr(user_card, 'visibility', 'public'),
-                "lastVisitTime": user_recommend_info.get('last_visit_time', None),
-                "hasVisited": user_recommend_info.get('connection_info', {}).get('has_visited', False),
-                "visitCount": user_recommend_info.get('connection_info', {}).get('visit_count', 0)
+                "lastVisitTime": user_recommend_info.get('last_visit_time', None) if user_recommend_info else None,
+                "hasVisited": user_recommend_info.get('connection_info', {}).get('has_visited', False) if user_recommend_info and user_recommend_info.get('connection_info') else False,
+                "visitCount": user_recommend_info.get('connection_info', {}).get('visit_count', 0) if user_recommend_info and user_recommend_info.get('connection_info') else 0
             }
             
             cards.append(card_data)

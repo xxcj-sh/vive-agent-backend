@@ -455,3 +455,39 @@ class UserCardService:
             "profile_data": {},
             "preferences": {}
         })
+
+    @staticmethod
+    def get_user_recent_topics_with_opinion_summaries(
+        db: Session, 
+        user_id: str, 
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """获取用户最近参与讨论的话题信息，包括标题和观点总结"""
+        try:
+            from app.models.topic_card_db import TopicCard, TopicDiscussion, TopicOpinionSummary
+            from sqlalchemy import desc
+            # 获取话题卡片信息和用户的观点总结
+            results = []        
+            # 获取用户对该话题的观点总结
+            opinion_summary_list = db.query(TopicOpinionSummary).filter(
+                TopicOpinionSummary.user_id == user_id,
+                TopicOpinionSummary.is_deleted == 0
+            ).order_by(desc(TopicOpinionSummary.created_at)).all()
+            for opinion_summary in opinion_summary_list:
+                # 构建响应数据
+                topic_info = {}
+                # 如果有观点总结，添加相关信息
+                if opinion_summary:
+                    topic_info["opinion_summary"] = opinion_summary.opinion_summary
+                    topic_info["key_points"] = opinion_summary.key_points
+                    topic_info["sentiment"] = opinion_summary.sentiment
+                    topic_info["confidence_score"] = opinion_summary.confidence_score
+                    topic_info["is_anonymous"] = bool(opinion_summary.is_anonymous)  
+                results.append(topic_info)
+            print("results", results)
+            return results
+        except Exception as e:
+            print(f"获取用户最近话题失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []

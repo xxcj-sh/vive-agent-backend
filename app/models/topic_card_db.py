@@ -77,7 +77,7 @@ class TopicOpinionSummary(Base):
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     topic_card_id = Column(String(36), ForeignKey("topic_cards.id"), index=True, nullable=False)
     user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
-    opinion_summary = Column(Text, nullable=False, comment="用户对该话题的观点总结")
+    opinion_summary = Column(Text, nullable=False, comment="该用户关于这个话题的观点的总结")
     key_points = Column(JSON, nullable=True, comment="关键要点，JSON格式存储")
     sentiment = Column(String(20), nullable=True, comment="情感倾向: positive, negative, neutral")
     confidence_score = Column(Integer, default=0, comment="置信度评分，0-100")
