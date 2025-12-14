@@ -65,7 +65,7 @@ class VoteCardResponse(BaseModel):
 
 class VoteSubmitRequest(BaseModel):
     topic_id: str = Field(..., description="投票卡片ID")
-    option_indices: List[int] = Field(..., description="选择的选项索引列表")
+    option_ids: List[str] = Field(..., description="选择的选项ID列表")
 
 class VoteSubmitResponse(BaseModel):
     success: bool
@@ -299,7 +299,7 @@ async def submit_vote(
         result = vote_service.submit_vote(
             user_id,
             vote_request.topic_id,
-            vote_request.option_indices,
+            vote_request.option_ids,
             ip_address,
             user_agent
         )
@@ -417,107 +417,6 @@ async def get_vote_discussions(
         
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/hot/list")
-async def get_recall_vote_cards(
-    limit: int = Query(10, ge=1, le=50),
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """获取热门投票卡片"""
-    try:
-        vote_service = VoteService(db)
-        # 传递用户ID以过滤已参与投票的卡片
-        user_id = current_user.get("id") if current_user else None
-        hot_votes = vote_service.get_recall_vote_cards(limit, user_id=user_id)
-        print(f"[DEBUG] 获取到 {len(hot_votes)} 个热门投票卡片")
-        
-        # 为每个卡片添加投票状态
-        cards_with_status = []
-        for card in hot_votes:
-            try:
-                # 检查card是对象还是字典
-                if isinstance(card, dict):
-                    card_id = card.get('id')
-                    card_title = card.get('title', '未知标题')
-                    print(f"[DEBUG] 处理字典卡片: {card_id}, 标题: {card_title}")
-                else:
-                    card_id = card.id
-                    card_title = card.title
-                    print(f"[DEBUG] 处理对象卡片: {card_id}, 标题: {card_title}")
-                
-                vote_results = vote_service.get_vote_results(card_id, current_user.get("id") if current_user else None)
-                print(f"[DEBUG] 投票结果类型: {type(vote_results)}")
-                
-                if isinstance(card, dict):
-                    # 如果card是字典，从字典中获取数据
-                    card_response = VoteCardResponse(
-                        id=card.get('id'),
-                        user_id=card.get('user_id'),
-                        title=card.get('title'),
-                        description=card.get('description'),
-                        category=card.get('category'),
-                        tags=card.get('tags'),
-                        cover_image=card.get('cover_image'),
-                        vote_type=card.get('vote_type', 'single'),
-                        is_anonymous=card.get('is_anonymous', 0),
-                        is_realtime_result=card.get('is_realtime_result', 1),
-                        visibility=card.get('visibility', 'public'),
-                        view_count=card.get('view_count', 0),
-                        total_votes=card.get('total_votes', 0),
-                        discussion_count=card.get('discussion_count', 0),
-                        share_count=card.get('share_count', 0),
-                        start_time=card.get('start_time'),
-                        end_time=card.get('end_time'),
-                        created_at=card.get('created_at'),
-                        updated_at=card.get('updated_at'),
-                        vote_options=vote_results["options"],
-                        has_voted=vote_results["has_voted"],
-                        user_votes=vote_results["user_votes"]
-                    )
-                else:
-                    # 如果card是对象，从对象中获取数据
-                    card_response = VoteCardResponse(
-                        id=card.id,
-                        user_id=card.user_id,
-                        title=card.title,
-                        description=card.description,
-                        category=card.category,
-                        tags=card.tags,
-                        cover_image=card.cover_image,
-                        vote_type=getattr(card, 'vote_type', 'single'),
-                        is_anonymous=getattr(card, 'is_anonymous', 0),
-                        is_realtime_result=getattr(card, 'is_realtime_result', 1),
-                        visibility=getattr(card, 'visibility', 'public'),
-                        view_count=getattr(card, 'view_count', 0),
-                        total_votes=getattr(card, 'total_votes', 0),
-                        discussion_count=getattr(card, 'discussion_count', 0),
-                        share_count=getattr(card, 'share_count', 0),
-                        start_time=getattr(card, 'start_time', None),
-                        end_time=getattr(card, 'end_time', None),
-                        created_at=card.created_at,
-                        updated_at=getattr(card, 'updated_at', None),
-                        vote_options=vote_results["options"],
-                        has_voted=vote_results["has_voted"],
-                        user_votes=vote_results["user_votes"]
-                    )
-                
-                cards_with_status.append(card_response)
-                print(f"[DEBUG] 成功处理卡片: {card_id}")
-            except Exception as card_error:
-                print(f"[DEBUG] 处理卡片时出错: {str(card_error)}")
-                import traceback
-                traceback.print_exc()
-                # 跳过这个卡片，继续处理其他卡片
-                continue
-        
-        print(f"[DEBUG] 最终返回 {len(cards_with_status)} 个卡片")
-        return cards_with_status
-    except Exception as e:
-        print(f"[DEBUG] 获取热门投票卡片时出错: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/search")

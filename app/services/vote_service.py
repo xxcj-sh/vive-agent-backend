@@ -99,7 +99,7 @@ class VoteService:
             "page_size": page_size
         }
     
-    def submit_vote(self, user_id: Optional[str], vote_card_id: str, option_indices: List[int], 
+    def submit_vote(self, user_id: Optional[str], vote_card_id: str, option_ids: List[int], 
                    ip_address: Optional[str] = None, user_agent: Optional[str] = None) -> Dict[str, Any]:
         """提交投票"""
         # 验证用户是否存在
@@ -131,10 +131,9 @@ class VoteService:
         existing_votes = self.db.query(VoteRecord).filter(
             VoteRecord.vote_card_id == vote_card_id,
             VoteRecord.user_id == user_id,
-            VoteRecord.option_id.in_(option_indices),
+            VoteRecord.option_id.in_(option_ids),
             VoteRecord.is_deleted == 0
         ).all()
-        print('option_indices', option_indices)
         # 验证选项
         options = self.db.query(VoteOption).filter(
             VoteOption.vote_card_id == vote_card_id,
@@ -143,15 +142,14 @@ class VoteService:
         
         if not options:
             raise ValueError("投票选项不存在")
-        print("vote_type", vote_card.vote_type)
         # 验证投票类型
-        if vote_card.vote_type == "single" and len(option_indices) > 1:
+        if vote_card.vote_type == "single" and len(option_ids) > 1:
             raise ValueError("单选投票只能选择一个选项")
         
         # 验证选项索引有效性
-        for index in option_indices:
-            if index < 0 or index >= len(options):
-                raise ValueError(f"无效的选项索引: {index}")
+        for option_id in option_ids:
+            if option_id not in [option.id for option in options]:
+                raise ValueError(f"无效的选项ID: {option_id}")
         
         # 处理现有投票记录（如果存在）
         if existing_votes:
@@ -178,12 +176,12 @@ class VoteService:
         
         # 创建新的投票记录
         vote_records = []
-        for index in option_indices:
-            option = options[index]
+        for option_id in option_ids:
+            option = options[option_ids.index(option_id)]
             vote_record = VoteRecord(
                 vote_card_id=vote_card_id,
                 user_id=user_id,
-                option_id=option.id,
+                option_id=option_id,
                 is_anonymous=vote_card.is_anonymous,
                 ip_address=ip_address,
                 user_agent=user_agent
@@ -196,7 +194,7 @@ class VoteService:
             option.updated_at = datetime.now(timezone.utc)
         
         # 更新投票卡片总投票数（加上新的投票数）
-        vote_card.total_votes += len(option_indices)
+        vote_card.total_votes += len(option_ids)
         
         # 创建用户卡片关联（如果存在用户卡片）
         user_card = self.db.query(UserCard).filter(
@@ -219,7 +217,6 @@ class VoteService:
                 self.db.add(relation)
         
         self.db.commit()
-        
         return {
             "vote_records": vote_records,
             "total_votes": vote_card.total_votes,
