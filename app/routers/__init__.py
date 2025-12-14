@@ -1,6 +1,5 @@
 from .auth import router as auth_router
 from .chats import router as chats_router
-from .matches import router as matches_router
 from .user_card import router as user_card_router
 from .topic_cards import router as topic_cards_router
 from .file import router as file_router
@@ -20,7 +19,6 @@ from .feed import router as feed_router
 __all__ = [
     "auth_router",
     "chats_router",
-    "matches_router",
     "user_card_router",
     "topic_cards_router",
     "file_router",

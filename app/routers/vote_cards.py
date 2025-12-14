@@ -322,10 +322,44 @@ async def submit_vote(
 @router.delete("/{vote_card_id}/cancel")
 async def cancel_vote(
     vote_card_id: str,
+    option_id: str,
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """取消用户投票"""
+    """取消单个选项投票"""
+    try:
+        # 检查用户是否已认证
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        # 获取当前用户ID
+        user_id = current_user.get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        vote_service = VoteService(db)
+        result = vote_service.cancel_vote(user_id, vote_card_id, option_id)
+        
+        return VoteSubmitResponse(
+            success=result["success"],
+            message=result["message"],
+            total_votes=result["total_votes"],
+            options=result["options"]
+        )
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{vote_card_id}/cancel-user-vote")
+async def cancel_user_vote(
+    vote_card_id: str,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     try:
         # 检查用户是否已认证
         if not current_user:
@@ -352,6 +386,7 @@ async def cancel_vote(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/status/{vote_card_id}")
 async def get_vote_status(

@@ -135,9 +135,7 @@ async def get_recommendation_user_cards(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    获取推荐卡片列表（从matches.py迁移）
-    
+    """    
     推荐逻辑：
     1. 根据用户上次访问(VISIT)时间顺序排列，选取最久未访问的若干用户
     2. 剔除最近两周曾经浏览(VIEW)过的用户

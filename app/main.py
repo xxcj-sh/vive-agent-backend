@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import user_card, users, matches, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, activity_invitation, chats, topic_cards, user_connections, topic_invitation, vote_cards, feed
+from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, activity_invitation, chats, topic_cards, user_connections, topic_invitation, vote_cards, feed
 from app.routers.user_profile import router as user_profile_router
 from app.routers.ai_skills import router as ai_skills_router
 from app.utils.db_init import init_db
@@ -36,7 +36,6 @@ app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(scenes.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
-app.include_router(matches.router, prefix="/api/v1")
 app.include_router(membership.router, prefix="/api/v1")
 app.include_router(membership_orders.router, prefix="/api/v1")
 app.include_router(file.router, prefix="/files")
@@ -82,7 +81,6 @@ def api_info():
         "endpoints": {
             "auth": "/api/v1/auth",
             "users": "/api/v1/users",
-            "matcheses": "/api/v1/matcheses",
             "files": "/api/v1/files"
         }
     }

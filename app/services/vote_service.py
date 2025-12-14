@@ -99,7 +99,7 @@ class VoteService:
             "page_size": page_size
         }
     
-    def submit_vote(self, user_id: Optional[str], vote_card_id: str, option_ids: List[int], 
+    def submit_vote(self, user_id: Optional[str], vote_card_id: str, option_id: str, 
                    ip_address: Optional[str] = None, user_agent: Optional[str] = None) -> Dict[str, Any]:
         """提交投票"""
         # 验证用户是否存在
@@ -127,74 +127,54 @@ class VoteService:
         if vote_card.end_time and now > vote_card.end_time:
             raise ValueError("投票已结束")
         
-        # 检查是否存在现有投票记录（用于更新/覆盖）
+        # 检查是否存在现有选项的投票记录
         existing_votes = self.db.query(VoteRecord).filter(
             VoteRecord.vote_card_id == vote_card_id,
             VoteRecord.user_id == user_id,
-            VoteRecord.option_id.in_(option_ids),
+            VoteRecord.option_id == option_id,
             VoteRecord.is_deleted == 0
         ).all()
+        
         # 验证选项
-        options = self.db.query(VoteOption).filter(
+        option = self.db.query(VoteOption).filter(
             VoteOption.vote_card_id == vote_card_id,
-            VoteOption.is_active == 1
-        ).all()
+            VoteOption.is_active == 1,
+            VoteOption.id == option_id
+        ).first()
         
-        if not options:
+        if not option:
             raise ValueError("投票选项不存在")
-        # 验证投票类型
-        if vote_card.vote_type == "single" and len(option_ids) > 1:
-            raise ValueError("单选投票只能选择一个选项")
         
-        # 验证选项索引有效性
-        for option_id in option_ids:
-            if option_id not in [option.id for option in options]:
-                raise ValueError(f"无效的选项ID: {option_id}")
         
         # 处理现有投票记录（如果存在）
-        if existing_votes:
-            logger.info(f"用户 {user_id} 正在更新投票卡片 {vote_card_id} 的投票记录，现有 {len(existing_votes)} 条记录将被软删除")
-            
-            # 获取现有投票的选项ID列表
-            existing_option_ids = [record.option_id for record in existing_votes]
-            
-            # 软删除现有投票记录
-            for record in existing_votes:
-                record.is_deleted = 1
-            
-            # 减少投票卡片的总投票数（减去被删除的投票数）
-            vote_card.total_votes = max(0, vote_card.total_votes - len(existing_votes))
-            
-            # 减少各个选项的投票数
-            existing_options = self.db.query(VoteOption).filter(
-                VoteOption.id.in_(existing_option_ids)
-            ).all()
-            
-            for option in existing_options:
-                option.vote_count = max(0, option.vote_count - 1)
-                option.updated_at = datetime.now(timezone.utc)
+        if len(existing_votes) > 0:
+            # 如果已经投过票，则直接返回已投票信息，不允许重复投票
+            return {
+                "vote_records": existing_votes,
+                "total_votes": vote_card.total_votes,
+                "options": self._get_vote_options_with_counts(vote_card_id),
+                "message": "您已经投过票了"
+            }    
         
         # 创建新的投票记录
         vote_records = []
-        for option_id in option_ids:
-            option = options[option_ids.index(option_id)]
-            vote_record = VoteRecord(
-                vote_card_id=vote_card_id,
-                user_id=user_id,
-                option_id=option_id,
-                is_anonymous=vote_card.is_anonymous,
-                ip_address=ip_address,
-                user_agent=user_agent
-            )
-            self.db.add(vote_record)
-            vote_records.append(vote_record)
-            
-            # 更新选项投票数
-            option.vote_count += 1
-            option.updated_at = datetime.now(timezone.utc)
+        vote_record = VoteRecord(
+            vote_card_id=vote_card_id,
+            user_id=user_id,
+            option_id=option_id,
+            is_anonymous=vote_card.is_anonymous,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        self.db.add(vote_record)
+        vote_records.append(vote_record)
+        
+        # 更新选项投票数
+        option.vote_count += 1
+        option.updated_at = datetime.now(timezone.utc)
         
         # 更新投票卡片总投票数（加上新的投票数）
-        vote_card.total_votes += len(option_ids)
+        vote_card.total_votes += 1
         
         # 创建用户卡片关联（如果存在用户卡片）
         user_card = self.db.query(UserCard).filter(
@@ -422,7 +402,6 @@ class VoteService:
             VoteOption.vote_card_id == vote_card_id,
             VoteOption.is_active == 1
         ).order_by(VoteOption.display_order).all()
-        
         result = []
         for option in options:
             result.append({
@@ -550,13 +529,80 @@ class VoteService:
             self.db.rollback()
             raise e
     
-    def cancel_user_vote(self, user_id: str, vote_card_id: str) -> Dict[str, Any]:
-        """取消用户投票
+    def cancel_vote(self, user_id: str, vote_card_id: str, option_id: str) -> Dict[str, Any]:
+        """取消单个投票
         
         Args:
             user_id: 用户ID
             vote_card_id: 投票卡片ID
+            option_id: 投票选项ID
+        Returns:
+            包含操作结果的字典
+        """
+        try:
+            # 验证投票卡片是否存在
+            vote_card = self.db.query(VoteCard).filter(
+                VoteCard.id == vote_card_id,
+                VoteCard.is_deleted == 0
+            ).first()
             
+            if not vote_card:
+                raise ValueError("投票卡片不存在")
+            
+            # 获取用户的投票记录
+            vote_records = self.db.query(VoteRecord).filter(
+                VoteRecord.vote_card_id == vote_card_id,
+                VoteRecord.user_id == user_id,
+                VoteRecord.option_id == option_id,
+                VoteRecord.is_deleted == 0
+            ).all()
+            
+            if not vote_records:
+                raise ValueError("用户尚未投票")
+            
+            # 获取用户投票的选项ID列表
+            option_ids = [record.option_id for record in vote_records]
+            
+            # 软删除用户的投票记录
+            for record in vote_records:
+                record.is_deleted = 1
+            
+            # 减少投票卡片的总投票数
+            vote_card.total_votes = max(0, vote_card.total_votes - len(vote_records))
+            
+            # 减少各个选项的投票数
+            vote_options = self.db.query(VoteOption).filter(
+                VoteOption.id.in_(option_ids)
+            ).all()
+            
+            for option in vote_options:
+                option.vote_count = max(0, option.vote_count - 1)
+            
+            self.db.commit()
+            
+            # 返回更新后的投票结果
+            return {
+                "success": True,
+                "message": "取消投票成功",
+                "total_votes": vote_card.total_votes,
+                "options": self._get_vote_options_with_counts(vote_card_id)
+            }
+            
+        except ValueError as e:
+            self.db.rollback()
+            raise e
+        except Exception as e:
+            self.db.rollback()
+            raise e
+
+
+    
+    def cancel_user_vote(self, user_id: str, vote_card_id: str) -> Dict[str, Any]:
+        """取消单个投票
+        
+        Args:
+            user_id: 用户ID
+            vote_card_id: 投票卡片ID
         Returns:
             包含操作结果的字典
         """
@@ -597,6 +643,7 @@ class VoteService:
             
             for option in vote_options:
                 option.vote_count = max(0, option.vote_count - 1)
+                print(f"Option {option.id} vote_count: {option.vote_count}")
             
             self.db.commit()
             
