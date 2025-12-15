@@ -2,6 +2,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
+from sqlalchemy.sql import func
 from app.database import get_db
 from app.services.topic_card_service import TopicCardService
 from app.services.vote_service import VoteService
@@ -124,15 +125,114 @@ async def get_feed_cards(
         raise HTTPException(status_code=500, detail=f"获取卡片流失败: {str(e)}")
 
    
+def _process_media_url(url: str) -> str:
+    """
+    处理媒体URL，确保返回完整的URL路径
+    参考前端 card-formatter.js 的 processMediaUrl 方法
+    """
+    if not url or url.startswith('http') or url.startswith('wxfile'):
+        return url
+    
+    if url.startswith('/'):
+        # 移除 /api/v1 部分，添加服务器基础地址
+        base_url = "http://47.117.95.151:8000"  # 可以根据配置动态获取
+        return f"{base_url}{url}"
+    
+    return url
+
+def get_random_public_user_cards(db: Session, limit: int = 5) -> List[Dict[str, Any]]:
+    """
+    获取随机的公开用户卡片（用于未登录用户）
+    
+    Args:
+        db: 数据库会话
+        limit: 返回卡片数量限制
+    
+    Returns:
+        格式化的用户卡片列表
+    """
+    try:
+        # 查询公开且活跃的用户卡片
+        public_cards = db.query(UserCard).filter(
+            and_(
+                UserCard.visibility == "public",
+                UserCard.is_active == 1,
+                UserCard.is_deleted == 0
+            )
+        ).order_by(func.random()).limit(limit).all()
+        
+        if not public_cards:
+            return []
+        
+        # 获取用户ID列表
+        user_ids = [card.user_id for card in public_cards]
+        
+        # 查询用户信息
+        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        user_map = {user.id: user for user in users}
+        
+        # 格式化卡片数据
+        formatted_cards = []
+        for card in public_cards:
+            user = user_map.get(card.user_id)
+            if not user:
+                continue
+                
+            card_data = {
+                # 基础信息
+                "id": str(card.id),
+                "userId": str(user.id),
+                "name": getattr(card, 'display_name', None) or getattr(user, 'name', '匿名用户'),
+                "avatar": _process_media_url(getattr(card, 'avatar_url', None) or getattr(user, 'avatar_url', None) or ""),
+                "age": getattr(user, 'age', 25),
+                "occupation": getattr(user, 'occupation', ''),
+                "location": getattr(card, 'location', ''),
+                "bio": getattr(card, 'bio', '') or '这个人很懒，什么都没有留下...',
+                "interests": getattr(user, 'interests', []) if isinstance(getattr(user, 'interests', []), list) else [],
+                
+                # 场景和角色信息
+                "cardType": 'social',
+                "isTopicCard": False,
+                "card_size": 'large',
+                
+                # 推荐相关字段（未登录用户默认状态）
+                "isRecommendation": False,
+                "recommendationReason": '随机推荐',
+                "matchScore": 0,
+                "hasInterestInMe": False,
+                "mutualMatchAvailable": False,
+                
+                # 访问记录（未登录用户默认状态）
+                "lastVisitTime": None,
+                "hasVisited": False,
+                "visitCount": 0,
+                
+                # 其他字段
+                "createdAt": card.created_at.isoformat() if card.created_at else "",
+                "displayName": getattr(card, 'display_name', None),
+                "creatorName": getattr(card, 'display_name', None) or getattr(user, 'name', '匿名用户'),
+                "creatorAvatar": _process_media_url(getattr(user, 'avatar_url', None) or ""),
+                "creatorAge": getattr(user, 'age', 25),
+                "creatorOccupation": getattr(user, 'occupation', ''),
+                "cardTitle": str(card.display_name),
+                "visibility": 'everyone' if getattr(card, 'visibility', 'public') == 'public' else getattr(card, 'visibility', 'public')
+            }
+            
+            formatted_cards.append(card_data)
+        
+        return formatted_cards
+        
+    except Exception as e:
+        print(f"获取随机公开用户卡片失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return []
+
 @router.get("/recommendation-user-cards")
 async def get_recommendation_user_cards(
-    sceneType: Optional[str] = Query(None, description="匹配类型"),
-    roleType: Optional[str] = Query(None, description="用户角色"),
-    status: Optional[str] = Query(None, description="匹配状态"),
     page: int = Query(1, description="页码"),
     pageSize: int = Query(10, description="每页数量"),
-    limit: int = Query(None, description="每页数量(兼容参数)"),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """    
@@ -140,11 +240,29 @@ async def get_recommendation_user_cards(
     1. 根据用户上次访问(VISIT)时间顺序排列，选取最久未访问的若干用户
     2. 剔除最近两周曾经浏览(VIEW)过的用户
     3. 按顺序展示给用户
+    
+    对于未登录用户，返回随机的5张公开用户卡片
     """
     try:
-        # 获取当前用户ID
+        # 如果用户未登录，返回随机的公开用户卡片
         if not current_user:
-            raise HTTPException(status_code=401, detail="用户未登录")
+            # 获取5张随机的公开用户卡片
+            random_cards = get_random_public_user_cards(db, limit=5)
+            
+            return {
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "cards": random_cards,
+                    "pagination": {
+                        "page": 1,
+                        "pageSize": 5,
+                        "total": len(random_cards),
+                        "totalPages": 1
+                    },
+                    "source": "random_public_cards_for_unauthenticated"
+                }
+            }
         
         if isinstance(current_user, dict):
             user_id = str(current_user.get('id', ''))
@@ -216,28 +334,45 @@ async def get_recommendation_user_cards(
             # 获取用户的推荐信息
             user_recommend_info = next((user for user in recommended_users if user['id'] == user_card.user_id), {})
             
-            # 构建卡片数据
+            # 构建前端兼容的格式化卡片数据
             card_data = {
+                # 基础信息
                 "id": str(user_card.id),
                 "userId": str(card_creator.id),
-                "sceneType": user_card.scene_type or sceneType,
-                "userRole": roleType,
-                "creatorName": getattr(user_card, 'display_name', None) or getattr(card_creator, 'name', '匿名用户'),
-                "avatar": getattr(user_card, 'avatar_url', None) or "",
-                "creatorAvatar": getattr(card_creator, 'avatar_url', None) or "",
-                "creatorAge": getattr(card_creator, 'age', 25),
-                "creatorOccupation": getattr(card_creator, 'occupation', ''),
+                "name": getattr(user_card, 'display_name', None) or getattr(card_creator, 'name', '匿名用户'),
+                "avatar": _process_media_url(getattr(user_card, 'avatar_url', None) or getattr(card_creator, 'avatar_url', None) or ""),
+                "age": getattr(card_creator, 'age', 25),
+                "occupation": getattr(card_creator, 'occupation', ''),
                 "location": getattr(user_card, 'location', ''),
-                "bio": getattr(user_card, 'bio', ''),
-                "creatorInterests": getattr(card_creator, 'interests', []) if isinstance(getattr(card_creator, 'interests', []), list) else [],
-                "createdAt": user_card.created_at.isoformat() if user_card.created_at else "",
-                "recommendReason": '最久未访问',
-                "cardTitle": str(user_card.display_name),
-                "displayName": getattr(user_card, 'display_name', None),
-                "visibility": getattr(user_card, 'visibility', 'public'),
+                "bio": getattr(user_card, 'bio', '') or '这个人很懒，什么都没有留下...',
+                "interests": getattr(card_creator, 'interests', []) if isinstance(getattr(card_creator, 'interests', []), list) else [],
+                
+                # 场景和角色信息
+                "cardType": 'social',
+                "isTopicCard": False,
+                "card_size": 'large',
+                
+                # 推荐相关字段
+                "isRecommendation": True,
+                "recommendationReason": '最久未访问',
+                "matchScore": 0,
+                "hasInterestInMe": False,
+                "mutualMatchAvailable": False,
+                
+                # 访问记录
                 "lastVisitTime": user_recommend_info.get('last_visit_time', None) if user_recommend_info else None,
                 "hasVisited": user_recommend_info.get('connection_info', {}).get('has_visited', False) if user_recommend_info and user_recommend_info.get('connection_info') else False,
-                "visitCount": user_recommend_info.get('connection_info', {}).get('visit_count', 0) if user_recommend_info and user_recommend_info.get('connection_info') else 0
+                "visitCount": user_recommend_info.get('connection_info', {}).get('visit_count', 0) if user_recommend_info and user_recommend_info.get('connection_info') else 0,
+                
+                # 其他字段（兼容前端格式）
+                "createdAt": user_card.created_at.isoformat() if user_card.created_at else "",
+                "displayName": getattr(user_card, 'display_name', None),
+                "creatorName": getattr(user_card, 'display_name', None) or getattr(card_creator, 'name', '匿名用户'),
+                "creatorAvatar": _process_media_url(getattr(card_creator, 'avatar_url', None) or ""),
+                "creatorAge": getattr(card_creator, 'age', 25),
+                "creatorOccupation": getattr(card_creator, 'occupation', ''),
+                "cardTitle": str(user_card.display_name),
+                "visibility": 'everyone' if getattr(user_card, 'visibility', 'public') == 'public' else getattr(user_card, 'visibility', 'public')
             }
             
             cards.append(card_data)

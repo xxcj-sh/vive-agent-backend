@@ -472,19 +472,42 @@ class UserCardService:
             opinion_summary_list = db.query(TopicOpinionSummary).filter(
                 TopicOpinionSummary.user_id == user_id,
                 TopicOpinionSummary.is_deleted == 0
-            ).order_by(desc(TopicOpinionSummary.created_at)).all()
+            ).order_by(desc(TopicOpinionSummary.created_at)).limit(limit).all()
+            
             for opinion_summary in opinion_summary_list:
                 # 构建响应数据
                 topic_info = {}
-                # 如果有观点总结，添加相关信息
+                
+                # 通过topic_card_id获取对应的话题卡片信息
+                topic_card = db.query(TopicCard).filter(
+                    TopicCard.id == opinion_summary.topic_card_id,
+                    TopicCard.is_deleted == 0
+                ).first()
+                
+                # 如果有话题卡片信息，添加基本信息
+                if topic_card:
+                    topic_info["card_id"] = topic_card.id
+                    topic_info["title"] = topic_card.title
+                    topic_info["description"] = topic_card.description
+                    topic_info["category"] = topic_card.category
+                    topic_info["tags"] = topic_card.tags
+                    topic_info["cover_image"] = topic_card.cover_image
+                    topic_info["view_count"] = topic_card.view_count
+                    topic_info["like_count"] = topic_card.like_count
+                    topic_info["discussion_count"] = topic_card.discussion_count
+                    topic_info["created_at"] = topic_card.created_at.isoformat() if topic_card.created_at else None
+                
+                # 添加观点总结信息
                 if opinion_summary:
                     topic_info["opinion_summary"] = opinion_summary.opinion_summary
                     topic_info["key_points"] = opinion_summary.key_points
                     topic_info["sentiment"] = opinion_summary.sentiment
                     topic_info["confidence_score"] = opinion_summary.confidence_score
-                    topic_info["is_anonymous"] = bool(opinion_summary.is_anonymous)  
+                    topic_info["is_anonymous"] = bool(opinion_summary.is_anonymous)
+                    topic_info["summary_created_at"] = opinion_summary.created_at.isoformat() if opinion_summary.created_at else None
+                
                 results.append(topic_info)
-            print("results", results)
+            
             return results
         except Exception as e:
             print(f"获取用户最近话题失败: {str(e)}")
