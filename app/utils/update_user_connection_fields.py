@@ -40,7 +40,6 @@ def update_user_connection_fields():
                 
                 # 提交事务
                 transaction.commit()
-                logger.info("字段重命名操作成功完成")
                 return True
                 
             except Exception as e:

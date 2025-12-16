@@ -63,8 +63,8 @@ def process_user_image_urls(user_data: Dict[str, Any]) -> Dict[str, Any]:
 
 # 用户模型
 class UserBase(BaseModel):
-    username: str
-    email: str
+    username: Optional[str] = None
+    email: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
@@ -110,9 +110,27 @@ class ProfileUpdate(BaseModel):
         # 允许任意类型
         arbitrary_types_allowed = True
 
-class User(UserBase):
+class UserResponse(BaseModel):
     id: str
     is_active: bool
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    nick_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    gender: Optional[int] = None
+    age: Optional[int] = None
+    bio: Optional[str] = None
+    occupation: Optional[str] = None
+    location: Optional[Any] = None
+    education: Optional[str] = None
+    interests: Optional[List[str]] = None
+    wechat: Optional[str] = None
+    status: Optional[str] = None
+    level: Optional[int] = None
+    points: Optional[int] = None
+    last_login: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
@@ -121,7 +139,7 @@ class User(UserBase):
 
 
 # 路由
-@router.post("/", response_model=User, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
@@ -163,7 +181,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     
     return new_user
 
-@router.get("/", response_model=List[User])
+@router.get("/", response_model=List[UserResponse])
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     users = db.query(User).offset(skip).limit(limit).all()
     return users
@@ -217,10 +235,10 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
         }
         
         # 应用字段映射
-        for old_field, new_field in field_mapping.items():
-            if old_field in update_dict:
+        for std_field, new_field in field_mapping.items():
+            if new_field in update_dict:
                 # 如果同时存在两种命名，优先使用下划线命名的值
-                update_dict[new_field] = update_dict.pop(old_field)
+                update_dict[std_field] = update_dict.pop(new_field)
         
         # 处理location字段：支持字符串和数组格式
         if "location" in update_dict:
@@ -238,14 +256,38 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
                 update_dict["location"] = []
         print("user_id", user_id, "update_dict", update_dict)
         # 更新用户基础资料
-        db_user = db.query(User).filter(User.id == user_id).first()
+        print(f"准备执行查询: db.query(User).filter(User.id == {user_id}).first()")
+        try:
+            db_user = db.query(User).filter(User.id == user_id).first()
+            print(f"查询成功，找到用户: {db_user}")
+        except Exception as query_error:
+            print(f"查询用户时出错: {query_error}")
+            print(f"错误类型: {type(query_error)}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"查询用户失败: {str(query_error)}")
+            
         if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
-        for key, value in update_dict.items():
-            setattr(db_user, key, value)
-        db.commit()
-        db.refresh(db_user)
-        updated_user = db_user
+        
+        print(f"开始更新用户属性，更新字典: {update_dict}")
+        try:
+            for key, value in update_dict.items():
+                print(f"设置属性: {key} = {value}")
+                setattr(db_user, key, value)
+            print("所有属性设置完成，准备提交事务")
+            db.commit()
+            print("事务提交成功，准备刷新用户对象")
+            db.refresh(db_user)
+            updated_user = db_user
+            print(f"用户更新成功: {updated_user}")
+        except Exception as update_error:
+            print(f"更新用户时出错: {update_error}")
+            print(f"错误类型: {type(update_error)}")
+            import traceback
+            traceback.print_exc()
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"更新用户失败: {str(update_error)}")
         if not updated_user:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -663,18 +705,38 @@ def read_user(user_id: str, db: Session = Depends(get_db)):
         }
     )
 
-@router.put("/{user_id}", response_model=User)
-def update_user(user_id: str, user: UserUpdate, db: Session = Depends(get_db)):
+@router.put("/{user_id}", response_model=UserResponse)
+def update_user(user_id: str, user: ProfileUpdate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.id == user_id).first()
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
+    
     update_data = user.dict(exclude_unset=True)
+    
+    # 处理字段名映射（驼峰命名到蛇形命名）
+    field_mapping = {
+        'nickName': 'nick_name',
+        'avatarUrl': 'avatar_url',
+        'matchType': 'match_type',
+        'userRole': 'user_role',
+        'lastLogin': 'last_login'
+    }
+    
+    # 转换字段名
+    converted_data = {}
     for key, value in update_data.items():
-        setattr(db_user, key, value)
+        if key in field_mapping:
+            converted_data[field_mapping[key]] = value
+        else:
+            converted_data[key] = value
+    
+    # 应用更新
+    for key, value in converted_data.items():
+        if hasattr(db_user, key):
+            setattr(db_user, key, value)
+    
     db.commit()
     db.refresh(db_user)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
