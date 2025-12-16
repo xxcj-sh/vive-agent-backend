@@ -61,8 +61,9 @@ def init_all_tables():
         from app.models.user import User
         from app.models.user_profile import UserProfile
         from app.models.user_card_db import UserCard
-        from app.models.match import Match, MatchDetail
-        from app.models.match_action import MatchAction, MatchResult
+        from app.models.topic_card_db import TopicCard
+        from app.models.topic_invitation import TopicInvitation
+        from app.models.vote_card_db import VoteCard
         from app.models.chat_message import ChatMessage
         from app.models.user_profile_history import UserProfileHistory
         from app.models.user_profile_feedback import UserProfileFeedback
@@ -96,8 +97,6 @@ def create_optimization_indexes():
             # 用户表索引
             indexes = [
                 ("users", ["status"]),
-                ("users", ["level"]),
-                ("users", ["last_login"]),
                 ("users", ["phone"]),
                 ("user_profiles", ["user_id"]),
                 ("user_profiles", ["updated_at"]),
@@ -105,9 +104,12 @@ def create_optimization_indexes():
                 ("user_cards", ["scene_type"]),
                 ("user_cards", ["is_active"]),
                 ("user_cards", ["is_deleted"]),
-                ("matches", ["user_id", "match_type"]),
-                ("matches", ["status"]),
-                ("matches", ["score"]),
+                ("topic_cards", ["user_id"]),
+                ("topic_cards", ["category"]),
+                ("topic_cards", ["is_active"]),
+                ("vote_cards", ["user_id"]),
+                ("vote_cards", ["category"]),
+                ("vote_cards", ["is_active"]),
                 ("chat_messages", ["user_id", "created_at"]),
                 ("chat_messages", ["session_id"]),
                 ("chat_messages", ["message_type"]),
@@ -168,8 +170,8 @@ def verify_tables():
             
             # 检查关键表是否存在
             expected_tables = [
-                'users', 'user_profiles', 'user_cards', 'matches', 'match_details',
-                'match_actions', 'match_results', 'chat_messages', 'user_profile_history',
+                'users', 'user_profiles', 'user_cards', 'topic_cards',
+                'topic_invitations', 'vote_cards', 'chat_messages', 'user_profile_history',
                 'user_profile_feedback', 'user_profile_scores', 'user_profile_score_history',
                 'user_profile_skills', 'llm_usage_logs', 'membership_orders',
                 'subscribe_messages', 'user_subscribe_settings'
