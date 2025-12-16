@@ -6,7 +6,8 @@ from datetime import datetime
 import json
 from enum import Enum
 from app.utils.db_config import get_db
-from app.services import db_service
+from app.models.user import User
+from sqlalchemy import func
 from app.services.data_adapter import DataService
 from app.services.user_card_service import UserCardService
 from app.dependencies import get_current_user
@@ -122,7 +123,7 @@ class User(UserBase):
 # 路由
 @router.post("/", response_model=User, status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db_service.get_user_by_email(db, email=user.email)
+    db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
@@ -134,7 +135,11 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     user_data["hashed_password"] = hashed_password
     
     # 创建用户
-    new_user = db_service.create_user(db=db, user_data=user_data)
+    db_user = User(**user_data)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    new_user = db_user
     
     # 用户注册成功后，自动创建一张 SOCIAL_BASIC 身份卡片
     try:
@@ -160,7 +165,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.get("/", response_model=List[User])
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    users = db_service.get_users(db, skip=skip, limit=limit)
+    users = db.query(User).offset(skip).limit(limit).all()
     return users
 
 @router.get("/me")
@@ -233,7 +238,14 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
                 update_dict["location"] = []
         print("user_id", user_id, "update_dict", update_dict)
         # 更新用户基础资料
-        updated_user = db_service.update_user(db, user_id, update_dict)
+        db_user = db.query(User).filter(User.id == user_id).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        for key, value in update_dict.items():
+            setattr(db_user, key, value)
+        db.commit()
+        db.refresh(db_user)
+        updated_user = db_user
         if not updated_user:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -288,7 +300,7 @@ def delete_current_user(current_user: Dict[str, Any] = Depends(get_current_user)
     
     try:
         # 获取用户信息
-        user = db_service.get_user(db, user_id)
+        user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -313,7 +325,14 @@ def delete_current_user(current_user: Dict[str, Any] = Depends(get_current_user)
         }
         
         # 更新用户信息
-        updated_user = db_service.update_user(db, user_id, delete_data)
+        db_user = db.query(User).filter(User.id == user_id).first()
+        if not db_user:
+            raise HTTPException(status_code=500, detail="Failed to delete user account")
+        for key, value in delete_data.items():
+            setattr(db_user, key, value)
+        db.commit()
+        db.refresh(db_user)
+        updated_user = db_user
         if not updated_user:
             raise HTTPException(status_code=500, detail="Failed to delete user account")
         
@@ -401,7 +420,7 @@ def get_current_user_info(
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
     
-    db_user = db_service.get_user(db, user_id=user_id)
+    db_user = db.query(User).filter(User.id == user_id).first()
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -617,7 +636,7 @@ def get_user_profile_by_role(
 @router.get("/{user_id}")
 def read_user(user_id: str, db: Session = Depends(get_db)):
     from app.models.schemas import BaseResponse
-    db_user = db_service.get_user(db, user_id=user_id)
+    db_user = db.query(User).filter(User.id == user_id).first()
     if db_user is None:
         return BaseResponse(code=404, message="User not found", data={})
     
@@ -646,7 +665,14 @@ def read_user(user_id: str, db: Session = Depends(get_db)):
 
 @router.put("/{user_id}", response_model=User)
 def update_user(user_id: str, user: UserUpdate, db: Session = Depends(get_db)):
-    db_user = db_service.update_user(db, user_id=user_id, user_data=user.dict(exclude_unset=True))
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    update_data = user.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_user, key, value)
+    db.commit()
+    db.refresh(db_user)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user

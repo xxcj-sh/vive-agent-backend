@@ -88,8 +88,8 @@ class TopicCardService:
         """
         try:
             # 验证用户是否存在
-            from app.services.db_service import get_user
-            user = get_user(db, user_id)
+            from app.models.user import User
+            user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 logger.error(f"用户不存在: user_id={user_id}")
                 raise ValueError("用户不存在，无法生成观点总结")

@@ -16,8 +16,7 @@ from app.config import settings
 
 # 导入所有模型
 from app.models.user import User
-from app.models.match import Match, MatchDetail, MatchType, MatchStatus
-from app.models.match_action import MatchAction, MatchResult
+
 from app.models.user_card_db import UserCard
 from app.models.llm_usage_log import LLMUsageLog
 from app.models.order import MembershipOrder

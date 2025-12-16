@@ -16,11 +16,11 @@ async def get_property_detail(
     # 直接从数据库查找用户信息
     try:
         from app.utils.db_config import SessionLocal
-        from app.services.db_service import get_user_by_id
+        from app.models.user import User
         
         db = SessionLocal()
         try:
-            user = get_user_by_id(db, card_id)
+            user = db.query(User).filter(User.id == card_id).first()
             if user:
                 card = {
                     "id": user.id,

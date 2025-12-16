@@ -393,8 +393,8 @@ class LLMService:
             validated_user_id = None
             if user_id:
                 try:
-                    from app.services.db_service import get_user
-                    user = get_user(self.db, user_id)
+                    from app.models.user import User
+                    user = self.db.query(User).filter(User.id == user_id).first()
                     validated_user_id = user_id if user else None
                     if not user:
                         logger.warning(f"用户不存在，日志记录将使用null user_id: {user_id}")

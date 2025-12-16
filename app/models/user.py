@@ -39,7 +39,6 @@ class User(Base):
     register_at = Column(DateTime(timezone=True), nullable=True, server_default=func.now())  # 用户注册成功时间
         
     # 关系
-    matches = relationship("Match", back_populates="user")
     cards = relationship("UserCard", back_populates="user")
     topic_cards = relationship("TopicCard", back_populates="user")
     topic_discussions_as_participant = relationship("TopicDiscussion", foreign_keys="TopicDiscussion.participant_id", back_populates="participant")

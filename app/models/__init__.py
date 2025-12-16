@@ -1,9 +1,6 @@
 # 先导入基础模型，避免循环依赖
 from .topic_card_db import TopicCard, TopicDiscussion, TopicOpinionSummary
 from .user import User
-from .match import Match, MatchDetail
-from .match_action import MatchResult
-from .enums import MatchResultStatus
 from .user_card import Card
 from .user_card_db import UserCard
 from .order import MembershipOrder, OrderStatus

@@ -10,9 +10,28 @@ import httpx
 import json
 
 # 延迟导入避免循环依赖
+from app.models.user import User
+from sqlalchemy.orm import Session
+from app.utils.db_config import get_db
+
+def create_user_func(db: Session, user_data: Dict[str, Any]) -> User:
+    """创建用户"""
+    db_user = User(**user_data)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+def get_user_by_phone_func(db: Session, phone: str) -> Optional[User]:
+    """根据手机号获取用户"""
+    return db.query(User).filter(User.phone == phone).first()
+
+def get_user_func(db: Session, user_id: str) -> Optional[User]:
+    """根据ID获取用户"""
+    return db.query(User).filter(User.id == user_id).first()
+
 def get_db_services():
-    from app.services.db_service import create_user, get_user_by_phone, get_user
-    return create_user, get_user_by_phone, get_user
+    return create_user_func, get_user_by_phone_func, get_user_func
 
 class AuthService:
     """认证服务 - 只使用数据库"""
@@ -116,11 +135,11 @@ class AuthService:
         # 从数据库获取用户信息
         try:
             from app.utils.db_config import SessionLocal
-            from app.services.db_service import get_user
+            from app.models.user import User
             
             db = SessionLocal()
             try:
-                user = get_user(db, user_id)
+                user = get_user_func(db, user_id)
                 if user and user.status != 'deleted':  # 只返回非删除状态的用户
                     return {
                         "id": user.id,

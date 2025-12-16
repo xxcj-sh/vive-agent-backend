@@ -213,12 +213,12 @@ async def validate_token(request: Request):
         
         # 简化的Token验证：直接从数据库查找用户
         from app.utils.db_config import SessionLocal
-        from app.services.db_service import get_user
+        from app.models.user import User
         
         db = SessionLocal()
         try:
             # token就是用户ID，直接查找
-            db_user = get_user(db, token)
+            db_user = db.query(User).filter(User.id == token).first()
             if db_user:
                 return BaseResponse(
                     code=0,
