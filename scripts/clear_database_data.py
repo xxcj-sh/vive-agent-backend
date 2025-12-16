@@ -52,8 +52,8 @@ def get_table_names():
             'user_profile_histories',    # 依赖 user_profiles
             'user_profile_feedbacks',    # 依赖 user_profiles
             'user_profile_scores',       # 依赖 user_profiles
-            'activity_invitations',      # 依赖 users
-            'ai_skills',                 # 依赖 users
+
+
             'llm_usage_logs',            # 依赖 users
             'subscribe_messages',        # 依赖 users
             'orders',                    # 依赖 users

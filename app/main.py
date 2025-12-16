@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, activity_invitation, chats, topic_cards, user_connections, topic_invitation, vote_cards, feed
+from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, chats, topic_cards, user_connections, topic_invitation, vote_cards, feed
 from app.routers.user_profile import router as user_profile_router
-from app.routers.ai_skills import router as ai_skills_router
+
 from app.utils.db_init import init_db
 from app.config import settings
 import os
@@ -50,12 +50,10 @@ app.include_router(subscribe_message.router, prefix="/api/v1")
 # 用户画像系统路由（包含所有画像相关功能）
 app.include_router(user_profile_router, prefix="/api/v1")
 
-# 活动邀约路由
-app.include_router(activity_invitation.router, prefix="/api/v1/activity-invitations")
+
 app.include_router(chats.router, prefix="/api/v1")
 
-# AI技能路由
-app.include_router(ai_skills_router, prefix="/api/v1/ai-skills")
+
 
 # 用户连接路由
 app.include_router(user_connections.router, prefix="/api/v1/user-connections")

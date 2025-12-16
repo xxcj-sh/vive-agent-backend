@@ -8,7 +8,6 @@ from typing import Dict, Any
 from app.database import get_db
 from app.services.vote_service import VoteService
 from app.dependencies import get_current_user
-from app.models.user import User
 
 router = APIRouter(tags=["votes"])
 
@@ -104,9 +103,7 @@ async def create_vote_card(
     """创建投票卡片"""
     try:
         # 获取当前用户ID
-        user_id = current_user.get("id") if current_user else None
-        if not user_id:
-            raise HTTPException(status_code=401, detail="用户未认证") if current_user else None
+        user_id = current_user.get("id") if current_user else None if current_user else None
         if not user_id:
             raise HTTPException(status_code=401, detail="用户未认证") if current_user else None
         if not user_id:
@@ -165,7 +162,12 @@ async def get_vote_card(
         # 获取当前用户ID
         user_id = current_user.get("id") if current_user else None
         if not user_id:
-            raise HTTPException(status_code=401, detail="用户未认证")
+            return VoteSubmitResponse(
+                success=False,
+                message="用户未认证",
+                total_votes=0,
+                options=[]
+            )
         
         vote_results = vote_service.get_vote_results(vote_card_id, user_id)
         vote_card = vote_results["vote_card"]
@@ -294,7 +296,12 @@ async def submit_vote(
         # 获取当前用户ID
         user_id = current_user.get("id") if current_user else None
         if not user_id:
-            raise HTTPException(status_code=401, detail="用户未认证")
+            return VoteSubmitResponse(
+                success=False,
+                message="用户未认证",
+                total_votes=0,
+                options=[]
+            )
         
         result = vote_service.submit_vote(
             user_id,

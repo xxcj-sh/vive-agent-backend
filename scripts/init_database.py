@@ -31,7 +31,7 @@ def init_database():
         from app.models import (
             user, user_card_db, match, match_action, chat_message,
             user_profile, user_profile_history, user_profile_feedback, user_profile_score,
-            activity_invitation, ai_skill, llm_usage_log, subscribe_message, order,
+            llm_usage_log, subscribe_message, order,
             topic_card_db
         )
         
@@ -49,7 +49,7 @@ def drop_all_tables():
         from app.models import (
             user, user_card_db, match, match_action, chat_message,
             user_profile, user_profile_history, user_profile_feedback, user_profile_score,
-            activity_invitation, ai_skill, llm_usage_log, subscribe_message, order,
+            llm_usage_log, subscribe_message, order,
             topic_card_db
         )
         

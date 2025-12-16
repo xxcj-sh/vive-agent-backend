@@ -957,63 +957,7 @@ class LLMService:
         # 流式调用LLM API
         return await self.call_llm_api(llm_request, provider, model_name, stream=True)
 
-    async def generate_coffee_recommendation(
-        self,
-        user_id: str,
-        time_preference: str = None,
-        location_preference: str = None,
-        budget_range: str = None,
-        coffee_type: str = None,
-        atmosphere: str = None,
-        provider: LLMProvider = LLMProvider.VOLCENGINE,
-        model_name: str = settings.LLM_MODEL
-    ) -> LLMResponse:
-        """
-        生成咖啡推荐
 
-        Args:
-            user_id: 用户ID
-            time_preference: 时间偏好
-            location_preference: 地点偏好
-            budget_range: 预算范围
-            coffee_type: 咖啡类型偏好
-            atmosphere: 氛围偏好
-
-        Returns:
-            LLM响应对象
-        """
-        prompt = f"""
-        请根据以下信息为用户推荐咖啡店和咖啡：
-
-        时间偏好：{time_preference or '无特殊要求'}
-        地点偏好：{location_preference or '无特殊要求'}
-        预算范围：{budget_range or '无特殊要求'}
-        咖啡类型：{coffee_type or '无特殊要求'}
-        氛围偏好：{atmosphere or '无特殊要求'}
-
-        请推荐3-5家咖啡店，包括：
-        1. 咖啡店名称
-        2. 地址
-        3. 距离
-        4. 评分
-        5. 价格等级（1-4）
-        6. 特色
-        7. 营业时间
-        8. 推荐理由
-
-        请用JSON格式回复，包含以下字段：
-        - locations: 地点推荐列表
-        - coffee_suggestions: 推荐咖啡列表
-        - summary: 总结
-        """
-
-        llm_request = LLMRequest(
-            user_id=user_id,
-            task_type=LLMTaskType.INTEREST_ANALYSIS,  # 使用现有任务类型
-            prompt=prompt
-        )
-
-        return await self.call_llm_api(llm_request, provider, model_name)
 
     async def summarize_opinions(
         self,
