@@ -73,8 +73,8 @@ SCENE_CONFIGS = {
         roles={
             "topic_discussion": SceneRole(
                 key="topic_discussion",
-                label="话题记录",
-                description="记录分享感兴趣的话题"
+                label="话题交流",
+                description="了解他人的想法"
             )
         },
         CardFields=[
