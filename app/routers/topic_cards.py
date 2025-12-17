@@ -47,16 +47,21 @@ async def get_topic_cards(
     pageSize: int = Query(10, ge=1, le=50, description="每页数量"),
     category: Optional[str] = Query(None, description="话题分类"),
     search: Optional[str] = Query(None, description="搜索关键词"),
+    userId: Optional[str] = Query(None, description="用户ID，用于筛选特定用户创建的话题卡片"),
+    authorId: Optional[str] = Query(None, description="作者ID，用于筛选特定用户创建的话题卡片（兼容前端参数）"),
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取话题卡片列表"""
     try:
-        user_id = str(current_user.get("id")) if current_user else None
+        # 优先使用userId参数，如果没有则使用authorId，最后使用当前登录用户
+        target_user_id = userId or authorId
+        if not target_user_id:
+            target_user_id = str(current_user.get("id")) if current_user else None
         
         result = TopicCardService.get_topic_cards(
             db, 
-            user_id=user_id,
+            user_id=target_user_id,
             page=page, 
             page_size=pageSize,
             category=category,

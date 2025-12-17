@@ -193,6 +193,10 @@ class TopicCardService:
                 TopicCard.is_deleted == 0
             )
             
+            # 如果指定了用户ID，只返回该用户创建的话题卡片
+            if user_id:
+                query = query.filter(TopicCard.user_id == user_id)
+            
             # 分类筛选
             if category:
                 query = query.filter(TopicCard.category == category)
