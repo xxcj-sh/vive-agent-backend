@@ -364,6 +364,7 @@ class TopicCardService:
                 cover_image=topic_card.cover_image,
                 visibility=topic_card.visibility,
                 is_active=topic_card.is_active,
+                is_anonymous=topic_card.is_anonymous,
                 view_count=topic_card.view_count,
                 like_count=topic_card.like_count,
                 discussion_count=topic_card.discussion_count,
