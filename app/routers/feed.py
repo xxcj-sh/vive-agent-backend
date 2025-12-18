@@ -270,7 +270,6 @@ async def get_recommendation_user_cards(
             user_id = str(current_user.id)
         
         # 获取推荐用户列表（根据访问时间排序，排除最近浏览过的）
-        print("正在获取推荐用户列表...")
         recommended_users = UserConnectionService.get_recommended_users(
             db=db,
             current_user_id=user_id,

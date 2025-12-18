@@ -95,6 +95,16 @@ class UserConnectionService:
         # 提取访问过的用户ID
         visited_user_ids = [conn.to_user_id for conn in visited_connections]
         
+        # 获取最近两周访问过当前用户主页的用户（这些用户应该被优先推荐）
+        recent_visitors = db.query(UserConnection).filter(
+            UserConnection.to_user_id == current_user_id,
+            UserConnection.connection_type == ConnectionType.VISIT,
+            UserConnection.updated_at >= two_weeks_ago
+        ).order_by(UserConnection.updated_at.desc()).all()
+        
+        # 提取最近访客的用户ID
+        recent_visitor_ids = [conn.from_user_id for conn in recent_visitors]
+        
         # 如果没有访问记录，获取所有用户（排除自己）
         if not visited_user_ids:
             candidate_users = db.query(User).filter(
@@ -113,8 +123,39 @@ class UserConnectionService:
         # 过滤掉最近两周浏览过的用户
         filtered_users = [user for user in candidate_users if user.id not in excluded_user_ids]
         
-        # 限制返回数量
-        recommended_users = filtered_users[:limit]
+        # 合并最近访客到推荐列表（优先展示）
+        # 1. 首先获取最近访客的用户对象
+        if recent_visitor_ids:
+            recent_visitor_users = db.query(User).filter(
+                User.id.in_(recent_visitor_ids)
+            ).all()
+            
+            # 按访问时间排序（最近的在前）
+            visitor_time_map = {conn.from_user_id: conn.updated_at for conn in recent_visitors}
+            recent_visitor_users.sort(key=lambda user: visitor_time_map.get(user.id, datetime.min), reverse=True)
+            
+            # 2. 将最近访客添加到推荐列表前面，并去重
+            final_recommended = []
+            added_user_ids = set()
+            
+            # 首先添加最近访客
+            for user in recent_visitor_users:
+                if user.id not in added_user_ids and user.id != current_user_id:
+                    final_recommended.append(user)
+                    added_user_ids.add(user.id)
+            
+            # 然后添加其他推荐用户
+            for user in filtered_users:
+                if user.id not in added_user_ids:
+                    final_recommended.append(user)
+                    added_user_ids.add(user.id)
+                    if len(final_recommended) >= limit:
+                        break
+            
+            recommended_users = final_recommended[:limit]
+        else:
+            # 如果没有最近访客，使用原有的推荐逻辑
+            recommended_users = filtered_users[:limit]
         
         # 构建返回数据
         result = []
