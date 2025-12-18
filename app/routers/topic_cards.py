@@ -142,11 +142,7 @@ async def update_topic_card(
         # 更新话题卡片
         updated_card = TopicCardService.update_topic_card(db, card_id, update_data)
         
-        return BaseResponse(
-            code=0,
-            message="话题卡片更新成功",
-            data=updated_card
-        )
+        return updated_card
     except HTTPException:
         raise
     except Exception as e:
