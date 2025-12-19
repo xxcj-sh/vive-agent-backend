@@ -453,9 +453,7 @@ class LLMService:
                 "status": status,
                 "timestamp": datetime.utcnow().isoformat()
             }
-            
-            logger.info(f"LLM API调用记录: {json.dumps(log_data, ensure_ascii=False)}")
-            
+                        
             # 尝试数据库记录,但失败不影响功能
             try:
                 # 显式设置创建和更新时间
