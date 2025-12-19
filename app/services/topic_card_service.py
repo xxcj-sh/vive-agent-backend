@@ -187,10 +187,12 @@ class TopicCardService:
             # 构建查询条件
             query = db.query(TopicCard, User).join(User, TopicCard.user_id == User.id)
             
-            # 只显示激活且未删除的卡片
+            # 只显示激活且未删除的卡片，且用户状态正常
             query = query.filter(
                 TopicCard.is_active == 1,
-                TopicCard.is_deleted == 0
+                TopicCard.is_deleted == 0,
+                User.is_active == True,
+                User.status != 'deleted'
             )
             
             # 如果指定了用户ID，只返回该用户创建的话题卡片

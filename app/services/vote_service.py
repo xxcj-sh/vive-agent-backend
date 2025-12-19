@@ -421,10 +421,12 @@ class VoteService:
             limit: 返回卡片数量限制
             user_id: 用户ID，如果提供则过滤掉该用户已参与投票的卡片
         """
-        query = self.db.query(VoteCard).filter(
+        query = self.db.query(VoteCard).join(User, VoteCard.user_id == User.id).filter(
             VoteCard.is_deleted == 0,
             VoteCard.is_active == 1,
-            VoteCard.visibility == "public"
+            VoteCard.visibility == "public",
+            User.is_active == True,
+            User.status != 'deleted'
         )
         
         # 如果提供了用户ID，过滤掉该用户已参与投票的卡片

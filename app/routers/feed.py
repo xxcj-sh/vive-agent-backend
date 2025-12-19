@@ -72,10 +72,18 @@ async def get_feed_cards(
             # 为每个卡片添加投票状态
             for card in recall_votes:
                 vote_results = vote_service.get_vote_results(card.id, user_id)
-                # 获取用户信息
-                user = db.query(User).filter(User.id == card.user_id).first()
+                # 获取用户信息（只获取活跃用户）
+                user = db.query(User).filter(
+                    User.id == card.user_id,
+                    User.is_active == True,
+                    User.status != 'deleted'
+                ).first()
                 user_avatar = user.avatar_url if user else ''
                 user_nickname = user.nick_name if user else '匿名用户'  # 使用nick_name字段
+                
+                # 如果用户不存在或已注销，跳过此卡片
+                if not user:
+                    continue
                 
                 formatted_card = {
                     "id": card.id,
