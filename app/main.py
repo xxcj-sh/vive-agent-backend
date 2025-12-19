@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, chats, topic_cards, user_connections, topic_invitation, vote_cards, feed
 from app.routers.user_profile import router as user_profile_router
+from app.api import content_moderation
 
 from app.utils.db_init import init_db
 from app.config import settings
@@ -66,6 +67,9 @@ app.include_router(vote_cards.router, prefix="/api/v1/vote-cards")
 
 # 统一卡片流路由
 app.include_router(feed.router, prefix="/api/v1/feed")
+
+# 内容审核路由
+app.include_router(content_moderation.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():

@@ -71,6 +71,7 @@ def init_all_tables():
         from app.models.llm_usage_log import LLMUsageLog
         from app.models.order import MembershipOrder
         from app.models.subscribe_message import SubscribeMessage, UserSubscribeSetting
+        from app.models.content_moderation_db import ContentModeration
         
         logger.info(f"📊 已注册的表: {list(Base.metadata.tables.keys())}")
         
@@ -118,6 +119,11 @@ def create_optimization_indexes():
                 ("llm_usage_logs", ["provider"]),
                 ("membership_orders", ["user_id"]),
                 ("membership_orders", ["status"]),
+                # 内容审核相关索引
+                ("content_moderations", ["object_id", "object_type"]),
+                ("content_moderations", ["overall_status"]),
+                ("content_moderations", ["callback_received"]),
+                ("content_moderations", ["result_updated_at"]),
             ]
             
             for table, columns in indexes:
@@ -174,7 +180,7 @@ def verify_tables():
                 'topic_invitations', 'vote_cards', 'chat_messages', 'user_profile_history',
                 'user_profile_feedback', 'user_profile_scores', 'user_profile_score_history',
                 'user_profile_skills', 'llm_usage_logs', 'membership_orders',
-                'subscribe_messages', 'user_subscribe_settings'
+                'subscribe_messages', 'user_subscribe_settings', 'content_moderations'
             ]
             
             existing_tables = [table[0] for table in tables]

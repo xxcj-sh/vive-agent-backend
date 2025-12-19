@@ -16,7 +16,6 @@ from app.config import settings
 
 # 导入所有模型
 from app.models.user import User
-
 from app.models.user_card_db import UserCard
 from app.models.llm_usage_log import LLMUsageLog
 from app.models.order import MembershipOrder
@@ -34,6 +33,7 @@ from app.models.user_profile_score import (
 )
 from app.models.topic_invitation import TopicInvitation
 from app.models.topic_card_db import TopicCard, TopicDiscussion, UserCardTopicRelation, TopicOpinionSummary
+from app.models.content_moderation_db import ContentModeration
 
 # 配置日志
 logging.basicConfig(
