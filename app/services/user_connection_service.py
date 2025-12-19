@@ -105,15 +105,23 @@ class UserConnectionService:
         # 提取最近访客的用户ID
         recent_visitor_ids = [conn.from_user_id for conn in recent_visitors]
         
-        # 如果没有访问记录，获取所有用户（排除自己）
+        # 如果没有访问记录，获取所有活跃用户（排除自己和已注销用户）
         if not visited_user_ids:
             candidate_users = db.query(User).filter(
-                User.id != current_user_id
+                and_(
+                    User.id != current_user_id,
+                    User.is_active == True,
+                    User.status != 'deleted'
+                )
             ).limit(limit * 2).all()
         else:
-            # 获取访问过的用户，按访问时间排序
+            # 获取访问过的用户，按访问时间排序，只包含活跃用户
             candidate_users = db.query(User).filter(
-                User.id.in_(visited_user_ids)
+                and_(
+                    User.id.in_(visited_user_ids),
+                    User.is_active == True,
+                    User.status != 'deleted'
+                )
             ).all()
             
             # 按访问时间排序（最久未访问的在前）
@@ -124,10 +132,14 @@ class UserConnectionService:
         filtered_users = [user for user in candidate_users if user.id not in excluded_user_ids]
         
         # 合并最近访客到推荐列表（优先展示）
-        # 1. 首先获取最近访客的用户对象
+        # 1. 首先获取最近访客的用户对象，只包含活跃用户
         if recent_visitor_ids:
             recent_visitor_users = db.query(User).filter(
-                User.id.in_(recent_visitor_ids)
+                and_(
+                    User.id.in_(recent_visitor_ids),
+                    User.is_active == True,
+                    User.status != 'deleted'
+                )
             ).all()
             
             # 按访问时间排序（最近的在前）

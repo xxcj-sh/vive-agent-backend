@@ -205,15 +205,6 @@ class UserStatus(str, enum.Enum):
     ACTIVE = "active"        # 正常
     SUSPENDED = "suspended"  # 暂停
     DELETED = "deleted"      # 已删除
-    BUS_STOP = "公交站"
-    SUPERMARKET = "超市"
-    MALL = "商场"
-    HOSPITAL = "医院"
-    SCHOOL = "学校"
-    PARK = "公园"
-    GYM = "健身房"
-    RESTAURANT = "餐厅"
-    BANK = "银行"
 
 class HouseRule(str, enum.Enum):
     """房屋规则枚举"""

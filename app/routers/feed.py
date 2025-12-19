@@ -167,8 +167,14 @@ def get_random_public_user_cards(db: Session, limit: int = 5) -> List[Dict[str, 
         # 获取用户ID列表
         user_ids = [card.user_id for card in public_cards]
         
-        # 查询用户信息
-        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        # 查询用户信息，只包含活跃用户
+        users = db.query(User).filter(
+            and_(
+                User.id.in_(user_ids),
+                User.is_active == True,
+                User.status != 'deleted'
+            )
+        ).all()
         user_map = {user.id: user for user in users}
         
         # 格式化卡片数据
@@ -325,10 +331,16 @@ async def get_recommendation_user_cards(
         for i, user_card in enumerate(paginated_cards):
             print(f"处理第{i+1}个卡片: card_id={user_card.id}, user_id={user_card.user_id}")
             
-            # 获取卡片创建者信息
-            card_creator = db.query(User).filter(User.id == str(user_card.user_id)).first()
+            # 获取卡片创建者信息，并检查用户状态
+            card_creator = db.query(User).filter(
+                and_(
+                    User.id == str(user_card.user_id),
+                    User.is_active == True,
+                    User.status != 'deleted'
+                )
+            ).first()
             if not card_creator:
-                print(f"跳过: 找不到卡片创建者 user_id={user_card.user_id}")
+                print(f"跳过: 找不到卡片创建者或用户已注销 user_id={user_card.user_id}")
                 continue
             
             # 获取用户的推荐信息
