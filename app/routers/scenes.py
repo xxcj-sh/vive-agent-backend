@@ -66,14 +66,14 @@ SCENE_CONFIGS = {
     ),
     "topic": SceneConfig(
         key="topic",
-        label="话题",
+        label="观点收集",
         icon="/images/icon-ai.svg",
         iconActive="/images/icon-ai.svg",
-        description="分享想法，发起讨论，寻找共鸣",
+        description="观点收集问卷",
         roles={
             "topic_discussion": SceneRole(
                 key="topic_discussion",
-                label="话题交流",
+                label="观点收集",
                 description="了解他人的想法"
             )
         },

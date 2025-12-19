@@ -25,6 +25,11 @@ async def create_topic_card(
 ):
     """创建话题卡片"""
     try:
+        # 检查用户是否已认证
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        # 获取当前用户ID
         user_id = str(current_user.get("id"))
         if not user_id:
             raise HTTPException(status_code=401, detail="用户未认证")
@@ -116,6 +121,11 @@ async def update_topic_card(
 ):
     """更新话题卡片"""
     try:
+        # 检查用户是否已认证
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        # 获取当前用户ID
         user_id = str(current_user.get("id"))
         if not user_id:
             raise HTTPException(status_code=401, detail="用户未认证")
@@ -163,6 +173,11 @@ async def delete_topic_card(
 ):
     """删除话题卡片"""
     try:
+        # 检查用户是否已认证
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        # 获取当前用户ID
         user_id = str(current_user.get("id"))
         if not user_id:
             raise HTTPException(status_code=401, detail="用户未认证")
@@ -204,6 +219,11 @@ async def create_topic_discussion(
 ):
     """创建话题讨论"""
     try:
+        # 检查用户是否已认证
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        # 获取当前用户ID
         user_id = str(current_user.get("id"))
         if not user_id:
             raise HTTPException(status_code=401, detail="用户未认证")
@@ -287,6 +307,11 @@ async def like_topic_card(
 ):
     """点赞话题卡片"""
     try:
+        # 检查用户是否已认证
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        # 获取当前用户ID
         user_id = str(current_user.get("id"))
         if not user_id:
             raise HTTPException(status_code=401, detail="用户未认证")
