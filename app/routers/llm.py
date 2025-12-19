@@ -52,7 +52,7 @@ def _infer_preference_from_content(content: str) -> bool:
 async def generate_conversation_suggestions_stream(
     request: ConversationSuggestionRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(auth_service.get_current_user)
+    current_user: dict = Depends(auth_service.get_current_user_optional)
 ):
     """
     生成流式对话建议
@@ -64,9 +64,15 @@ async def generate_conversation_suggestions_stream(
     
     service = LLMService(db)
     
-    # 如果request中没有user_id，使用当前登录用户
+    # 如果request中没有user_id，使用当前登录用户或匿名用户
     if not request.userId:
-        request.userId = current_user["id"]
+        if current_user:
+            request.userId = current_user["id"]
+        else:
+            # 使用匿名用户
+            anonymous_user = auth_service.get_anonymous_user()
+            request.userId = anonymous_user["id"]
+            current_user = anonymous_user
     
     async def generate_stream():
         """生成流式响应 - 使用真正的LLM流式调用"""
@@ -75,7 +81,7 @@ async def generate_conversation_suggestions_stream(
         import re
         try:
             # 调用专门的流式对话建议方法
-            stream_response = await service.generate_conversation_suggestion_stream(
+            stream_response = service.generate_conversation_suggestion_stream(
                 user_id=request.userId,
                 card_id=request.cardId,
                 chatId=request.chatId,
@@ -188,7 +194,7 @@ async def generate_conversation_suggestions_stream(
 async def generate_simple_chat_stream(
     request: SimpleChatStreamRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(auth_service.get_current_user)
+    current_user: dict = Depends(auth_service.get_current_user_optional)
 ):
     """
     简单聊天流式接口 - 仅返回纯文本
@@ -200,16 +206,22 @@ async def generate_simple_chat_stream(
     
     service = LLMService(db)
     
-    # 如果request中没有user_id，使用当前登录用户
+    # 如果request中没有user_id，使用当前登录用户或匿名用户
     if not request.userId:
-        request.userId = current_user["id"]
+        if current_user:
+            request.userId = current_user["id"]
+        else:
+            # 使用匿名用户
+            anonymous_user = auth_service.get_anonymous_user()
+            request.userId = anonymous_user["id"]
+            current_user = anonymous_user
     
     async def generate_text_stream():
         """生成纯文本流式响应"""
         import json
         try:
             # 调用简单聊天流式方法
-            stream_response = await service.generate_simple_chat_stream(
+            stream_response = service.generate_simple_chat_stream(
                 user_id=request.userId,
                 card_id=request.cardId,
                 chat_id=request.chatId,
@@ -262,7 +274,7 @@ async def generate_simple_chat_stream(
 async def generate_conversation_suggestions(
     request: ConversationSuggestionRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(auth_service.get_current_user)
+    current_user: dict = Depends(auth_service.get_current_user_optional)
 ):
     """
     生成对话建议
@@ -272,9 +284,15 @@ async def generate_conversation_suggestions(
     """
     service = LLMService(db)
     
-    # 如果request中没有user_id，使用当前登录用户
+    # 如果request中没有user_id，使用当前登录用户或匿名用户
     if not request.userId:
-        request.userId = current_user["id"]
+        if current_user:
+            request.userId = current_user["id"]
+        else:
+            # 使用匿名用户
+            anonymous_user = auth_service.get_anonymous_user()
+            request.userId = anonymous_user["id"]
+            current_user = anonymous_user
     
     response = await service.generate_conversation_suggestion(
         user_id=request.userId,
@@ -307,7 +325,7 @@ async def generate_conversation_suggestions(
 async def extract_activity_info(
     request: ActivityInfoExtractionRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(auth_service.get_current_user)
+    current_user: dict = Depends(auth_service.get_current_user_optional)
 ):
     """
     提取活动信息
@@ -317,9 +335,15 @@ async def extract_activity_info(
     """
     service = LLMService(db)
     
-    # 如果request中没有user_id，使用当前登录用户
+    # 如果request中没有user_id，使用当前登录用户或匿名用户
     if not request.user_id:
-        request.user_id = current_user["id"]
+        if current_user:
+            request.user_id = current_user["id"]
+        else:
+            # 使用匿名用户
+            anonymous_user = auth_service.get_anonymous_user()
+            request.user_id = anonymous_user["id"]
+            current_user = anonymous_user
     
     response = await service.extract_activity_info(
         user_id=request.user_id,
@@ -401,3 +425,168 @@ async def generate_coffee_chat_response(
                 "error": str(e)
             }
         }
+
+
+@router.post("/process-scene")
+async def process_scene_request(
+    request: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(auth_service.get_current_user_optional)
+):
+    """
+    统一的场景化LLM处理接口
+    
+    通过scene_config_key参数来区分不同的LLM使用场景，实现所有LLM调用的统一管理和调试
+    
+    支持的scene_config_key:
+    - conversation-suggestions: 对话建议生成
+    - simple-chat: 简单聊天（支持general/topic/sports子类型）
+    - extract-activity-info: 活动信息提取
+    - topic-discussion: 话题讨论
+    - generate-opinion-summary: 观点总结生成
+    
+    请求格式：
+    {
+        "scene_config_key": "coffee-chat",
+        "params": {
+            "message": "用户消息",
+            "conversation_history": [],
+            "extracted_info": {},
+            "dialog_count": 0
+        },
+        "stream": false,
+        "provider": "volcengine",
+        "model_name": "doubao-pro-32k"
+    }
+    """
+    service = LLMService(db)
+    
+    # 获取用户ID，默认为当前登录用户或匿名用户
+    if current_user:
+        user_id = request.get("user_id", current_user["id"])
+    else:
+        anonymous_user = auth_service.get_anonymous_user()
+        user_id = request.get("user_id", anonymous_user["id"])
+        current_user = anonymous_user
+    scene_config_key = request.get("scene_config_key", "")
+    params = request.get("params", {})
+    stream = request.get("stream", False)
+    provider = request.get("provider", settings.LLM_PROVIDER)
+    model_name = request.get("model_name", settings.LLM_MODEL)
+    
+    if not scene_config_key:
+        raise HTTPException(status_code=400, detail="scene_config_key不能为空")
+    
+    try:
+        # 调用统一的场景化处理方法
+        response = await service.process_scene_request(
+            user_id=user_id,
+            scene_config_key=scene_config_key,
+            params=params,
+            provider=provider,
+            model_name=model_name,
+            stream=stream
+        )
+        
+        if not response.get("success", False):
+            error_msg = response.get("error", "处理失败")
+            raise HTTPException(status_code=500, detail=error_msg)
+        
+        return {
+            "code": 0,
+            "message": "success",
+            "data": response
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"场景化LLM处理失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
+
+
+@router.post("/process-scene/stream")
+async def process_scene_stream(
+    request: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(auth_service.get_current_user_optional)
+):
+    """
+    统一的场景化LLM流式处理接口
+    
+    支持流式输出的场景化LLM调用，用于实时聊天等需要流式响应的场景
+    
+    支持的scene_config_key:
+    - conversation-suggestions: 对话建议生成（流式）
+    - simple-chat: 简单聊天（流式）
+    - topic-discussion: 话题讨论（流式）
+    """
+    from fastapi.responses import StreamingResponse
+    
+    service = LLMService(db)
+    
+    # 获取用户ID，默认为当前登录用户或匿名用户
+    if current_user:
+        user_id = request.get("user_id", current_user["id"])
+    else:
+        anonymous_user = auth_service.get_anonymous_user()
+        user_id = request.get("user_id", anonymous_user["id"])
+        current_user = anonymous_user
+    scene_config_key = request.get("scene_config_key", "")
+    params = request.get("params", {})
+    provider = request.get("provider", settings.LLM_PROVIDER)
+    model_name = request.get("model_name", settings.LLM_MODEL)
+    
+    if not scene_config_key:
+        raise HTTPException(status_code=400, detail="scene_config_key不能为空")
+    
+    # 检查是否支持流式处理
+    streamable_scenes = ["conversation-suggestions", "simple-chat", "coffee-chat", "topic-discussion", "sports-chat"]
+    if scene_config_key not in streamable_scenes:
+        raise HTTPException(status_code=400, detail=f"场景 {scene_config_key} 不支持流式处理")
+    
+    async def generate_stream():
+        """生成流式响应"""
+        import json
+        try:
+            # 调用统一的场景化处理方法（启用流式）
+            stream_response = service.process_scene_request_stream(
+                user_id=user_id,
+                scene_config_key=scene_config_key,
+                params=params,
+                provider=provider,
+                model_name=model_name
+            )
+            
+            # 流式发送响应内容
+            async for chunk in stream_response:
+                if chunk["type"] == "text":
+                    data = {
+                        "type": "text",
+                        "content": chunk["content"],
+                        "finished": chunk.get("finished", False)
+                    }
+                    yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                elif chunk["type"] == "end":
+                    break
+            
+            # 发送结束标记
+            yield f"data: {json.dumps({'type': 'end'}, ensure_ascii=False)}\n\n"
+            
+        except Exception as e:
+            logger.error(f"场景化LLM流式处理失败: {str(e)}")
+            error_data = {
+                "type": "error",
+                "message": str(e)
+            }
+            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )

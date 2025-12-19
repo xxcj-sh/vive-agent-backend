@@ -532,6 +532,19 @@ class AuthService:
             return None
 
     @staticmethod
+    def get_anonymous_user() -> Dict[str, Any]:
+        """获取匿名用户信息"""
+        import uuid
+        return {
+            "id": f"anonymous_{uuid.uuid4().hex[:16]}",
+            "nickName": "匿名用户",
+            "avatarUrl": "",
+            "gender": 0,
+            "phone": "",
+            "is_anonymous": True
+        }
+
+    @staticmethod
     def _get_wx_access_token() -> Optional[str]:
         """获取微信访问令牌"""
         try:
