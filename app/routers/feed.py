@@ -300,6 +300,7 @@ async def get_recommendation_user_cards(
         card_query = db.query(UserCard).filter(
             and_(
                 UserCard.is_active == 1,
+                UserCard.is_deleted == 0,
                 UserCard.user_id.in_(recommended_user_ids)
             )
         )
