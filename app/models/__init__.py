@@ -13,5 +13,5 @@ from .subscribe_message import SubscribeMessage, UserSubscribeSetting
 from .user_profile import UserProfile
 from .user_profile_history import UserProfileHistory
 from .user_connection import UserConnection, ConnectionType, ConnectionStatus
-from .topic_invitation import TopicInvitation, InvitationStatus, InvitationType
+
 from .vote_card_db import VoteCard, VoteOption, VoteRecord, VoteDiscussion, UserCardVoteRelation

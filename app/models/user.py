@@ -43,9 +43,7 @@ class User(Base):
     topic_cards = relationship("TopicCard", back_populates="user")
     topic_discussions_as_participant = relationship("TopicDiscussion", foreign_keys="TopicDiscussion.participant_id", back_populates="participant")
     topic_discussions_as_host = relationship("TopicDiscussion", foreign_keys="TopicDiscussion.host_id", back_populates="host")
-    # 话题邀请相关关系
-    sent_topic_invitations = relationship("TopicInvitation", foreign_keys="TopicInvitation.inviter_id", back_populates="inviter")
-    received_topic_invitations = relationship("TopicInvitation", foreign_keys="TopicInvitation.invitee_id", back_populates="invitee")
+    
     
     # 投票相关关系
     vote_cards = relationship("VoteCard", back_populates="user")

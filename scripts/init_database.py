@@ -62,7 +62,6 @@ def init_all_tables():
         from app.models.user_profile import UserProfile
         from app.models.user_card_db import UserCard
         from app.models.topic_card_db import TopicCard
-        from app.models.topic_invitation import TopicInvitation
         from app.models.vote_card_db import VoteCard
         from app.models.chat_message import ChatMessage
         from app.models.user_profile_history import UserProfileHistory
@@ -177,7 +176,7 @@ def verify_tables():
             # 检查关键表是否存在
             expected_tables = [
                 'users', 'user_profiles', 'user_cards', 'topic_cards',
-                'topic_invitations', 'vote_cards', 'chat_messages', 'user_profile_history',
+                'vote_cards', 'chat_messages', 'user_profile_history',
                 'user_profile_feedback', 'user_profile_scores', 'user_profile_score_history',
                 'user_profile_skills', 'llm_usage_logs', 'membership_orders',
                 'subscribe_messages', 'user_subscribe_settings', 'content_moderations'

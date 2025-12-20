@@ -31,7 +31,7 @@ from app.models.user_profile_score import (
     ScoreType,
     SkillLevel
 )
-from app.models.topic_invitation import TopicInvitation
+
 from app.models.topic_card_db import TopicCard, TopicDiscussion, UserCardTopicRelation, TopicOpinionSummary
 from app.models.content_moderation_db import ContentModeration
 
