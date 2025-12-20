@@ -84,7 +84,7 @@ class ContentModerationUpdate(BaseModel):
 class ContentModerationResponse(ContentModerationBase):
     """内容审核记录响应模型"""
     id: str = Field(..., description="审核记录ID")
-    created_at: datetime = Field(..., description="创建时间")
+    created_at: Optional[datetime] = Field(..., description="创建时间")
     updated_at: Optional[datetime] = Field(None, description="更新时间")
     
     class Config:

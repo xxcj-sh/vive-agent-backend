@@ -127,7 +127,6 @@ async def generate_conversation_suggestions_stream(
                             "usage": {"prompt_tokens": 50, "completion_tokens": len(full_content), "total_tokens": 50 + len(full_content)},
                             "duration": 2.0
                         }
-                        logger.info(f"成功解析metadata: confidence={metadata['confidence']}, is_meet_preference={metadata['is_meet_preference']}")
                         yield f"data: {json.dumps(metadata, ensure_ascii=False)}\n\n"
                     except json.JSONDecodeError as json_error:
                         logger.warning(f"JSON解析失败: {str(json_error)}, 内容: {json_match.group()[:200]}")

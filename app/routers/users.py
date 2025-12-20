@@ -5,12 +5,15 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 import json
 from enum import Enum
+import httpx
+import os
 from app.utils.db_config import get_db
 from app.models.user import User
 from sqlalchemy import func
 from app.services.data_adapter import DataService
 from app.services.user_card_service import UserCardService
 from app.dependencies import get_current_user
+from app.models.schemas import BaseResponse
 from app.models.user_card import (
     CardCreate, CardUpdate, Card as CardSchema,
     AllCardsResponse
@@ -135,6 +138,19 @@ class UserResponse(BaseModel):
     class Config:
         orm_mode = True
 
+
+class WeChatCodeRequest(BaseModel):
+    """微信小程序 code 换取 openid 请求模型"""
+    code: str = Field(..., description="微信登录凭证 code")
+    user_id: Optional[str] = Field(None, description="用户ID，可选")
+
+
+class WeChatOpenIdResponse(BaseModel):
+    """微信 openid 响应模型"""
+    openid: str = Field(..., description="微信用户唯一标识")
+    session_key: Optional[str] = Field(None, description="会话密钥")
+    unionid: Optional[str] = Field(None, description="用户在开放平台的唯一标识符")
+    user_id: Optional[str] = Field(None, description="用户ID")
 
 
 
@@ -696,6 +712,7 @@ def read_user(user_id: str, db: Session = Depends(get_db)):
             "education": db_user.education,
             "interests": db_user.interests,
             "wechat": db_user.wechat,
+            "wechat_open_id": db_user.wechat_open_id,
             "email": db_user.email,
             "status": db_user.status,
             "level": db_user.level,
@@ -745,5 +762,86 @@ def delete_user(user_id: str, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
     return {"detail": "User deleted"}
+
+
+@router.post("/wechat/openid", response_model=BaseResponse)
+async def get_wechat_openid(request: WeChatCodeRequest, db: Session = Depends(get_db)):
+    """
+    微信小程序 code 换取 openid
+    
+    参考微信官方文档：https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/user-login/code2Session.html
+    """
+    try:
+        # 获取微信配置
+        app_id = os.getenv("WECHAT_APP_ID")
+        app_secret = os.getenv("WECHAT_APP_SECRET")
+        
+        if not app_id or not app_secret:
+            raise HTTPException(
+                status_code=500, 
+                detail="微信配置缺失，请联系管理员配置 WECHAT_APP_ID 和 WECHAT_APP_SECRET"
+            )
+        
+        # 调用微信 code2Session 接口
+        async with httpx.AsyncClient() as client:
+            url = "https://api.weixin.qq.com/sns/jscode2session"
+            params = {
+                "appid": app_id,
+                "secret": app_secret,
+                "js_code": request.code,
+                "grant_type": "authorization_code"
+            }
+            
+            response = await client.get(url, params=params)
+            result = response.json()
+            print("微信接口返回:", result)
+            # 检查微信接口返回的错误
+            if "errcode" in result and result["errcode"] != 0:
+                error_msg = result.get("errmsg", "未知错误")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"微信接口错误: {error_msg} (错误码: {result['errcode']})"
+                )
+            
+            # 检查必要的返回字段
+            if "openid" not in result:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="微信接口未返回 openid"
+                )
+            
+            openid = result["openid"]
+            session_key = result.get("session_key")
+            unionid = result.get("unionid")
+            
+            # 如果提供了 user_id，更新用户的微信 openid
+            if request.user_id:
+                db_user = db.query(User).filter(User.id == request.user_id).first()
+                if db_user:
+                    db_user.wechat_open_id = openid
+                    db.commit()
+                    print(f"已更新用户 {request.user_id} 的微信 openid: {openid}")
+            
+            return BaseResponse(
+                code=0,
+                message="success",
+                data={
+                    "openid": openid,
+                    "session_key": session_key,
+                    "unionid": unionid,
+                    "user_id": request.user_id
+                }
+            )
+            
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"微信接口请求失败: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"获取微信 openid 失败: {str(e)}"
+        )
 
 

@@ -17,7 +17,7 @@ def get_content_moderation_service(db: Session = Depends(get_db)) -> ContentMode
     """获取内容审核服务实例"""
     return ContentModerationService(db)
 
-@router.post("/records", response_model=ContentModerationResponse, summary="创建内容审核记录")
+@router.post("/records", summary="创建内容审核记录")
 async def create_moderation_record(
     moderation_data: ContentModerationCreate,
     service: ContentModerationService = Depends(get_content_moderation_service)
@@ -25,11 +25,11 @@ async def create_moderation_record(
     """创建内容审核记录"""
     try:
         result = service.create_moderation_record(moderation_data)
-        return SuccessResponse(data=result.model_dump())
+        return SuccessResponse(data=result)
     except Exception as e:
         return ErrorResponse(message=str(e))
 
-@router.get("/records/{record_id}", response_model=ContentModerationResponse, summary="获取单个审核记录")
+@router.get("/records/{record_id}", summary="获取单个审核记录")
 async def get_moderation_record(
     record_id: str,
     service: ContentModerationService = Depends(get_content_moderation_service)
@@ -39,11 +39,11 @@ async def get_moderation_record(
         result = service.get_moderation_record(record_id)
         if not result:
             return ErrorResponse(message="审核记录不存在", code=404)
-        return SuccessResponse(data=result.model_dump())
+        return SuccessResponse(data=result)
     except Exception as e:
         return ErrorResponse(message=str(e))
 
-@router.get("/records/by-object/{object_id}", response_model=ContentModerationResponse, summary="根据对象获取审核记录")
+@router.get("/records/by-object/{object_id}", summary="根据对象获取审核记录")
 async def get_moderation_by_object(
     object_id: str,
     object_type: ContentType,
@@ -54,7 +54,7 @@ async def get_moderation_by_object(
         result = service.get_moderation_by_object(object_id, object_type)
         if not result:
             return ErrorResponse(message="审核记录不存在", code=404)
-        return SuccessResponse(data=result.model_dump())
+        return SuccessResponse(data=result)
     except Exception as e:
         return ErrorResponse(message=str(e))
 
@@ -80,7 +80,7 @@ async def get_moderation_list(
     except Exception as e:
         return ErrorResponse(message=str(e))
 
-@router.put("/records/{record_id}", response_model=ContentModerationResponse, summary="更新审核记录")
+@router.put("/records/{record_id}", summary="更新审核记录")
 async def update_moderation_record(
     record_id: str,
     update_data: ContentModerationUpdate,
@@ -89,7 +89,7 @@ async def update_moderation_record(
     """更新审核记录"""
     try:
         result = service.update_moderation_record(record_id, update_data)
-        return SuccessResponse(data=result.model_dump())
+        return SuccessResponse(data=result)
     except ValueError as e:
         return ErrorResponse(message=str(e), code=404)
     except Exception as e:
