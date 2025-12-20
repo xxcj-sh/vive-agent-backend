@@ -479,6 +479,99 @@ class VoteService:
             "page_size": page_size
         }
     
+    def update_vote_card(self, vote_card_id: str, vote_data: Dict[str, Any]) -> VoteCard:
+        """更新投票卡片
+        
+        Args:
+            vote_card_id: 投票卡片ID
+            vote_data: 更新的投票数据
+        Returns:
+            更新后的投票卡片对象
+        """
+        try:
+            # 获取投票卡片
+            vote_card = self.db.query(VoteCard).filter(
+                VoteCard.id == vote_card_id,
+                VoteCard.is_deleted == 0
+            ).first()
+            
+            if not vote_card:
+                raise ValueError("投票卡片不存在")
+            
+            # 更新投票卡片基本信息
+            if 'title' in vote_data:
+                vote_card.title = vote_data['title']
+            if 'description' in vote_data:
+                vote_card.description = vote_data['description']
+            if 'category' in vote_data:
+                vote_card.category = vote_data['category']
+            if 'tags' in vote_data:
+                vote_card.tags = vote_data['tags']
+            if 'cover_image' in vote_data:
+                vote_card.cover_image = vote_data['cover_image']
+            if 'vote_type' in vote_data:
+                vote_card.vote_type = vote_data['vote_type']
+            if 'is_anonymous' in vote_data:
+                vote_card.is_anonymous = vote_data['is_anonymous']
+            if 'is_realtime_result' in vote_data:
+                vote_card.is_realtime_result = vote_data['is_realtime_result']
+            if 'visibility' in vote_data:
+                vote_card.visibility = vote_data['visibility']
+            if 'start_time' in vote_data:
+                vote_card.start_time = vote_data['start_time']
+            if 'end_time' in vote_data:
+                vote_card.end_time = vote_data['end_time']
+            
+            # 处理投票选项更新
+            if 'vote_options' in vote_data and vote_data['vote_options']:
+                new_options = vote_data['vote_options']
+                existing_options = self.db.query(VoteOption).filter(
+                    VoteOption.vote_card_id == vote_card_id,
+                    VoteOption.is_active == 1
+                ).all()
+                
+                existing_option_ids = {opt.id: opt for opt in existing_options}
+                new_option_ids = set()
+                
+                # 处理新选项和更新现有选项
+                for option_data in new_options:
+                    if 'id' in option_data and option_data['id'] in existing_option_ids:
+                        # 更新现有选项
+                        existing_option = existing_option_ids[option_data['id']]
+                        if 'text' in option_data:
+                            existing_option.option_text = option_data['text']
+                        if 'image' in option_data:
+                            existing_option.option_image = option_data['image']
+                        new_option_ids.add(option_data['id'])
+                    else:
+                        # 创建新选项
+                        new_option = VoteOption(
+                            vote_card_id=vote_card_id,
+                            option_text=option_data.get('text', ''),
+                            option_image=option_data.get('image', ''),
+                            vote_count=0,
+                            is_active=1
+                        )
+                        self.db.add(new_option)
+                
+                # 软删除不再使用的选项
+                for option_id, option in existing_option_ids.items():
+                    if option_id not in new_option_ids:
+                        option.is_active = 0
+            
+            # 提交事务
+            self.db.commit()
+            
+            # 返回更新后的投票卡片
+            return vote_card
+            
+        except ValueError as e:
+            self.db.rollback()
+            raise e
+        except Exception as e:
+            self.db.rollback()
+            raise e
+    
     def delete_vote_card(self, vote_card_id: str, user_id: str) -> bool:
         """删除投票卡片（软删除）"""
         try:

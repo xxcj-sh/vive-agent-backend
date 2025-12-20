@@ -68,7 +68,9 @@ app.include_router(vote_cards.router, prefix="/api/v1/vote-cards")
 app.include_router(feed.router, prefix="/api/v1/feed")
 
 # 内容审核路由
-app.include_router(content_moderation.router, prefix="/api/v1")
+app.include_router(content_moderation.router, prefix="/api/v1/content-moderation")
+
+
 
 @app.get("/")
 def read_root():

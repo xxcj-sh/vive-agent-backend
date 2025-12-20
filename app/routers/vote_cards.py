@@ -150,6 +150,77 @@ async def create_vote_card(
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
 
+
+@router.put("/{vote_card_id}", response_model=VoteCardResponse)
+async def update_vote_card(
+    vote_card_id: str,
+    vote_data: VoteCardCreate,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """更新投票卡片"""
+    try:
+        # 获取当前用户ID
+        user_id = current_user.get("id") if current_user else None
+        if not user_id:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
+        print(f"收到投票更新请求，用户ID: {user_id}, 投票卡片ID: {vote_card_id}")
+        print(f"更新数据: {vote_data.dict()}")
+        
+        vote_service = VoteService(db)
+        
+        # 首先检查投票卡片是否存在且属于当前用户
+        existing_card = vote_service.get_vote_card(vote_card_id, include_options=False)
+        if not existing_card:
+            raise HTTPException(status_code=404, detail="投票卡片不存在")
+        
+        if existing_card.user_id != user_id:
+            raise HTTPException(status_code=403, detail="无权更新此投票卡片")
+        
+        # 更新投票卡片
+        updated_card = vote_service.update_vote_card(vote_card_id, vote_data.dict())
+        print(f"投票卡片更新成功，ID: {updated_card.id}")
+        
+        # 获取完整的投票卡片信息
+        vote_results = vote_service.get_vote_results(updated_card.id, user_id)
+        print(f"投票结果获取成功: {vote_results}")
+        
+        return VoteCardResponse(
+            id=updated_card.id,
+            user_id=updated_card.user_id,
+            title=updated_card.title,
+            description=updated_card.description,
+            category=updated_card.category,
+            tags=updated_card.tags,
+            cover_image=updated_card.cover_image,
+            vote_type=updated_card.vote_type,
+            is_anonymous=updated_card.is_anonymous,
+            is_realtime_result=updated_card.is_realtime_result,
+            visibility=updated_card.visibility,
+            view_count=updated_card.view_count,
+            total_votes=updated_card.total_votes,
+            discussion_count=updated_card.discussion_count,
+            share_count=updated_card.share_count,
+            start_time=updated_card.start_time,
+            end_time=updated_card.end_time,
+            created_at=updated_card.created_at,
+            updated_at=updated_card.updated_at,
+            vote_options=vote_results["options"],
+            has_voted=vote_results["has_voted"],
+            user_votes=vote_results["user_votes"]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"更新投票卡片失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/{vote_card_id}", response_model=VoteCardResponse)
 async def get_vote_card(
     vote_card_id: str,
