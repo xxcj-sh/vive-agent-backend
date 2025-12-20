@@ -1,9 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, chats, topic_cards, user_connections, topic_invitation, vote_cards, feed
+from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, chats, topic_cards, user_connections, topic_invitation, vote_cards, feed, content_moderation
 from app.routers.user_profile import router as user_profile_router
-from app.api import content_moderation
 
 from app.utils.db_init import init_db
 from app.config import settings
