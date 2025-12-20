@@ -280,32 +280,10 @@ class TopicCardService:
             topic_card.view_count += 1
             db.commit()
             
-            # 初始化邀请者信息
+            # 初始化邀请者信息（话题邀请功能已移除）
             inviter_nickname = None
             inviter_avatar = None
             is_invited = False
-            
-            # 如果有邀请ID，获取邀请者信息
-            if invitation_id and user_id:
-                from app.models.topic_invitation import TopicInvitation
-                invitation = db.query(TopicInvitation).filter(
-                    TopicInvitation.id == invitation_id,
-                    TopicInvitation.topic_id == card_id,
-                    TopicInvitation.invitee_id == user_id,
-                    TopicInvitation.status == "accepted"
-                ).first()
-                
-                if invitation:
-                    is_invited = True
-                    # 如果邀请不是匿名，获取邀请者信息
-                    if not invitation.is_anonymous:
-                        inviter = db.query(User).filter(User.id == invitation.inviter_id).first()
-                        if inviter:
-                            inviter_nickname = inviter.nick_name
-                            inviter_avatar = inviter.avatar_url
-                    else:
-                        inviter_nickname = "匿名用户"
-                        inviter_avatar = None
             
             return TopicCardResponse(
                 id=topic_card.id,
