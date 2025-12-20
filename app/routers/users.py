@@ -207,6 +207,10 @@ def get_current_user_info(current_user: Dict[str, Any] = Depends(get_current_use
     """获取当前用户基础信息"""
     from app.models.schemas import BaseResponse
     
+    # 检查用户是否已认证
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
     # 创建DataService实例
     data_service = DataService()
     
@@ -230,6 +234,9 @@ def get_current_user_info(current_user: Dict[str, Any] = Depends(get_current_use
 @router.put("/me")
 def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any] = Depends(get_current_user), db: Session = Depends(get_db)):
     """更新当前用户基础信息"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
     user_id = current_user.get("id")
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
@@ -352,6 +359,9 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
 @router.delete("/me")
 def delete_current_user(current_user: Dict[str, Any] = Depends(get_current_user), db: Session = Depends(get_db)):
     """注销当前用户账户（软删除）"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
     user_id = current_user.get("id")
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
@@ -422,6 +432,9 @@ def get_current_user_stats(
     try:
         from app.services.user_stats_service import UserStatsService
         
+        if not current_user:
+            raise HTTPException(status_code=401, detail="用户未认证")
+        
         user_id = current_user.get("id")
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
@@ -455,6 +468,9 @@ def get_current_user_cards(
     db: Session = Depends(get_db)
 ):
     """获取当前用户的所有角色资料"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
     user_id = current_user.get("id")
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
@@ -474,6 +490,9 @@ def get_current_user_info(
     db: Session = Depends(get_db)
 ):
     """获取当前用户的完整信息"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
     user_id = current_user.get("id")
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
@@ -509,12 +528,15 @@ def get_current_user_info(
     }
 
 @router.get("/me/cards/{scene_type}")
-def get_current_user_cards_by_scene(
+def get_user_cards_by_scene(
     scene_type: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取当前用户在特定场景下的角色资料"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
     user_id = current_user.get("id")
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
