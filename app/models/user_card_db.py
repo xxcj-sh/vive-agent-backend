@@ -9,7 +9,7 @@ VISIBILITY_PUBLIC = "public"
 VISIBILITY_PRIVATE = "private"
 
 class UserCard(Base):
-    """用户角色资料数据库模型"""
+    """用户身份卡片数据库模型"""
     __tablename__ = "user_cards"
 
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
