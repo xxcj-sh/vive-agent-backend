@@ -50,6 +50,7 @@ class User(Base):
     vote_records = relationship("VoteRecord", back_populates="user")
     vote_discussions_as_participant = relationship("VoteDiscussion", foreign_keys="VoteDiscussion.participant_id", back_populates="participant")
     vote_discussions_as_host = relationship("VoteDiscussion", foreign_keys="VoteDiscussion.host_id", back_populates="host")
+    vote_relations = relationship("UserCardVoteRelation", back_populates="user", cascade="all, delete-orphan")
     
     # 话题观点总结相关关系
     topic_opinion_summaries = relationship("TopicOpinionSummary", back_populates="user", cascade="all, delete-orphan")
