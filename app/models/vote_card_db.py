@@ -106,5 +106,5 @@ class UserCardVoteRelation(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # 关系
-    user = relationship("User")
+    user = relationship("User", back_populates="vote_relations")
     vote_card = relationship("VoteCard", back_populates="user_card_relations")
