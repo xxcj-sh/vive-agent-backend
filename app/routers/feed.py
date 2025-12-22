@@ -387,7 +387,7 @@ async def get_recommendation_user_cards(
                 # 其他字段（兼容前端格式）
                 "createdAt": user_card.created_at.isoformat() if user_card.created_at else "",
                 "displayName": getattr(user_card, 'display_name', None),
-                "creatorName": getattr(user_card, 'display_name', None) or getattr(card_creator, 'name', '匿名用户'),
+                "creatorName": getattr(card_creator, 'name', '匿名用户'),
                 "creatorAvatar": _process_media_url(getattr(card_creator, 'avatar_url', None) or ""),
                 "creatorAge": getattr(card_creator, 'age', 25),
                 "creatorOccupation": getattr(card_creator, 'occupation', ''),
