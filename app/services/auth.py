@@ -190,6 +190,14 @@ class AuthService:
             if db_user:
                 # 检查用户是否为新用户：如果用户已存在且有注册时间，则为老用户
                 is_new_user = not (hasattr(db_user, 'register_at') and db_user.register_at)
+                
+                # 确保用户有注册时间
+                if not hasattr(db_user, 'register_at') or not db_user.register_at:
+                    db_user.register_at = datetime.now()
+                    db.commit()
+                    db.refresh(db_user)
+                    is_new_user = False  # 现在用户有注册时间了，不再是新用户
+                
                 user_dict = {
                     "id": db_user.id,
                     "phone": db_user.phone,
@@ -309,6 +317,12 @@ class AuthService:
                 
                 # 更新微信openid
                 db_user.wechat_open_id = openid
+                
+                # 确保用户有注册时间
+                if not hasattr(db_user, 'register_at') or not db_user.register_at:
+                    db_user.register_at = datetime.now()
+                    db.commit()
+                    db.refresh(db_user)
                 
                 user_dict = {
                     "id": db_user.id,
@@ -458,7 +472,24 @@ class AuthService:
             # 检查手机号是否已注册
             existing_user = get_user_by_phone_func(db, phone)
             if existing_user:
-                raise ValueError("手机号已注册")
+                # 如果用户已存在但没有注册时间，补充注册时间
+                if not hasattr(existing_user, 'register_at') or not existing_user.register_at:
+                    existing_user.register_at = datetime.now()
+                    db.commit()
+                    db.refresh(existing_user)
+                # 生成token并返回，不抛出异常
+                token = AuthService.create_token(str(existing_user.id))
+                return {
+                    "token": token,
+                    "expiresIn": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                    "isNewUser": False,
+                    "userInfo": {
+                        "id": existing_user.id,
+                        "nickName": existing_user.nick_name,
+                        "avatarUrl": existing_user.avatar_url,
+                        "gender": existing_user.gender
+                    }
+                }
             
             # 创建新用户
             user_id = str(uuid.uuid4())
