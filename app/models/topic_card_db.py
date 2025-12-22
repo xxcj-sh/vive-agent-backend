@@ -58,7 +58,7 @@ class UserCardTopicRelation(Base):
     __tablename__ = "user_card_topic_relations"
 
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    user_card_id = Column(String(36), ForeignKey("user_cards.id"), index=True, nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
     topic_card_id = Column(String(36), ForeignKey("topic_cards.id"), index=True, nullable=False)
     relation_type = Column(String(20), nullable=False, comment="关系类型: created(创建), interested(感兴趣)")
     is_active = Column(Integer, default=1, comment="是否激活")
@@ -67,7 +67,7 @@ class UserCardTopicRelation(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # 关系
-    user_card = relationship("UserCard", back_populates="topic_relations")
+    user = relationship("User")
     topic_card = relationship("TopicCard", back_populates="user_card_relations")
 
 class TopicOpinionSummary(Base):

@@ -56,10 +56,10 @@ class VoteService:
                 )
             self.db.add(option)
         
-        # 创建用户卡片关联
-        if vote_data.get("user_card_id"):
+        # 创建用户关联
+        if vote_data.get("user_id"):
             relation = UserCardVoteRelation(
-                user_card_id=vote_data["user_card_id"],
+                user_id=vote_data["user_id"],
                 vote_card_id=vote_card.id,
                 relation_type="created"
             )
@@ -176,25 +176,19 @@ class VoteService:
         # 更新投票卡片总投票数（加上新的投票数）
         vote_card.total_votes += 1
         
-        # 创建用户卡片关联（如果存在用户卡片）
-        user_card = self.db.query(UserCard).filter(
-            UserCard.user_id == user_id,
-            UserCard.is_deleted == 0
+        # 创建用户关联
+        existing_relation = self.db.query(UserCardVoteRelation).filter(
+            UserCardVoteRelation.user_id == user_id,
+            UserCardVoteRelation.vote_card_id == vote_card_id
         ).first()
         
-        if user_card:
-            existing_relation = self.db.query(UserCardVoteRelation).filter(
-                UserCardVoteRelation.user_card_id == user_card.id,
-                UserCardVoteRelation.vote_card_id == vote_card_id
-            ).first()
-            
-            if not existing_relation:
-                relation = UserCardVoteRelation(
-                    user_card_id=user_card.id,
-                    vote_card_id=vote_card_id,
-                    relation_type="participated"
-                )
-                self.db.add(relation)
+        if not existing_relation:
+            relation = UserCardVoteRelation(
+                user_id=user_id,
+                vote_card_id=vote_card_id,
+                relation_type="participated"
+            )
+            self.db.add(relation)
         
         self.db.commit()
         return {

@@ -30,7 +30,7 @@ class UserCard(Base):
     
     # 关系
     user = relationship("User", back_populates="cards")
-    topic_relations = relationship("UserCardTopicRelation", back_populates="user_card", cascade="all, delete-orphan")
+    # topic_relations = relationship("UserCardTopicRelation", back_populates="user_card", cascade="all, delete-orphan")
     vote_relations = relationship("UserCardVoteRelation", back_populates="user_card", cascade="all, delete-orphan")
     
     def to_dict(self, include_private=False):

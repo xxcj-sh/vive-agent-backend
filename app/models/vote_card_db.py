@@ -97,7 +97,7 @@ class UserCardVoteRelation(Base):
     __tablename__ = "user_card_vote_relations"
 
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    user_card_id = Column(String(36), ForeignKey("user_cards.id"), index=True, nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
     vote_card_id = Column(String(36), ForeignKey("vote_cards.id"), index=True, nullable=False)
     relation_type = Column(String(20), nullable=False, comment="关系类型: created(创建), participated(参与)")
     is_active = Column(Integer, default=1, comment="是否激活")
@@ -106,5 +106,5 @@ class UserCardVoteRelation(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # 关系
-    user_card = relationship("UserCard", back_populates="vote_relations")
+    user = relationship("User")
     vote_card = relationship("VoteCard", back_populates="user_card_relations")

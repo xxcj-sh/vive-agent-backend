@@ -29,7 +29,6 @@ class VoteCardCreate(BaseModel):
     start_time: Optional[datetime] = Field(None, description="投票开始时间")
     end_time: Optional[datetime] = Field(None, description="投票结束时间")
     vote_options: List[VoteOptionCreate] = Field(..., description="投票选项列表")
-    user_card_id: Optional[str] = Field(None, description="用户卡片ID")
 
 class VoteOptionResponse(BaseModel):
     id: str
