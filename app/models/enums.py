@@ -468,36 +468,13 @@ class Gender(int, enum.Enum):
 
 class SceneType(str, enum.Enum):
     """场景类型枚举 - 统一所有场景定义"""
-    HOUSING = "housing"
-    DATING = "dating"
-    ACTIVITY = "activity"
-    BUSINESS = "business"
     SOCIAL = "social"
 
 class UserRoleType(str, enum.Enum):
     """用户角色类型枚举 - 完整格式"""
-    # 房源场景
-    HOUSING_SEEKER = "housing_seeker"
-    HOUSING_PROVIDER = "housing_provider"
-    
-    # 交友场景
-    DATING_SEEKER = "dating_seeker"
-    DATING_PROVIDER = "dating_provider"
-    
-    # 活动场景
-    ACTIVITY_ORGANIZER = "activity_organizer"
-    ACTIVITY_PARTICIPANT = "activity_participant"
-    
-    # 商务场景
-    BUSINESS_SEEKER = "business_seeker"
-    BUSINESS_PROVIDER = "business_provider"
-
     # 社交场景
-    SOCIAL_BUSINESS = "social_business"
-    SOCIAL_CAREER = "social_career"
-    SOCIAL_INTEREST = "social_interest"
-    SOCIAL_DATING = "social_dating"
     SOCIAL_BASIC = "social_basic"
+    SOCIAL_ASSISTANT = "social_assistant"
     
 
 class SimplifiedRole(str, enum.Enum):
@@ -512,27 +489,14 @@ class RoleMapping:
     
     # 场景到角色的映射
     SCENE_ROLES = {
-        SceneType.HOUSING: [UserRoleType.HOUSING_SEEKER, UserRoleType.HOUSING_PROVIDER],
-        SceneType.DATING: [UserRoleType.DATING_SEEKER, UserRoleType.DATING_PROVIDER],
-        SceneType.ACTIVITY: [UserRoleType.ACTIVITY_ORGANIZER, UserRoleType.ACTIVITY_PARTICIPANT],
-        SceneType.BUSINESS: [UserRoleType.BUSINESS_SEEKER, UserRoleType.BUSINESS_PROVIDER],
-        SceneType.SOCIAL: [UserRoleType.SOCIAL_BUSINESS, UserRoleType.SOCIAL_CAREER, UserRoleType.SOCIAL_INTEREST, UserRoleType.SOCIAL_DATING]
+        SceneType.SOCIAL: [UserRoleType.SOCIAL_BASIC]
     }
     
     # 简化角色到完整角色的映射
-    SIMPLIFIED_TO_FULL = {
-        (SceneType.HOUSING, SimplifiedRole.SEEKER): UserRoleType.HOUSING_SEEKER,
-        (SceneType.HOUSING, SimplifiedRole.PROVIDER): UserRoleType.HOUSING_PROVIDER,
-        (SceneType.DATING, SimplifiedRole.SEEKER): UserRoleType.DATING_SEEKER,
-        (SceneType.DATING, SimplifiedRole.PROVIDER): UserRoleType.DATING_PROVIDER,
-        (SceneType.ACTIVITY, SimplifiedRole.ORGANIZER): UserRoleType.ACTIVITY_ORGANIZER,
-        (SceneType.ACTIVITY, SimplifiedRole.PARTICIPANT): UserRoleType.ACTIVITY_PARTICIPANT,
-        (SceneType.BUSINESS, SimplifiedRole.SEEKER): UserRoleType.BUSINESS_SEEKER,
-        (SceneType.BUSINESS, SimplifiedRole.PROVIDER): UserRoleType.BUSINESS_PROVIDER,
-    }
+    SIMPLIFIED_TO_FULL = {}
     
     # 反向映射
-    FULL_TO_SIMPLIFIED = {v: k[1] for k, v in SIMPLIFIED_TO_FULL.items()}
+    FULL_TO_SIMPLIFIED = {}
     
     @classmethod
     def get_full_role(cls, scene_type: str, simplified_role: str) -> str:
@@ -552,16 +516,7 @@ class RoleMapping:
     @classmethod
     def get_target_role(cls, current_role: str) -> str:
         """根据当前角色获取匹配目标角色"""
-        role_mapping = {
-            UserRoleType.HOUSING_SEEKER: UserRoleType.HOUSING_PROVIDER,
-            UserRoleType.HOUSING_PROVIDER: UserRoleType.HOUSING_SEEKER,
-            UserRoleType.DATING_SEEKER: UserRoleType.DATING_PROVIDER,
-            UserRoleType.DATING_PROVIDER: UserRoleType.DATING_SEEKER,
-            UserRoleType.ACTIVITY_ORGANIZER: UserRoleType.ACTIVITY_PARTICIPANT,
-            UserRoleType.ACTIVITY_PARTICIPANT: UserRoleType.ACTIVITY_ORGANIZER,
-            UserRoleType.BUSINESS_SEEKER: UserRoleType.BUSINESS_PROVIDER,
-            UserRoleType.BUSINESS_PROVIDER: UserRoleType.BUSINESS_SEEKER,
-        }
+        role_mapping = {}
         return role_mapping.get(current_role, current_role)
 
 # 枚举值获取工具函数

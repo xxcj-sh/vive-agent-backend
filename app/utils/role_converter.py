@@ -15,7 +15,7 @@ class RoleConverter:
         将前端简化角色转换为后端完整角色
         
         Args:
-            scene_type: 场景类型 (housing/dating/activity/business)
+            scene_type: 场景类型 (social)
             simplified_role: 简化角色 (seeker/provider/organizer/participant)
             
         Returns:
@@ -94,6 +94,6 @@ class RoleConverter:
         if "_" in full_role:
             scene = full_role.split("_")[0]
             # 验证场景是否有效
-            if scene in ["housing", "dating", "activity", "business"]:
+            if scene in ["social"]:
                 return scene
         return None
