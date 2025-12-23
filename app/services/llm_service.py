@@ -1433,9 +1433,9 @@ class LLMService:
         
         聊天ID: {chat_id}
         用户消息: {message}
-        卡片简介: {card_bio}
-        卡片偏好: {json.dumps(card_preferences, ensure_ascii=False)}
-        聊天历史: {json.dumps(chat_history[-5:], ensure_ascii=False) if chat_history else '无历史记录'}
+        你的身份简介: {card_bio}
+        你的偏好: {json.dumps(card_preferences, ensure_ascii=False)}
+        你们的聊天历史: {json.dumps(chat_history[-5:], ensure_ascii=False) if chat_history else '无历史记录'}
         {f'卡片主人性格: {personality}' if personality else ''}
         
         要求:
