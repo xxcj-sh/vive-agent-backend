@@ -10,52 +10,51 @@ import uuid
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))  # 改为String类型支持字符串ID
+    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     phone = Column(String(20), unique=True, index=True, nullable=True)
     hashed_password = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
     
-    # 扩展用户字段以支持更多信息
-    nick_name = Column(String(100), nullable=True)  # 昵称
-    avatar_url = Column(String(500), nullable=True)  # 头像URL
-    gender = Column(Integer, nullable=True)  # 性别 1-男 2-女
-    age = Column(Integer, nullable=True)  # 年龄
-    bio = Column(Text, nullable=True)  # 个人简介
+    nick_name = Column(String(100), nullable=True)
+    avatar_url = Column(String(500), nullable=True)
+    gender = Column(Integer, nullable=True)
+    age = Column(Integer, nullable=True)
+    bio = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    occupation = Column(String(100), nullable=True)  # 职业
-    location = Column(JSON, nullable=True)  # 位置（JSON格式存储数组）
-    education = Column(String(100), nullable=True)  # 教育
+    occupation = Column(String(100), nullable=True)
+    location = Column(JSON, nullable=True)
+    education = Column(String(100), nullable=True)
     
-    # 新增字段
-    interests = Column(JSON, nullable=True)  # 兴趣爱好（JSON格式存储数组）
-    wechat = Column(String(100), nullable=True)  # 微信号
-    wechat_open_id = Column(String(100), nullable=True)  # 微信openid
-    email = Column(String(255), nullable=True)  # 邮箱
-    status = Column(String(20), default='pending')  # 用户状态: pending(待激活), active(正常), suspended(暂停), deleted(已删除)
-    last_login = Column(DateTime(timezone=True), nullable=True)  # 最后登录时间
-    level = Column(Integer, default=1)  # 用户等级
-    points = Column(Integer, default=0)  # 积分
-    register_at = Column(DateTime(timezone=True), nullable=True, server_default=func.now())  # 用户注册成功时间
+    interests = Column(JSON, nullable=True)
+    wechat = Column(String(100), nullable=True)
+    wechat_open_id = Column(String(100), nullable=True)
+    email = Column(String(255), nullable=True)
+    
+    xiaohongshu_id = Column(String(100), nullable=True)
+    douyin_id = Column(String(100), nullable=True)
+    wechat_official_account = Column(String(100), nullable=True)
+    xiaoyuzhou_id = Column(String(100), nullable=True)
+    
+    status = Column(String(20), default='pending')
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    level = Column(Integer, default=1)
+    points = Column(Integer, default=0)
+    register_at = Column(DateTime(timezone=True), nullable=True, server_default=func.now())
         
-    # 关系
     cards = relationship("UserCard", back_populates="user")
     topic_cards = relationship("TopicCard", back_populates="user")
     topic_discussions_as_participant = relationship("TopicDiscussion", foreign_keys="TopicDiscussion.participant_id", back_populates="participant")
     topic_discussions_as_host = relationship("TopicDiscussion", foreign_keys="TopicDiscussion.host_id", back_populates="host")
     
-    
-    # 投票相关关系
     vote_cards = relationship("VoteCard", back_populates="user")
     vote_records = relationship("VoteRecord", back_populates="user")
     vote_discussions_as_participant = relationship("VoteDiscussion", foreign_keys="VoteDiscussion.participant_id", back_populates="participant")
     vote_discussions_as_host = relationship("VoteDiscussion", foreign_keys="VoteDiscussion.host_id", back_populates="host")
     vote_relations = relationship("UserCardVoteRelation", back_populates="user", cascade="all, delete-orphan")
     
-    # 话题观点总结相关关系
     topic_opinion_summaries = relationship("TopicOpinionSummary", back_populates="user", cascade="all, delete-orphan")
 
-# Pydantic 模型用于API
 class UserBase(BaseModel):
     phone: Optional[str] = None
     nick_name: Optional[str] = None
@@ -65,13 +64,17 @@ class UserBase(BaseModel):
     age: Optional[int] = None
     bio: Optional[str] = None
     occupation: Optional[str] = None
-    location: Optional[str] = None  # JSON字符串
+    location: Optional[str] = None
     education: Optional[str] = None
-    interests: Optional[str] = None  # JSON字符串
+    interests: Optional[str] = None
     wechat: Optional[str] = None
     email: Optional[str] = None
     status: Optional[str] = None
     register_at: Optional[datetime] = None
+    xiaohongshu_id: Optional[str] = None
+    douyin_id: Optional[str] = None
+    wechat_official_account: Optional[str] = None
+    xiaoyuzhou_id: Optional[str] = None
 
 class UserCreate(UserBase):
     phone: str
@@ -98,6 +101,10 @@ class UserResponse(BaseModel):
     register_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+    xiaohongshu_id: Optional[str] = None
+    douyin_id: Optional[str] = None
+    wechat_official_account: Optional[str] = None
+    xiaoyuzhou_id: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -118,10 +125,14 @@ class UserProfileUpdate(BaseModel):
     age: Optional[int] = None
     bio: Optional[str] = None
     occupation: Optional[str] = None
-    location: Optional[str] = None  # JSON字符串
+    location: Optional[str] = None
     education: Optional[str] = None
-    interests: Optional[str] = None  # JSON字符串
+    interests: Optional[str] = None
     wechat: Optional[str] = None
     email: Optional[str] = None
     status: Optional[str] = None
     register_at: Optional[datetime] = None
+    xiaohongshu_id: Optional[str] = None
+    douyin_id: Optional[str] = None
+    wechat_official_account: Optional[str] = None
+    xiaoyuzhou_id: Optional[str] = None
