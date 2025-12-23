@@ -94,9 +94,9 @@ class ProfileUpdate(BaseModel):
     gender: Optional[int] = None
     age: Optional[int] = None
     occupation: Optional[str] = None
-    location: Optional[Any] = None  # 支持字符串或数组格式
+    location: Optional[Any] = None
     bio: Optional[str] = None
-    interests: Optional[List[str]] = None  # 明确指定为字符串列表
+    interests: Optional[List[str]] = None
     preferences: Optional[Dict[str, Any]] = None
     phone: Optional[str] = None
     education: Optional[str] = None
@@ -106,6 +106,18 @@ class ProfileUpdate(BaseModel):
     level: Optional[int] = None
     points: Optional[int] = None
     lastLogin: Optional[datetime] = None
+    
+    # 社交媒体账号
+    xiaohongshuId: Optional[str] = None
+    douyinId: Optional[str] = None
+    wechatOfficialAccount: Optional[str] = None
+    xiaoyuzhouId: Optional[str] = None
+    
+    # 下划线命名
+    xiaohongshu_id: Optional[str] = None
+    douyin_id: Optional[str] = None
+    wechat_official_account: Optional[str] = None
+    xiaoyuzhou_id: Optional[str] = None
     
     class Config:
         # 允许额外字段，提高兼容性
@@ -249,19 +261,24 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
     
     # 数据预处理
     try:
-        # 字段名统一处理：将下划线命名转换为驼峰命名
+        # 字段名统一处理：将驼峰命名转换为下划线命名
+        # 优先使用下划线命名的值，如果下划线版本已存在则保留
         field_mapping = {
-            'nick_name': 'nickName',
-            'avatar_url': 'avatarUrl', 
-            'match_type': 'matchType',
-            'user_role': 'userRole'
+            'xiaohongshuId': 'xiaohongshu_id',
+            'douyinId': 'douyin_id',
+            'wechatOfficialAccount': 'wechat_official_account',
+            'xiaoyuzhouId': 'xiaoyuzhou_id'
         }
         
-        # 应用字段映射
-        for std_field, new_field in field_mapping.items():
-            if new_field in update_dict:
-                # 如果同时存在两种命名，优先使用下划线命名的值
-                update_dict[std_field] = update_dict.pop(new_field)
+        # 应用字段映射：驼峰 -> 下划线
+        for camel_field, snake_field in field_mapping.items():
+            if camel_field in update_dict:
+                # 如果下划线版本不存在，才使用驼峰版本的值
+                if snake_field not in update_dict:
+                    update_dict[snake_field] = update_dict.pop(camel_field)
+                else:
+                    # 下划线版本已存在，移除驼峰版本
+                    update_dict.pop(camel_field, None)
         
         # 处理location字段：支持字符串和数组格式
         if "location" in update_dict:
