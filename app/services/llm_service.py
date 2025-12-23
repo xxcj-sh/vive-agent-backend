@@ -1438,7 +1438,6 @@ class LLMService:
         
         请直接给出回复内容:
         """
-        print('prompt:', prompt)
         # 创建LLM请求
         llm_request = LLMRequest(
             user_id=user_id,
