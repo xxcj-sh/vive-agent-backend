@@ -55,7 +55,12 @@ def get_card_details(
             "location": getattr(user, 'location', None) if user else None,
             "education": getattr(user, 'education', None) if user else None,
             "interests": getattr(user, 'interests', []) if user else [],
-            "avatar_url": user.avatar_url if user else None
+            "avatar_url": user.avatar_url if user else None,
+            # 社交媒体账号信息
+            "xiaohongshu_id": getattr(user, 'xiaohongshu_id', None) if user else None,
+            "douyin_id": getattr(user, 'douyin_id', None) if user else None,
+            "wechat_official_account": getattr(user, 'wechat_official_account', None) if user else None,
+            "xiaoyuzhou_id": getattr(user, 'xiaoyuzhou_id', None) if user else None
         } if user else None
     }
     
