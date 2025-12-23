@@ -12,6 +12,7 @@ import logging
 from app.database import get_db
 from app.services.auth import auth_service
 from app.services.llm_service import LLMService
+from app.services.user_card_service import UserCardService
 from app.models.llm_schemas import ConversationSuggestionRequest, SimpleChatStreamRequest, ActivityInfoExtractionRequest, ActivityInfoExtractionResponse
 
 logger = logging.getLogger(__name__)
@@ -236,7 +237,6 @@ async def generate_simple_chat_stream(
                 if chunk["type"] == "text":
                     
                     content = chunk["content"]
-                    print("content:", content)
                     # 直接发送纯文本数据，格式更简洁
                     data = {
                         "type": "text", 
@@ -535,6 +535,25 @@ async def process_scene_stream(
     params = request.get("params", {})
     provider = request.get("provider", settings.LLM_PROVIDER)
     model_name = request.get("model_name", settings.LLM_MODEL)
+    card_id = params.get("context", {}).get("cardId", "")
+    
+    if card_id:
+        user_card = UserCardService.get_card_by_id(db, card_id)
+        if user_card:
+            import json
+            try:
+                profile_data = json.loads(user_card.profile_data) if user_card.profile_data else {}
+            except (json.JSONDecodeError, TypeError):
+                profile_data = {}
+            
+            params["character_profile"] = {
+                "display_name": user_card.display_name,
+                "bio": user_card.bio or "",
+                "role_type": user_card.role_type,
+                "scene_type": user_card.scene_type,
+                "profile_data": profile_data
+            }
+            print('character_profile:', params["character_profile"])
     
     if not scene_config_key:
         raise HTTPException(status_code=400, detail="scene_config_key不能为空")

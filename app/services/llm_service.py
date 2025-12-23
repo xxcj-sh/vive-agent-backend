@@ -593,7 +593,7 @@ class LLMService:
         Args:
             user_id: 用户ID
             scene_config_key: 场景配置键,用于区分不同的LLM使用场景
-            params: 场景特定的参数
+            params: 包含用户输入和上下文信息
             provider: LLM服务提供商
             model_name: 模型名称
             
@@ -828,26 +828,17 @@ class LLMService:
     ):
         """处理简单聊天场景 - 流式"""
         message = params.get("message", "")
-        conversation_history = params.get("conversation_history", [])
-        chat_type = params.get("chat_type", "general")  # general, topic, sports
-        
-        system_prompts = {
-            "general": "你是一个友好的AI助手,请自然地和用户对话.",
-            "topic": "你是一个话题讨论助手,请帮助用户深入讨论话题.",
-            "sports": "你是一个体育话题专家,请和用户讨论体育相关话题."
-        }
-        
+        conversation_history = params.get("conversation_history", [])        
         conversation_context = json.dumps(conversation_history, ensure_ascii=False)
-        prompt = f"""
-        {system_prompts.get(chat_type, system_prompts['general'])}
-        
+        prompt = f"""        
+        你的人物设定：{params.get("character_profile", "")}
+
         对话历史:{conversation_context}
         
         用户消息:{message}
         
-        请给出自然,相关的回复.
+        请结合人物设定，给出自然，像人类一样的拥有情感随机性的回复.
         """
-        
         request = LLMRequest(
             user_id=user_id,
             task_type=LLMTaskType.QUESTION_ANSWERING,
@@ -1447,7 +1438,7 @@ class LLMService:
         
         请直接给出回复内容:
         """
-
+        print('prompt:', prompt)
         # 创建LLM请求
         llm_request = LLMRequest(
             user_id=user_id,
