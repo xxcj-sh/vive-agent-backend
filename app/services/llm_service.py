@@ -215,7 +215,6 @@ class LLMService:
             {"role": "system", "content": self._get_system_prompt(request.task_type)},
             {"role": "user", "content": request.prompt}
         ]
-
         # 流式调用
         stream = await client.chat.completions.create(
             model=model_name,
@@ -382,9 +381,8 @@ class LLMService:
             """,
 
         LLMTaskType.QUESTION_ANSWERING: """
-            你是一个智能助手,专门帮助用户解答关于交友,租房,
-            活动等方面的问题.请基于提供的上下文信息,
-            给出准确,有用的回答.请用中文回复.
+            请基于提供的上下文信息,
+            给出准确,有用的回答.
             """,
         LLMTaskType.ACTIVITY_INFO_EXTRACTION: """
             你是一个专业的信息提取助手.请从对话历史中提取
@@ -783,18 +781,36 @@ class LLMService:
     ):
         """处理简单聊天场景 - 非流式"""
         message = params.get("message", "")
-        conversation_history = params.get("conversation_history", [])
-        chat_type = params.get("chat_type", "general")  # general, topic, sports
         
-        system_prompts = {
-            "general": "你是一个友好的AI助手,请自然地和用户对话.",
-            "topic": "你是一个话题讨论助手,请帮助用户深入讨论话题.",
-            "sports": "你是一个体育话题专家,请和用户讨论体育相关话题."
-        }
+        # 处理匿名模式
+        context = params.get("context", {})
+        is_anonymous = context.get("isAnonymous", False)
+        chat_type = context.get("chatType", "general")
+        
+        # 获取对话历史（兼容旧格式和新格式）
+        conversation_history = params.get("conversation_history", [])
+        if not conversation_history and context:
+            # 尝试从上下文中获取历史记录
+            conversation_history = context.get("conversationHistory", [])
         
         conversation_context = json.dumps(conversation_history, ensure_ascii=False)
+        
+        # 匿名模式使用特殊的人物设定
+        if is_anonymous:
+            system_prompt = "你正在与匿名用户对话。请保持专业、友善的态度，不要询问或假设用户的个人身份信息。"
+        else:
+            system_prompts = {
+                "general": "请自然地和用户对话.",
+                "topic": "请帮助用户深入讨论话题.",
+                "sports": "请和用户讨论体育相关话题."
+            }
+            system_prompt = system_prompts.get(chat_type, system_prompts['general'])
+        # 匿名模式使用特殊的人物设定
+        character_profile = params.get("character_profile", "")   
         prompt = f"""
-        {system_prompts.get(chat_type, system_prompts['general'])}
+        你的人物设定：{character_profile}
+
+        {system_prompt}
         
         对话历史:{conversation_context}
         
@@ -802,7 +818,7 @@ class LLMService:
         
         请给出自然,相关的回复.
         """
-        
+
         request = LLMRequest(
             user_id=user_id,
             task_type=LLMTaskType.QUESTION_ANSWERING,
@@ -828,10 +844,36 @@ class LLMService:
     ):
         """处理简单聊天场景 - 流式"""
         message = params.get("message", "")
-        conversation_history = params.get("conversation_history", [])        
+        
+        # 处理匿名模式
+        context = params.get("context", {})
+        is_anonymous = context.get("isAnonymous", False)
+        chat_type = context.get("chatType", "general")
+        # 匿名模式使用特殊的人物设定
+        if is_anonymous:
+            system_prompt = "你正在与匿名用户对话。请保持专业、友善的态度，不要询问或假设用户的个人身份信息。"
+        else:
+            system_prompts = {
+                "general": "请自然地和用户对话.",
+                "topic": "请帮助用户深入讨论话题.",
+                "sports": "请和用户讨论体育相关话题."
+            }
+            system_prompt = system_prompts.get(chat_type, system_prompts['general'])
+        # 获取对话历史（兼容旧格式和新格式）
+        conversation_history = params.get("conversation_history", [])
+        if not conversation_history and context:
+            # 尝试从上下文中获取历史记录
+            conversation_history = context.get("conversationHistory", [])
+        
         conversation_context = json.dumps(conversation_history, ensure_ascii=False)
+        
+        # 匿名模式使用特殊的人物设定
+        character_profile = params.get("character_profile", "")
+        
         prompt = f"""        
-        你的人物设定：{params.get("character_profile", "")}
+        你的人物设定：{character_profile}
+
+        {system_prompt}
 
         对话历史:{conversation_context}
         
@@ -1380,7 +1422,6 @@ class LLMService:
             task_type=LLMTaskType.CONVERSATION_SUGGESTION,
             prompt=prompt
         )
-        print("stream calling llm")
         # 流式调用LLM API
         return self.call_llm_api_stream(llm_request, provider, model_name)
 

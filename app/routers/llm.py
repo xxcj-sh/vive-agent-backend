@@ -536,7 +536,6 @@ async def process_scene_stream(
     provider = request.get("provider", settings.LLM_PROVIDER)
     model_name = request.get("model_name", settings.LLM_MODEL)
     card_id = params.get("context", {}).get("cardId", "")
-    
     if card_id:
         user_card = UserCardService.get_card_by_id(db, card_id)
         if user_card:
@@ -553,7 +552,6 @@ async def process_scene_stream(
                 "scene_type": user_card.scene_type,
                 "profile_data": profile_data
             }
-            print('character_profile:', params["character_profile"])
     
     if not scene_config_key:
         raise HTTPException(status_code=400, detail="scene_config_key不能为空")
@@ -575,7 +573,6 @@ async def process_scene_stream(
                 provider=provider,
                 model_name=model_name
             )
-            
             # 流式发送响应内容
             async for chunk in stream_response:
                 if chunk["type"] == "text":
