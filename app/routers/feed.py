@@ -60,7 +60,8 @@ async def get_feed_cards(
                         "has_liked": False,  # 默认False，因为TopicCardResponse没有has_liked属性
                         "images": [card.cover_image] if card.cover_image else [],
                         "is_liked": False,  # 默认False，因为TopicCardResponse没有has_liked属性
-                        "sceneType": "topic"
+                        "sceneType": "topic",
+                        "is_anonymous": card.is_anonymous or 0
                     }
                     all_cards.append(formatted_card)
         
