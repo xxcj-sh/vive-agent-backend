@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 from typing import List, Optional, Dict, Any
@@ -276,9 +277,49 @@ class TopicCardService:
             if topic_card.visibility == "private" and topic_card.user_id != user_id:
                 return None
             
-            # 增加浏览次数
-            topic_card.view_count += 1
-            db.commit()
+            # 增加浏览次数（带防重复机制）
+            # 防止短时间内重复计数，提升用户体验
+            should_increment = True
+            if user_id:
+                # 如果有用户ID，使用简单的会话级防重机制
+                
+                
+                # 使用类变量作为简单的缓存（适用于单实例部署）
+                if not hasattr(TopicCardService, '_view_cache'):
+                    TopicCardService._view_cache = {}
+                
+                cache_key = f"{card_id}:{user_id}"
+                current_time = datetime.utcnow()
+                
+                if cache_key in TopicCardService._view_cache:
+                    last_view_time = TopicCardService._view_cache[cache_key]
+                    time_diff = current_time - last_view_time
+                    
+                    # 如果5分钟内已经浏览过，不增加计数
+                    if time_diff.total_seconds() < 300:  # 5分钟 = 300秒
+                        should_increment = False
+                    else:
+                        # 更新缓存时间
+                        TopicCardService._view_cache[cache_key] = current_time
+                else:
+                    # 记录新的浏览时间
+                    TopicCardService._view_cache[cache_key] = current_time
+                    
+                # 定期清理缓存，避免内存泄漏（每100次操作清理一次）
+                if len(TopicCardService._view_cache) > 1000:
+                    # 清理超过10分钟的旧记录
+                    ten_minutes_ago = current_time - timedelta(minutes=10)
+                    TopicCardService._view_cache = {
+                        k: v for k, v in TopicCardService._view_cache.items() 
+                        if v > ten_minutes_ago
+                    }
+            else:
+                # 对于未登录用户，每次访问都增加计数（业务决策）
+                should_increment = True
+            
+            if should_increment:
+                topic_card.view_count += 1
+                db.commit()
             
             # 初始化邀请者信息（话题邀请功能已移除）
             inviter_nickname = None
