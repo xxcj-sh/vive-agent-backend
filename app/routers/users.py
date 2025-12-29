@@ -192,7 +192,6 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         # 构建 SOCIAL_BASIC 卡片数据
         social_basic_card = CardCreate(
             role_type=UserRoleType.SOCIAL_BASIC.value,
-            scene_type=SceneType.SOCIAL.value,
             display_name=new_user.nick_name or f"用户{new_user.id[:8]}",
             avatar_url=new_user.avatar_url or "https://picsum.photos/200/200?random=default",
             bio=new_user.bio or "",
@@ -341,14 +340,13 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
         
         if has_basic_info:
             # 检查用户是否已存在 SOCIAL_BASIC 卡片
-            existing_card = UserCardService.get_user_card_by_role(db, user_id, SceneType.SOCIAL.value, UserRoleType.SOCIAL_BASIC)
+            existing_card = UserCardService.get_user_card_by_role(db, user_id, UserRoleType.SOCIAL_BASIC.value)
             
             if not existing_card:
                 try:
                     # 构建 SOCIAL_BASIC 卡片数据
                     social_basic_card = CardCreate(
                         role_type=UserRoleType.SOCIAL_BASIC.value,
-                        scene_type=SceneType.SOCIAL.value,
                         display_name=updated_user.nick_name or f"用户{updated_user.id[:8]}",
                         avatar_url=updated_user.avatar_url or "https://picsum.photos/200/200?random=default",
                         bio=updated_user.bio or "",
@@ -544,13 +542,12 @@ def get_current_user_info(
         }
     }
 
-@router.get("/me/cards/{scene_type}")
+@router.get("/me/cards")
 def get_user_cards_by_scene(
-    scene_type: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取当前用户在特定场景下的角色资料"""
+    """获取当前用户的所有角色资料"""
     if not current_user:
         raise HTTPException(status_code=401, detail="用户未认证")
     
@@ -558,29 +555,27 @@ def get_user_cards_by_scene(
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
     
-    cards = UserCardService.get_cards_by_scene(db, user_id, scene_type)
+    cards = UserCardService.get_cards_by_scene(db, user_id)
     return {
         "code": 0,
         "message": "success",
         "data": {
-            "scene_type": scene_type,
             "cards": cards
         }
     }
 
-@router.get("/me/cards/{scene_type}/{role_type}")
+@router.get("/me/cards/{role_type}")
 def get_current_user_profile_by_role(
-    scene_type: str,
     role_type: str,
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取当前用户在特定场景和角色下的资料"""
+    """获取当前用户在特定角色下的资料"""
     user_id = current_user.get("id")
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
     
-    card = UserCardService.get_user_card_by_role(db, user_id, scene_type, role_type)
+    card = UserCardService.get_user_card_by_role(db, user_id, role_type)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     
@@ -604,14 +599,14 @@ def create_user_profile(
     if not user_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
     
-    # 检查是否已存在相同场景和角色的资料
+    # 检查是否已存在相同角色的资料
     existing_card = UserCardService.get_user_card_by_role(
-        db, user_id, profile_data.scene_type, profile_data.role_type
+        db, user_id, profile_data.role_type
     )
     if existing_card:
         raise HTTPException(
             status_code=400, 
-            detail=f"Card for {profile_data.scene_type}.{profile_data.role_type} already exists"
+            detail=f"Card for {profile_data.role_type} already exists"
         )
     
     return UserCardService.create_card(db, user_id, profile_data)
@@ -691,16 +686,15 @@ def toggle_user_profile_status(
         "data": updated_card
     }
 
-@router.get("/{user_id}/cards/{scene_type}/{role_type}")
+@router.get("/{user_id}/cards/{role_type}")
 def get_user_profile_by_role(
     user_id: str,
-    scene_type: str,
     role_type: str,
     db: Session = Depends(get_db)
 ):
-    """获取指定用户在特定场景和角色下的资料"""
+    """获取指定用户在特定角色下的资料"""
     # 首先尝试作为用户ID查询
-    card = UserCardService.get_user_card_by_role(db, user_id, scene_type, role_type)
+    card = UserCardService.get_user_card_by_role(db, user_id, role_type)
     
     # 如果没找到，检查user_id是否实际上是一个card_id
     if not card:
@@ -709,15 +703,15 @@ def get_user_profile_by_role(
         if card_by_id:
             # 获取完整的用户资料信息
             full_card = UserCardService.get_user_card_by_role(
-                db, str(card_by_id.user_id), str(card_by_id.scene_type), str(card_by_id.role_type)
+                db, str(card_by_id.user_id), str(card_by_id.role_type)
             )
             if full_card:
                 # 返回找到的card，说明实际的类型
                 return {
                     "code": 0,
-                    "message": f"Found card by ID: {card_by_id.scene_type}.{card_by_id.role_type}",
-                    "requested": {"scene_type": scene_type, "role_type": role_type},
-                    "actual": {"scene_type": card_by_id.scene_type, "role_type": card_by_id.role_type},
+                    "message": f"Found card by ID: {card_by_id.role_type}",
+                    "requested": {"role_type": role_type},
+                    "actual": {"role_type": card_by_id.role_type},
                     "data": full_card
                 }
     

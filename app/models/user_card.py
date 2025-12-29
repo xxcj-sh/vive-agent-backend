@@ -16,7 +16,6 @@ class CardBase(BaseModel):
 class CardCreate(BaseModel):
     """创建用户角色卡片模型"""
     role_type: str = Field(..., description="角色类型")
-    scene_type: str = Field(..., description="场景类型")
     display_name: str = Field(..., description="显示名称")
     avatar_url: Optional[str] = Field(None, description="头像URL")
     bio: Optional[str] = Field(None, description="个人简介")
@@ -42,7 +41,6 @@ class CardUpdate(BaseModel):
 class Card(CardBase):
     """用户角色卡片响应模型"""
     role_type: str = Field(..., description="角色类型")
-    scene_type: str = Field(..., description="场景类型")
     display_name: str = Field(..., description="显示名称")
     avatar_url: Optional[str] = Field(None, description="卡片封面 URL")
     bio: Optional[str] = Field(None, description="卡片简介")
@@ -86,7 +84,6 @@ class CardsResponse(BaseModel):
     
 class CardsByScene(BaseModel):
     """按场景分组的用户角色卡片"""
-    scene_type: str = Field(..., description="场景类型")
     profiles: List[Card] = Field(..., description="该场景下的卡片信息")
 
 class AllCardsResponse(BaseModel):

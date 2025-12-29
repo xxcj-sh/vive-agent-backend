@@ -149,7 +149,7 @@ async def send_trigger_notification(
             - trigger_user_id: 触发对话的用户ID
             - target_user_id: 目标用户ID（卡片所有者）
             - card_id: 卡片ID
-            - scene_type: 场景类型
+            - role_type: 角色类型
             - trigger_content: 触发内容
             
     Returns:
@@ -162,10 +162,10 @@ async def send_trigger_notification(
         trigger_user_id = request.get("trigger_user_id")
         target_user_id = request.get("target_user_id")
         card_id = request.get("card_id")
-        scene_type = request.get("scene_type")
+        role_type = request.get("role_type")
         trigger_content = request.get("trigger_content", "")
         
-        if not all([trigger_user_id, target_user_id, card_id, scene_type]):
+        if not all([trigger_user_id, target_user_id, card_id, role_type]):
             return BaseResponse(
                 code=1,
                 message="缺少必要参数",
@@ -180,7 +180,7 @@ async def send_trigger_notification(
             "message_data": {
                 "thing1": {"value": "有人触发了您的对话规则"},
                 "thing2": {"value": trigger_content[:20] + "..." if len(trigger_content) > 20 else trigger_content},
-                "thing3": {"value": scene_type},
+                "thing3": {"value": role_type},
                 "time4": {"value": "刚刚"}
             }
         }

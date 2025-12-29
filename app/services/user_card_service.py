@@ -18,7 +18,7 @@ class UserCardService:
     @staticmethod
     def create_card(db: Session, user_id: str, card_data: CardCreate) -> UserCard:
         """创建用户角色卡片"""
-        card_id = f"card_{card_data.scene_type}_{card_data.role_type}_{uuid.uuid4().hex[:8]}"
+        card_id = f"card_{card_data.role_type}_{uuid.uuid4().hex[:8]}"
         
         # 处理 JSON 字段，确保正确序列化
         profile_data = card_data.profile_data
@@ -37,7 +37,6 @@ class UserCardService:
             id=card_id,
             user_id=user_id,
             role_type=card_data.role_type,
-            scene_type=card_data.scene_type,
             display_name=card_data.display_name,
             avatar_url=card_data.avatar_url,
             bio=card_data.bio,
@@ -69,14 +68,13 @@ class UserCardService:
         return db.query(UserCard).filter(UserCard.id == card_id).first()
     
     @staticmethod
-    def get_user_card_by_role(db: Session, user_id: str, scene_type: str, role_type: str) -> Optional[Dict[str, Any]]:
-        """获取用户在特定场景和角色下的卡片，包含基础用户信息"""
+    def get_user_card_by_role(db: Session, user_id: str, role_type: str) -> Optional[Dict[str, Any]]:
+        """获取用户在特定角色下的卡片，包含基础用户信息"""
         
         # 获取用户卡片
         card = db.query(UserCard).filter(
             and_(
                 UserCard.user_id == user_id,
-                UserCard.scene_type == scene_type,
                 UserCard.role_type == role_type,
                 UserCard.is_deleted == 0
             )
@@ -104,7 +102,6 @@ class UserCardService:
             "id": card.id,
             "user_id": card.user_id,
             "role_type": card.role_type,
-            "scene_type": card.scene_type,
             "display_name": card.display_name,
             "avatar_url": card.avatar_url,
             "bio": card.bio or "",
@@ -135,13 +132,10 @@ class UserCardService:
         return result
     
     @staticmethod
-    def get_cards_by_scene(db: Session, user_id: str, scene_type: str) -> List[UserCard]:
-        """获取用户在特定场景下的所有角色卡片"""
+    def get_cards_by_scene(db: Session, user_id: str) -> List[UserCard]:
+        """获取用户的所有角色卡片"""
         return db.query(UserCard).filter(
-            and_(
-                UserCard.user_id == user_id,
-                UserCard.scene_type == scene_type
-            )
+            UserCard.user_id == user_id
         ).order_by(UserCard.created_at.desc()).all()
     
     @staticmethod
@@ -209,7 +203,7 @@ class UserCardService:
         # 按场景分组
         scenes_dict = {}
         for card in active_cards:
-            scene = card.scene_type
+            scene = "default"  # 使用默认值，因为scene_type字段已移除
             if scene not in scenes_dict:
                 scenes_dict[scene] = []
             scenes_dict[scene].append(card)
@@ -235,13 +229,13 @@ class UserCardService:
         # 重新按场景分组处理后的卡片
         scenes_dict_processed = {}
         for card in processed_cards:
-            scene = card.scene_type
+            scene = "default"  # 使用默认值，因为scene_type字段已移除
             if scene not in scenes_dict_processed:
                 scenes_dict_processed[scene] = []
             scenes_dict_processed[scene].append(card)
         
         by_scene = [
-            CardsByScene(scene_type=scene, profiles=cards)
+            CardsByScene(profiles=cards)
             for scene, cards in scenes_dict_processed.items()
         ]
         
@@ -254,17 +248,12 @@ class UserCardService:
         )
     
     @staticmethod
-    def get_available_roles_for_scene(scene_type: str) -> List[str]:
-        """获取特定场景下可用的角色类型"""
-        role_mapping = {
-            "housing": ["housing_seeker", "housing_provider"],
-            "dating": ["dating_seeker"],
-            "activity": ["activity_organizer", "activity_participant"]
-        }
-        return role_mapping.get(scene_type, [])
+    def get_available_roles_for_scene() -> List[str]:
+        """获取可用的角色类型"""
+        return ["housing_seeker", "housing_provider", "dating_seeker", "activity_organizer", "activity_participant"]
     
     @staticmethod
-    def get_public_cards(db: Session, page: int = 1, page_size: int = 10, scene_type: str = None) -> Dict[str, Any]:
+    def get_public_cards(db: Session, page: int = 1, page_size: int = 10) -> Dict[str, Any]:
         """获取公开的卡片列表"""
         from app.models.user_card_db import VISIBILITY_PUBLIC, VISIBILITY_PRIVATE
 
@@ -274,10 +263,6 @@ class UserCardService:
             UserCard.is_deleted == 0,  # 排除已删除的卡片
             UserCard.is_active == 1    # 只查询激活状态的卡片
         )
-        
-        # 如果提供了场景类型，则添加场景类型过滤
-        if scene_type:
-            query = query.filter(UserCard.scene_type == scene_type)
         
         # 获取总记录数
         total_count = query.count()
@@ -320,7 +305,6 @@ class UserCardService:
                 "id": card.id,
                 "user_id": card.user_id,
                 "role_type": card.role_type,
-                "scene_type": card.scene_type,
                 "display_name": card.display_name,
                 "avatar_url": card.avatar_url,
                 "bio": card.bio,
@@ -346,8 +330,8 @@ class UserCardService:
         }
         
     @staticmethod
-    def get_card_template(scene_type: str, role_type: str) -> Dict[str, Any]:
-        """获取特定场景和角色的卡片模板"""
+    def get_card_template(role_type: str) -> Dict[str, Any]:
+        """获取特定角色的卡片模板"""
         templates = {
             "housing": {
                 "housing_seeker": {
@@ -451,10 +435,15 @@ class UserCardService:
             }
         }
         
-        return templates.get(scene_type, {}).get(role_type, {
+        # 查找角色模板（不再按场景分组）
+        for scene_templates in templates.values():
+            if role_type in scene_templates:
+                return scene_templates[role_type]
+        
+        return {
             "profile_data": {},
             "preferences": {}
-        })
+        }
 
     @staticmethod
     def get_user_recent_topics_with_opinion_summaries(

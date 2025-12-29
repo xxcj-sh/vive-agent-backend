@@ -499,9 +499,9 @@ class RoleMapping:
     FULL_TO_SIMPLIFIED = {}
     
     @classmethod
-    def get_full_role(cls, scene_type: str, simplified_role: str) -> str:
-        """根据场景和简化角色获取完整角色"""
-        return cls.SIMPLIFIED_TO_FULL.get((scene_type, simplified_role), simplified_role)
+    def get_full_role(cls, simplified_role: str) -> str:
+        """根据简化角色获取完整角色"""
+        return cls.SIMPLIFIED_TO_FULL.get(("default", simplified_role), simplified_role)
     
     @classmethod
     def get_simplified_role(cls, full_role: str) -> str:
@@ -509,9 +509,12 @@ class RoleMapping:
         return cls.FULL_TO_SIMPLIFIED.get(full_role, full_role)
     
     @classmethod
-    def get_available_roles(cls, scene_type: str) -> list[str]:
-        """获取场景可用的完整角色列表"""
-        return [role.value for role in cls.SCENE_ROLES.get(scene_type, [])]
+    def get_available_roles(cls) -> list[str]:
+        """获取可用的完整角色列表"""
+        all_roles = []
+        for roles in cls.SCENE_ROLES.values():
+            all_roles.extend([role.value for role in roles])
+        return list(set(all_roles))
     
     @classmethod
     def get_target_role(cls, current_role: str) -> str:

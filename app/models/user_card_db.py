@@ -15,7 +15,6 @@ class UserCard(Base):
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
     role_type = Column(String(50), nullable=False)
-    scene_type = Column(String(50), nullable=False)
     display_name = Column(String(100), nullable=False)
     avatar_url = Column(String(500), nullable=True)
     bio = Column(Text, nullable=True)
@@ -38,7 +37,6 @@ class UserCard(Base):
             "id": self.id,
             "user_id": self.user_id,
             "role_type": self.role_type,
-            "scene_type": self.scene_type,
             "visibility": self.visibility,
             "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None,

@@ -101,7 +101,7 @@ def create_optimization_indexes():
                 ("user_profiles", ["user_id"]),
                 ("user_profiles", ["updated_at"]),
                 ("user_cards", ["user_id", "role_type"]),
-                ("user_cards", ["scene_type"]),
+
                 ("user_cards", ["is_active"]),
                 ("user_cards", ["is_deleted"]),
                 ("topic_cards", ["user_id"]),

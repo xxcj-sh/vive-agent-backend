@@ -549,7 +549,6 @@ async def process_scene_stream(
                 "display_name": user_card.display_name,
                 "bio": user_card.bio or "",
                 "role_type": user_card.role_type,
-                "scene_type": user_card.scene_type,
                 "profile_data": profile_data
             }
     
