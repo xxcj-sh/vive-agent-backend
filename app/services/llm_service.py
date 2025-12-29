@@ -6,6 +6,7 @@
 import time
 import json
 import uuid
+import asyncio
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 import logging
@@ -21,6 +22,7 @@ from app.models.llm_schemas import (
     LLMResponse, ConversationSuggestionResponse, ProfileAnalysisResponse,
     OpinionSummarizationResponse
 )
+from app.configs.prompt_config_manager import prompt_config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -241,13 +243,21 @@ class LLMService:
         """模拟流式API调用,用于测试"""
         import asyncio
         
-        # 模拟响应内容
-        mock_content = "这是来自{}的{}模型的模拟流式响应.我会为您提供一些有用的建议和信息.".format(
-            provider.value, model_name
-        )
+        # 从配置管理器获取流式配置
+        stream_config = prompt_config_manager.get_stream_config('stream_responses')
+        mock_stream_config = stream_config.get('mock_stream', {})
         
-        # 模拟流式输出,每50ms发送一个字符块
-        chunk_size = 3  # 每次发送3个字符
+        # 获取模拟响应内容模板并替换变量
+        mock_content_template = mock_stream_config.get('content', 
+            "这是来自{provider}的{model_name}模型的模拟流式响应。我会为您提供一些有用的建议和信息。")
+        mock_content = mock_content_template.format(provider=provider.value, model_name=model_name)
+        
+        # 获取配置参数
+        chunk_size = mock_stream_config.get('chunk_size', 3)
+        delay_ms = mock_stream_config.get('delay_ms', 50)
+        delay_seconds = delay_ms / 1000.0
+        
+        # 模拟流式输出
         for i in range(0, len(mock_content), chunk_size):
             chunk = mock_content[i:i + chunk_size]
             yield {
@@ -255,17 +265,16 @@ class LLMService:
                 "content": chunk,
                 "finished": i + chunk_size >= len(mock_content)
             }
-            await asyncio.sleep(0.05)  # 50ms延迟
+            await asyncio.sleep(delay_seconds)
         
         # 发送元数据
-        await asyncio.sleep(0.2)
+        metadata_delay = mock_stream_config.get('metadata_delay_ms', 200) / 1000.0
+        await asyncio.sleep(metadata_delay)
+        
+        metadata = mock_stream_config.get('metadata', {})
         yield {
             "type": "metadata",
-            "confidence": 0.85,
-            "is_meet_preference": True,
-            "preference_judgement": "用户的兴趣爱好与卡片主人的偏好相符",
-            "usage": {"prompt_tokens": 50, "completion_tokens": 100, "total_tokens": 150},
-            "duration": 2.5
+            **metadata
         }
         
         # 发送结束标记
@@ -308,48 +317,9 @@ class LLMService:
         """模拟API调用,用于测试"""
         await asyncio.sleep(1)  # 模拟网络延迟
         
-        # 根据任务类型返回不同的模拟响应
-        task_responses = {
-            LLMTaskType.PROFILE_ANALYSIS: {
-                "analysis": {
-                    "personality": "外向开朗,善于沟通",
-                    "interests": ["阅读", "旅行", "摄影"],
-                    "values": ["家庭", "事业", "健康"]
-                },
-                "key_insights": [
-                    "用户表现出较强的社交需求",
-                    "对生活质量有较高要求"
-                ],
-                "recommendations": [
-                    "建议多参与社交活动",
-                    "推荐关注生活品质相关内容"
-                ]
-            },
-            LLMTaskType.INTEREST_ANALYSIS: {
-                "interests": ["音乐", "电影", "美食"],
-                "categories": {
-                    "entertainment": ["音乐", "电影"],
-                    "lifestyle": ["美食", "旅行"]
-                },
-                "match_suggestions": [
-                    "推荐同样喜欢音乐的用户",
-                    "可以匹配美食爱好者"
-                ]
-            },
-
-            LLMTaskType.QUESTION_ANSWERING: {
-                "answer": "根据您的需求,我推荐您关注以下方面...",
-                "confidence": 0.9,
-                "sources": ["用户资料", "常见问题库"]
-            },
-
-        }
-        
-        task_type = request.task_type
-        if task_type in task_responses:
-            content = json.dumps(task_responses[task_type], ensure_ascii=False)
-        else:
-            content = f"这是来自{provider.value}的{model_name}模型的模拟响应"
+        # 从配置管理器获取模拟响应数据
+        mock_response_data = prompt_config_manager.get_mock_response(request.task_type.name)
+        content = json.dumps(mock_response_data, ensure_ascii=False)
         
         return {
             "choices": [
@@ -368,36 +338,7 @@ class LLMService:
     
     def _get_system_prompt(self, task_type: LLMTaskType) -> str:
         """获取系统提示词"""
-        prompts = {
-            LLMTaskType.PROFILE_ANALYSIS: """
-            你是一个专业的用户画像分析师.请分析用户的资料数据,
-            提供深入的洞察和个性化建议.请用中文回复,
-            确保分析结果准确,有用且易于理解.
-            """,
-        LLMTaskType.INTEREST_ANALYSIS: """
-            你是一个兴趣匹配专家.请分析用户的兴趣爱好,
-            识别兴趣类别,并提供相关的匹配建议.
-            请用中文回复,确保分析结果实用且有趣.
-            """,
-
-        LLMTaskType.QUESTION_ANSWERING: """
-            请基于提供的上下文信息,
-            给出准确,有用的回答.
-            """,
-        LLMTaskType.ACTIVITY_INFO_EXTRACTION: """
-            你是一个专业的信息提取助手.请从对话历史中提取
-            关于活动的关键信息,如时间,地点,偏好等.
-            请用中文思考,严格按照JSON格式输出结果,
-            确保提取的信息准确且完整.
-            """,
-        LLMTaskType.OPINION_SUMMARIZATION: """
-            你是一个专业的观点总结助手.请分析用户在话题讨论中表达的观点,
-            提取关键信息并生成简洁准确的总结.请用中文回复,
-            确保总结客观,全面且易于理解.
-            """,
-
-        }
-        return prompts.get(task_type, "你是一个智能助手,请帮助用户解决问题.")
+        return prompt_config_manager.get_system_prompt(task_type.name)
     
     async def _log_usage(
         self,
@@ -916,7 +857,7 @@ class LLMService:
         
         话题上下文:{topic_context_str}
         
-        请给出有深度,有趣且能促进话题讨论继续的回复.
+        请给出有深度,有趣且能促进话题讨论继续的回复，字数限定在 200 字以内.
         """
         
         request = LLMRequest(
@@ -1150,113 +1091,27 @@ class LLMService:
         
         # 根据角色类型选择不同的提示词模板
         if role_type == "trade_landlord":
-            # 针对房东角色的特定提示词
-            role_specific_info_parts = [
-                f"房东偏好信息: {json.dumps(preferences, ensure_ascii=False)}",
-                f"房东简介信息: {bio}",
-                f"隐藏触发条件和输出信息: {json.dumps(trigger_and_output, ensure_ascii=False)}"
-            ]
-            role_specific_info = "\n".join(role_specific_info_parts)
-            
-            if prompt_type == "stream":
-                # 流式响应的提示词模板
-                prompt_parts = [
-                    "请根据以下信息生成适合房东角色的对话建议:",
-                    base_info,
-                    role_specific_info,
-                    "",
-                    f"请生成{maxSuggestions}条适合当前对话情境的房东回复建议,要求:",
-                    "1. 符合房东身份,自然流畅",
-                    "2. 关注收集潜在租户的关键信息(如工作稳定性, 入住时间, 租期要求, 生活习惯等)",
-                    "3. 保持友好但专业的态度进行租金和条款协商",
-                    "4. 适当引导对话向签约意向发展",
-                    "5. 如偏好信息不为空,注意筛选符合条件的租户",
-                    "6. 每条建议独立完整",
-                    "",
-                    "直接返回建议回复内容文本"
-                ]
-                return "\n".join(prompt_parts)
-            else:
-                # 非流式响应的提示词模板
-                prompt_parts = [
-                    "请根据以下信息生成适合房东角色的对话建议:",
-                    base_info,
-                    role_specific_info,
-                    "",
-                    f"请生成{maxSuggestions}条适合当前对话情境的房东回复建议, 要求:",
-                    "1. 符合房东身份, 以用户的身份对话, 避免出现身份混淆和不符合逻辑事实的情况",
-                    "2. 自然流畅, 符合对话上下文",
-                    "3. 关注收集潜在租户的关键信息(如工作稳定性, 入住时间, 租期要求, 生活习惯等)",
-                    "4. 保持友好但专业的态度进行租金和条款协商",
-                    "5. 适当引导对话向签约意向发展",
-                    "6. 每条建议是独立完整的回复",
-                    "7. 如果偏好信息不为空, 建议内容应适当引导用户回答问题, 以帮助判断用户是否满足房东的偏好要求",
-                    "8. 根据用户配置的触发条件, 引导用户回答问题, 判断用户是否满足房东的偏好要求, 在满足触发条件时也视为满足房东的偏好要求, 根据用户配置的输出信息, 生成建议回复消息",
-                    "9. 回复的内容需要保持公开可接受",
-                    "",
-                    "请以JSON格式回复, 包含 summary(对于租客租房需求的总结, 包括起租时间, 租期, 租金以及其他特别要求等), suggestions(为房东提供的参考建议)和 confidence(租客可靠程度)字段, is_meet_preference(是否满足房东偏好的布尔类型)字段,",
-                    "preference_judgement(满足偏好的判断论述)字段, trigger_output(触发条件后提供给租客的信息)字段",
-                    "",
-                    "参考如下格式",
-                    '{"summary": "租客工作稳定, 在互联网公司上班, 希望起租时间为11月1日, 租金预算 5000 每月, 租期 1 年",',
-                    '"confidence": 0.95,',
-                    '"is_meet_preference": true,',
-                    '"preference_judgement": "用户的租房需求与房东的偏好相符, 用户对房子的基本情况表示满意, 初步达成租房意向",',
-                    '"trigger_output": "房东收到通知后会通过微信与您联系, 商定签约事宜"}}'
-                ]
-                return "\n".join(prompt_parts)
+            # 针对房东角色的特定提示词 - 使用配置文件中的专用模板
+            return prompt_config_manager.get_specialized_scene_prompt(
+                "conversation_suggestions", 
+                "house_renting",
+                base_info=base_info,
+                max_suggestions=maxSuggestions,
+                preferences=json.dumps(preferences, ensure_ascii=False),
+                bio=bio,
+                trigger_and_output=json.dumps(trigger_and_output, ensure_ascii=False)
+            )
         else:
-            # 默认提示词模板
-            default_info_parts = [
-                f"卡片主人偏好信息: {json.dumps(preferences, ensure_ascii=False)}",
-                f"卡片简介信息(仅作为回答问题时的参考): {bio}",
-                f"聊天隐藏触发条件和输出信息: {json.dumps(trigger_and_output, ensure_ascii=False)}"
-            ]
-            default_info = "\n".join(default_info_parts)
-            
-            if prompt_type == "stream":
-                # 流式响应的默认提示词模板
-                prompt_parts = [
-                    "请根据以下信息生成对话建议:",
-                    base_info,
-                    default_info,
-                    "",
-                    f"请生成{maxSuggestions}条适合当前对话情境的回复建议, 要求:",
-                    "1. 符合卡片主人性格设定, 自然流畅",
-                    "2. 内容积极友好, 每条建议独立完整",
-                    "3. 如卡片主人偏好信息不为空, 适当引导用户回答问题",
-                    "4. 根据触发条件判断用户是否满足偏好要求",
-                    "",
-                    "直接返回建议回复内容文本"
-                ]
-                return "\n".join(prompt_parts)
-            else:
-                # 非流式响应的默认提示词模板
-                prompt_parts = [
-                    "请根据以下信息生成对话建议:",
-                    base_info,
-                    default_info,
-                    "",
-                    f"请生成{maxSuggestions}条适合当前对话情境的回复建议, 要求:",
-                    "1. 符合卡片主人性格设定, 以用户的身份对话, 避免出现身份混淆和不符合逻辑事实的情况",
-                    "2. 自然流畅, 符合对话上下文",
-                    "3. 内容积极友好",
-                    "4. 每条建议是独立完整的回复",
-                    "5. 如果卡片主人偏好信息不为空, 建议内容应适当引导用户回答问题,",
-                    "   以帮助判断用户是否满足卡片主人的偏好要求",
-                    "6. 根据用户配置的触发条件, 引导用户回答问题, 判断用户是否满足卡片主人的偏好要求, 在满足触发条件时也视为满足卡片主人的偏好要求, 根据用户配置的输出信息, 生成建议回复消息",
-                    "",
-                    "请以JSON格式回复, 包含suggestions(建议列表)和confidence(置信度)字段, is_meet_preference(是否满足卡片主人偏好的布尔类型)字段,",
-                    "preference_judgement(满足偏好的判断论述)字段, trigger_output(触发条件后的输出信息)字段",
-                    "",
-                    "参考如下格式",
-                    '{"confidence": 0.92,',
-                    '"suggestions": ["欢迎参加活动", "您可以参加活动"],',
-                    '"is_meet_preference": true,',
-                    '"preference_judgement": "用户的兴趣爱好与卡片主人的偏好相符,用户的生活方式与卡片主人的偏好相符",',
-                    '"trigger_output": "欢迎加我微信联系,记得备注来源哦"}}'
-                ]
-                return "\n".join(prompt_parts)
+            # 使用通用场景提示词
+            return prompt_config_manager.get_scene_prompt(
+                "conversation_suggestions",
+                prompt_type,
+                base_info=base_info,
+                max_suggestions=maxSuggestions,
+                preferences=json.dumps(preferences, ensure_ascii=False),
+                bio=bio,
+                trigger_and_output=json.dumps(trigger_and_output, ensure_ascii=False)
+            )
     
     async def generate_conversation_suggestion(
         self,

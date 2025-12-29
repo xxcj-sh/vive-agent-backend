@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "description": "LLM提示词配置文件总览",
+  "files": {
+    "system_prompts.json": {
+      "description": "系统提示词配置",
+      "purpose": "定义不同任务类型的系统角色和基础提示词",
+      "task_types": ["PROFILE_ANALYSIS", "INTEREST_ANALYSIS", "QUESTION_ANSWERING", "ACTIVITY_INFO_EXTRACTION", "OPINION_SUMMARIZATION"]
+    },
+    "mock_responses.json": {
+      "description": "模拟响应数据配置",
+      "purpose": "为测试和开发环境提供模拟的LLM响应数据",
+      "usage": "在_mock_api方法中使用"
+    },
+    "scene_prompts.json": {
+      "description": "场景化提示词配置",
+      "purpose": "定义不同业务场景的专用提示词模板",
+      "scenes": ["conversation_suggestions", "simple_chat", "topic_discussion", "generate_opinion_summary"]
+    },
+    "task_prompts.json": {
+      "description": "任务专用提示词配置",
+      "purpose": "为特定任务类型提供详细的提示词模板和输出格式要求",
+      "tasks": ["profile_analysis", "interest_analysis", "question_answering", "activity_extraction", "opinion_summarization"]
+    },
+    "stream_configs.json": {
+      "description": "流式响应配置",
+      "purpose": "配置流式响应的行为和模拟数据",
+      "configs": ["mock_stream", "api_simulation"]
+    }
+  },
+  "usage": {
+    "loading": "使用Python的json模块加载配置文件",
+    "fallback": "如果配置文件加载失败，使用代码中的默认提示词",
+    "hot_reload": "支持运行时重新加载配置（可选功能）"
+  },
+  "maintenance": {
+    "update_frequency": "根据业务需求定期更新",
+    "version_control": "配置文件应与代码版本一起管理",
+    "testing": "更新后需要进行充分的测试验证"
+  }
+}
