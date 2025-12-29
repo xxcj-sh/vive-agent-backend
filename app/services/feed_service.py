@@ -87,16 +87,15 @@ class FeedService:
         if card_type in ["vote", "all", None]:
             vote_service = VoteService(self.db)
             recall_votes = vote_service.get_recall_vote_cards(limit=page_size)
-            
             # 为每个卡片添加投票状态
             for card in recall_votes:
                 vote_results = vote_service.get_vote_results(card.id, user_id)
                 # 获取用户信息（只获取活跃用户）
                 user = self.db.query(User).filter(
                     User.id == card.user_id,
-                    User.is_active == True,
-                    User.status != 'deleted'
+                    User.is_active == True
                 ).first()
+                print(f"用户{user} {user_id} 对投票卡片 {card.id} 的投票状态: {vote_results}")
                 user_avatar = user.avatar_url if user else ''
                 user_nickname = user.nick_name if user else '匿名用户'  # 使用nick_name字段
                 
