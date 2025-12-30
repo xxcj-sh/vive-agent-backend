@@ -135,3 +135,37 @@ class ChatMessageCreate(BaseModel):
 class ChatListResponse(BaseModel):
     chats: List[Dict[str, Any]] = Field(..., description="聊天会话列表")
     total: int = Field(..., description="总数")
+
+
+# 聊天总结相关模型
+class ChatSummaryResponse(BaseModel):
+    id: str = Field(..., description="总结ID")
+    user_id: Optional[str] = Field(None, description="用户ID")
+    card_id: Optional[str] = Field(None, description="卡片ID")
+    session_id: Optional[str] = Field(None, description="会话ID")
+    summary_type: str = Field("chat", description="总结类型: chat, opinion, analysis")
+    summary_content: str = Field(..., description="总结内容")
+    chat_messages_count: Optional[str] = Field(None, description="聊天消息数量")
+    summary_language: str = Field("zh", description="总结语言: zh, en")
+    is_read: bool = Field(False, description="是否已读")
+    read_at: Optional[str] = Field(None, description="阅读时间，ISO格式")
+    created_at: Optional[str] = Field(None, description="创建时间，ISO格式")
+    updated_at: Optional[str] = Field(None, description="更新时间，ISO格式")
+
+
+class ChatSummaryCreate(BaseModel):
+    user_id: Optional[str] = Field(None, description="用户ID")
+    card_id: Optional[str] = Field(None, description="卡片ID")
+    session_id: Optional[str] = Field(None, description="会话ID")
+    summary_type: Optional[str] = Field("chat", description="总结类型: chat, opinion, analysis")
+    summary_content: str = Field(..., description="总结内容")
+    chat_messages_count: Optional[str] = Field(None, description="聊天消息数量")
+    summary_language: Optional[str] = Field("zh", description="总结语言: zh, en")
+    is_read: Optional[bool] = Field(False, description="是否已读")
+    
+    @field_validator('summary_content')
+    @classmethod
+    def summary_content_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError('总结内容不能为空')
+        return v

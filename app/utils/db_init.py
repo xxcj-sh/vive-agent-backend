@@ -19,8 +19,7 @@ from app.models.user import User
 from app.models.user_card_db import UserCard
 from app.models.llm_usage_log import LLMUsageLog
 from app.models.order import MembershipOrder
-from app.models.chat_message import ChatMessage
-from app.models.subscribe_message import SubscribeMessage, UserSubscribeSetting
+from app.models.chat_message import ChatMessage, ChatSummary
 from app.models.user_profile import UserProfile
 from app.models.user_profile_history import UserProfileHistory
 from app.models.user_profile_feedback import UserProfileFeedback

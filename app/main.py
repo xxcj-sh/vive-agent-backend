@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, chats, topic_cards, user_connections, vote_cards, feed, content_moderation, points
+from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, chats, topic_cards, user_connections, vote_cards, feed, content_moderation, points
 from app.routers.user_profile import router as user_profile_router
 
 from app.utils.db_init import init_db
@@ -44,7 +44,6 @@ app.include_router(topic_cards.router, prefix="/api/v1/topic-cards")
 app.include_router(properties.router, prefix="/api/v1")
 app.include_router(user_card.router, prefix="/api/v1")
 app.include_router(llm.router, prefix="/api/v1")
-app.include_router(subscribe_message.router, prefix="/api/v1")
 
 
 # 用户画像系统路由（包含所有画像相关功能）
@@ -71,7 +70,6 @@ app.include_router(content_moderation.router, prefix="/api/v1/content-moderation
 
 # 积分管理路由
 app.include_router(points.router, prefix="/api/v1")
-
 
 
 @app.get("/")

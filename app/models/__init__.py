@@ -8,8 +8,7 @@ from .schemas import *
 # unified_enums 已合并到 enums.py 中
 from .llm_usage_log import LLMUsageLog, LLMProvider, LLMTaskType
 from .llm_schemas import *
-from .chat_message import ChatMessage
-from .subscribe_message import SubscribeMessage, UserSubscribeSetting
+from .chat_message import ChatMessage, ChatSummary
 from .user_profile import UserProfile
 from .user_profile_history import UserProfileHistory
 from .user_connection import UserConnection, ConnectionType, ConnectionStatus

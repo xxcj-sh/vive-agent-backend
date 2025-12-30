@@ -8,7 +8,6 @@ from .content_moderation import router as content_moderation_router
 
 
 from .user_profile import router as user_profile_router
-from .subscribe_message import router as subscribe_message_router
 from .membership import router as membership_router
 from .membership_orders import router as membership_orders_router
 from .scenes import router as scenes_router
@@ -28,7 +27,6 @@ __all__ = [
     "content_moderation_router",
 
     "user_profile_router",
-    "subscribe_message_router",
     "membership_router",
     "membership_orders_router",
     "scenes_router",

@@ -63,13 +63,12 @@ def init_all_tables():
         from app.models.user_card_db import UserCard
         from app.models.topic_card_db import TopicCard
         from app.models.vote_card_db import VoteCard
-        from app.models.chat_message import ChatMessage
+        from app.models.chat_message import ChatMessage, ChatSummary
         from app.models.user_profile_history import UserProfileHistory
         from app.models.user_profile_feedback import UserProfileFeedback
         from app.models.user_profile_score import UserProfileScore, UserProfileScoreHistory, UserProfileSkill
         from app.models.llm_usage_log import LLMUsageLog
         from app.models.order import MembershipOrder
-        from app.models.subscribe_message import SubscribeMessage, UserSubscribeSetting
         from app.models.content_moderation_db import ContentModeration
         
         logger.info(f"📊 已注册的表: {list(Base.metadata.tables.keys())}")
@@ -179,7 +178,7 @@ def verify_tables():
                 'vote_cards', 'chat_messages', 'user_profile_history',
                 'user_profile_feedback', 'user_profile_scores', 'user_profile_score_history',
                 'user_profile_skills', 'llm_usage_logs', 'membership_orders',
-                'subscribe_messages', 'user_subscribe_settings', 'content_moderations'
+                'content_moderations'
             ]
             
             existing_tables = [table[0] for table in tables]

@@ -10,6 +10,9 @@ from datetime import datetime
 
 from app.database import get_db
 from app.models.schemas import ChatMessageResponse, ChatMessageCreate, ChatListResponse
+from app.models.chat_message import ChatSummary
+from app.models.user_card import Card
+from app.models.schemas import ChatSummaryResponse, ChatSummaryCreate
 
 # 注意：匿名聊天API不需要认证，因为它是公开访问的
 router = APIRouter(prefix="/chats", tags=["聊天"])  # 设置/chats前缀，结合main.py中的/api/v1前缀得到/api/v1/chats
@@ -109,3 +112,175 @@ async def send_chat_message(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"发送消息失败: {str(e)}")
+
+
+@router.post("/summaries", response_model=ChatSummaryResponse)
+async def create_chat_summary(
+    summary_data: ChatSummaryCreate,
+    db: Session = Depends(get_db)
+):
+    """创建聊天总结
+    
+    保存用户聊天的AI总结内容，并发送通知给卡片所有者
+    """
+    try:
+        # 创建新的聊天总结记录
+        new_summary = ChatSummary(
+            user_id=summary_data.user_id,
+            card_id=summary_data.card_id,
+            session_id=summary_data.session_id,
+            summary_type=summary_data.summary_type or 'chat',
+            summary_content=summary_data.summary_content,
+            chat_messages_count=summary_data.chat_messages_count,
+            summary_language=summary_data.summary_language or 'zh',
+            is_read=summary_data.is_read or False
+        )
+        
+        db.add(new_summary)
+        db.commit()
+        db.refresh(new_summary)
+        
+        return new_summary.to_dict()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"创建聊天总结失败: {str(e)}")
+
+
+@router.get("/summaries/unread-count")
+async def get_unread_chat_summaries_count(
+    user_id: str = Query(..., description="用户ID"),
+    db: Session = Depends(get_db)
+):
+    """获取未读聊天总结数量
+    
+    获取用户未读的聊天总结数量
+    """
+    try:
+        count = db.query(ChatSummary).filter(
+            ChatSummary.user_id == user_id,
+            ChatSummary.is_read == False
+        ).count()
+        
+        return {"count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取未读聊天总结数量失败: {str(e)}")
+
+
+@router.get("/summaries", response_model=List[ChatSummaryResponse])
+async def get_chat_summaries(
+    user_id: Optional[str] = Query(None, description="用户ID，用于筛选用户相关的聊天总结"),
+    card_id: Optional[str] = Query(None, description="卡片ID，用于筛选卡片相关的聊天总结"),
+    session_id: Optional[str] = Query(None, description="会话ID，用于筛选会话相关的聊天总结"),
+    summary_type: Optional[str] = Query(None, description="总结类型，用于筛选特定类型的总结"),
+    is_read: Optional[bool] = Query(None, description="是否已读，用于筛选已读/未读状态"),
+    page: int = Query(1, ge=1, description="页码"),
+    limit: int = Query(20, ge=1, le=100, description="每页数量"),
+    db: Session = Depends(get_db)
+):
+    """获取聊天总结列表
+    
+    支持多条件筛选和分页查询聊天总结
+    """
+    try:
+        query = db.query(ChatSummary)
+        
+        # 应用筛选条件
+        if user_id:
+            query = query.filter(ChatSummary.user_id == user_id)
+        if card_id:
+            query = query.filter(ChatSummary.card_id == card_id)
+        if session_id:
+            query = query.filter(ChatSummary.session_id == session_id)
+        if summary_type:
+            query = query.filter(ChatSummary.summary_type == summary_type)
+        if is_read is not None:
+            query = query.filter(ChatSummary.is_read == is_read)
+        
+        # 按创建时间倒序排序
+        query = query.order_by(ChatSummary.created_at.desc())
+        
+        # 应用分页
+        offset = (page - 1) * limit
+        summaries = query.offset(offset).limit(limit).all()
+        
+        return [summary.to_dict() for summary in summaries]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取聊天总结列表失败: {str(e)}")
+
+
+@router.get("/summaries/{summary_id}", response_model=ChatSummaryResponse)
+async def get_chat_summary(
+    summary_id: str,
+    db: Session = Depends(get_db)
+):
+    """获取聊天总结详情
+    
+    根据总结ID获取聊天总结的详细信息
+    """
+    try:
+        summary = db.query(ChatSummary).filter(ChatSummary.id == summary_id).first()
+        
+        if not summary:
+            raise HTTPException(status_code=404, detail="聊天总结不存在")
+        
+        return summary.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取聊天总结失败: {str(e)}")
+
+
+@router.put("/summaries/{summary_id}/read", response_model=ChatSummaryResponse)
+async def mark_chat_summary_as_read(
+    summary_id: str,
+    db: Session = Depends(get_db)
+):
+    """标记聊天总结为已读
+    
+    更新聊天总结的已读状态
+    """
+    try:
+        summary = db.query(ChatSummary).filter(ChatSummary.id == summary_id).first()
+        
+        if not summary:
+            raise HTTPException(status_code=404, detail="聊天总结不存在")
+        
+        # 只有在未读状态下才更新
+        if not summary.is_read:
+            summary.is_read = True
+            summary.read_at = datetime.now()
+            db.commit()
+            db.refresh(summary)
+        
+        return summary.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"标记聊天总结已读失败: {str(e)}")
+
+
+@router.delete("/summaries/{summary_id}")
+async def delete_chat_summary(
+    summary_id: str,
+    db: Session = Depends(get_db)
+):
+    """删除聊天总结
+    
+    根据总结ID删除聊天总结记录
+    """
+    try:
+        summary = db.query(ChatSummary).filter(ChatSummary.id == summary_id).first()
+        
+        if not summary:
+            raise HTTPException(status_code=404, detail="聊天总结不存在")
+        
+        db.delete(summary)
+        db.commit()
+        
+        return {"message": "聊天总结删除成功"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"删除聊天总结失败: {str(e)}")

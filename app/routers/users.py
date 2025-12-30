@@ -300,7 +300,6 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
         # 更新用户基础资料
         try:
             db_user = db.query(User).filter(User.id == user_id).first()
-            print(f"查询成功，找到用户: {db_user}")
         except Exception as query_error:
             print(f"查询用户时出错: {query_error}")
             print(f"错误类型: {type(query_error)}")
@@ -896,5 +895,56 @@ async def get_wechat_openid(request: WeChatCodeRequest, db: Session = Depends(ge
             status_code=500, 
             detail=f"获取微信 openid 失败: {str(e)}"
         )
+
+@router.get("/{user_id}/cards")
+def get_user_card_by_user_id(
+    user_id: str,
+    db: Session = Depends(get_db)
+):
+    """根据用户ID获取该用户创建的user cards
+    
+    这是一个公开接口，不需要用户认证，用于获取指定用户的卡片信息
+    """
+    try:
+        # 获取用户的所有卡片
+        cards_response = UserCardService.get_user_all_cards_response(db, user_id)
+        if not cards_response or not cards_response.all_cards:
+            return {
+                "code": 0,
+                "message": "该用户暂无卡片",
+                "data": {
+                    "cards": [],
+                    "total": 0,
+                    "user_id": user_id
+                }
+            }
+        
+        # 处理图片URL，确保包含完整前缀
+        processed_cards = []
+        for card in cards_response.all_cards:
+            processed_card = process_user_image_urls(card)
+            processed_cards.append(processed_card)
+        
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {
+                "cards": processed_cards,
+                "total": len(processed_cards),
+                "user_id": user_id
+            }
+        }
+        
+    except Exception as e:
+        print(f"获取用户卡片失败: {str(e)}")
+        return {
+            "code": 500,
+            "message": f"获取用户卡片失败: {str(e)}",
+            "data": {
+                "cards": [],
+                "total": 0,
+                "user_id": user_id
+            }
+        }
 
 

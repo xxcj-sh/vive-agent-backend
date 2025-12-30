@@ -2,7 +2,6 @@ from .auth import AuthService
 from .user_card_service import UserCardService
 from .topic_card_service import TopicCardService
 from .media_service import MediaService
-from .subscribe_message_service import SubscribeMessageService
 from .user_profile.user_profile_service import UserProfileService
 from .user_profile.user_profile_score_service import UserProfileScoreService
 from .user_connection_service import UserConnectionService
