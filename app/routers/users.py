@@ -445,9 +445,10 @@ def get_current_user_stats(
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取用户真实统计信息"""
+    """获取用户真实统计信息，包括积分和等级"""
     try:
-        from app.services.user_stats_service import UserStatsService
+        from app.models.user import User
+        from sqlalchemy.orm import Session
         
         if not current_user:
             raise HTTPException(status_code=401, detail="用户未认证")
@@ -456,26 +457,43 @@ def get_current_user_stats(
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
         
-        stats_service = UserStatsService(db)
-        stats = stats_service.get_user_stats(user_id)
+        # 查询用户基本信息（包括积分和等级）
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在")
         
+        # 返回包含积分和等级的用户信息
         return {
             "code": 0,
             "message": "success",
-            "data": stats
+            "data": {
+                "userId": user_id,
+                "nickName": user.nick_name,
+                "avatarUrl": user.avatar_url,
+                "level": user.level,
+                "points": user.points,
+                "status": user.status,
+                "createdAt": user.created_at.isoformat() if user.created_at else None,
+                "lastLogin": user.last_login.isoformat() if user.last_login else None
+            }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"获取用户统计失败: {str(e)}")
         return {
             "code": 500,
             "message": f"获取统计信息失败: {str(e)}",
             "data": {
-                "cardCount": 0,
-                "activeCardCount": 0,
-                "favoriteCardCount": 0,
-                "totalCardsCreated": 0,
-                "recentCards": 0
+                "userId": "",
+                "nickName": "",
+                "avatarUrl": "",
+                "level": 1,
+                "points": 0,
+                "status": "pending",
+                "createdAt": None,
+                "lastLogin": None
             }
         }
 

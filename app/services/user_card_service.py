@@ -7,10 +7,10 @@ from app.models.user_card import (
     CardCreate, CardUpdate, Card as CardSchema,
     CardsResponse, AllCardsResponse, CardsByScene
 )
+from app.services.points_service import PointsService
 import uuid
 import json
 from datetime import datetime
-from sqlalchemy.orm import Session
 
 class UserCardService:
     """用户角色卡片服务"""
@@ -18,6 +18,13 @@ class UserCardService:
     @staticmethod
     def create_card(db: Session, user_id: str, card_data: CardCreate) -> UserCard:
         """创建用户角色卡片"""
+        # 检查并扣除积分
+        points_service = PointsService(db)
+        consume_result = points_service.consume_create_card(user_id, 'user_card')
+        
+        if not consume_result['success']:
+            raise ValueError(f"积分不足：当前积分 {consume_result['current_points']}，需要积分 {consume_result['required_points']}")
+        
         card_id = f"card_{card_data.role_type}_{uuid.uuid4().hex[:8]}"
         
         # 处理 JSON 字段，确保正确序列化

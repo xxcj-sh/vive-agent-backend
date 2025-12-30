@@ -8,6 +8,7 @@ from app.models.vote_card_db import VoteCard, VoteOption, VoteRecord, VoteDiscus
 from app.models.user import User
 from app.models.user_card_db import UserCard
 from app.database import get_db
+from app.services.points_service import PointsService
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,13 @@ class VoteService:
     
     def create_vote_card(self, user_id: str, vote_data: Dict[str, Any]) -> VoteCard:
         """创建投票卡片"""
+        # 检查并扣除积分
+        points_service = PointsService(self.db)
+        consume_result = points_service.consume_create_card(user_id, 'vote_card')
+        
+        if not consume_result['success']:
+            raise ValueError(f"积分不足：当前积分 {consume_result['current_points']}，需要积分 {consume_result['required_points']}")
+        
         # 创建投票卡片
         vote_card = VoteCard(
             user_id=user_id,
@@ -122,10 +130,16 @@ class VoteService:
         
         # 检查投票时间
         now = datetime.now(timezone.utc)
-        if vote_card.start_time and now < vote_card.start_time:
-            raise ValueError("投票尚未开始")
-        if vote_card.end_time and now > vote_card.end_time:
-            raise ValueError("投票已结束")
+        if vote_card.start_time:
+            # 确保比较的时间都是时区感知的
+            start_time = vote_card.start_time.replace(tzinfo=timezone.utc) if vote_card.start_time.tzinfo is None else vote_card.start_time
+            if now < start_time:
+                raise ValueError("投票尚未开始")
+        if vote_card.end_time:
+            # 确保比较的时间都是时区感知的
+            end_time = vote_card.end_time.replace(tzinfo=timezone.utc) if vote_card.end_time.tzinfo is None else vote_card.end_time
+            if now > end_time:
+                raise ValueError("投票已结束")
         
         # 检查是否存在现有选项的投票记录
         existing_votes = self.db.query(VoteRecord).filter(
@@ -191,10 +205,19 @@ class VoteService:
             self.db.add(relation)
         
         self.db.commit()
+        
+        # 奖励投票参与积分
+        try:
+            points_service = PointsService(self.db)
+            points_result = points_service.reward_vote_participation(user_id)
+        except Exception as e:
+            logger.warning(f"投票积分奖励发放失败: {str(e)}")
+        
         return {
             "vote_records": vote_records,
             "total_votes": vote_card.total_votes,
-            "options": self._get_vote_options_with_counts(vote_card_id)
+            "options": self._get_vote_options_with_counts(vote_card_id),
+            "points_rewarded": True
         }
     
     def get_vote_results(self, vote_card_id: str, user_id: Optional[str] = None) -> Dict[str, Any]:

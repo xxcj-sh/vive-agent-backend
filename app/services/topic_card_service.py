@@ -11,6 +11,7 @@ from app.models.topic_card import (
 )
 from app.models.user import User
 from app.utils.logger import logger
+from app.services.points_service import PointsService
 
 class TopicCardService:
     """话题卡片服务类"""
@@ -19,6 +20,13 @@ class TopicCardService:
     def create_topic_card(db: Session, user_id: str, card_data: TopicCardCreate) -> TopicCardResponse:
         """创建话题卡片"""
         try:
+            # 检查并扣除积分
+            points_service = PointsService(db)
+            consume_result = points_service.consume_create_card(user_id, 'topic_card')
+            
+            if not consume_result['success']:
+                raise ValueError(f"积分不足：当前积分 {consume_result['current_points']}，需要积分 {consume_result['required_points']}")
+            
             # 创建话题卡片
             topic_card = TopicCard(
                 user_id=user_id,
@@ -639,6 +647,17 @@ class TopicCardService:
             
             # 获取用户信息
             user = db.query(User).filter(User.id == user_id).first()
+            
+            # 奖励讨论参与积分（仅在创建新的观点总结时，避免重复奖励）
+            if not existing_summary:
+                try:
+                    points_service = PointsService(db)
+                    points_result = points_service.reward_discussion_participation(user_id)
+                    logger.info(f"用户首次参与话题讨论获得积分奖励: user_id={user_id}, card_id={card_id}, points_added={points_result.get('points_added', 0)}")
+                except Exception as e:
+                    logger.warning(f"讨论参与积分奖励发放失败: user_id={user_id}, card_id={card_id}, error={str(e)}")
+            else:
+                logger.info(f"用户更新现有话题观点总结，不重复发放积分奖励: user_id={user_id}, card_id={card_id}")
             
             return TopicOpinionSummaryResponse(
                 id=opinion_summary_obj.id,

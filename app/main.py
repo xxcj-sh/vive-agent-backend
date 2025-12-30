@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, chats, topic_cards, user_connections, vote_cards, feed, content_moderation
+from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, subscribe_message, chats, topic_cards, user_connections, vote_cards, feed, content_moderation, points
 from app.routers.user_profile import router as user_profile_router
 
 from app.utils.db_init import init_db
@@ -68,6 +68,9 @@ app.include_router(feed.router, prefix="/api/v1/feed")
 
 # 内容审核路由
 app.include_router(content_moderation.router, prefix="/api/v1/content-moderation")
+
+# 积分管理路由
+app.include_router(points.router, prefix="/api/v1")
 
 
 

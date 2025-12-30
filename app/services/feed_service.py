@@ -95,7 +95,6 @@ class FeedService:
                     User.id == card.user_id,
                     User.is_active == True
                 ).first()
-                print(f"用户{user} {user_id} 对投票卡片 {card.id} 的投票状态: {vote_results}")
                 user_avatar = user.avatar_url if user else ''
                 user_nickname = user.nick_name if user else '匿名用户'  # 使用nick_name字段
                 
