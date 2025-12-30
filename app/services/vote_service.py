@@ -453,8 +453,7 @@ class VoteService:
             ).distinct()
             
             # 排除这些卡片
-            # TEST
-            # query = query.filter(~VoteCard.id.in_(user_voted_card_ids))
+            query = query.filter(~VoteCard.id.in_(user_voted_card_ids))
         
         return query.order_by(
             VoteCard.total_votes.desc(),

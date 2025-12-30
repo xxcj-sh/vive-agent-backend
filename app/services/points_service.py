@@ -20,7 +20,7 @@ class PointsService:
             'daily_login': 2,           # 每日登录奖励
             'share_card': 5,            # 分享卡片奖励
             'invite_friend': 20,        # 邀请好友奖励
-            'vote_participation': 10,   # 投票参与奖励
+            'vote_participation': 50,   # 投票参与奖励
             'discussion_participation': 50,  # 讨论参与奖励
         },
         # 积分消耗规则

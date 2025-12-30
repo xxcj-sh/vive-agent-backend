@@ -205,7 +205,6 @@ class UserCardService:
     def get_user_all_cards_response(db: Session, user_id: str) -> AllCardsResponse:
         """获取用户所有角色卡片的完整响应"""
         all_cards = UserCardService.get_user_cards(db, user_id)
-        print(f"获取用户{user_id}所有卡片:", all_cards)
         active_cards = [c for c in all_cards if c.is_deleted == 0]
         
         # 按场景分组
