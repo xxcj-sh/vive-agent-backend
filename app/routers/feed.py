@@ -8,6 +8,7 @@ from app.services.feed_service import FeedService
 router = APIRouter()
 
 @router.get("/item-cards")
+@router.get("/cards")
 async def get_feed_item_cards(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(10, ge=1, le=50, description="每页数量"),
@@ -40,6 +41,7 @@ async def get_feed_item_cards(
 
 
 @router.get("/user-cards")
+@router.get("/recommendation-user-cards")
 async def get_feed_user_cards(
     page: int = Query(1, description="页码"),
     pageSize: int = Query(10, description="每页数量"),
