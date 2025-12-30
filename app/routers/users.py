@@ -263,6 +263,10 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
         # 字段名统一处理：将驼峰命名转换为下划线命名
         # 优先使用下划线命名的值，如果下划线版本已存在则保留
         field_mapping = {
+            'nickName': 'nick_name',
+            'avatarUrl': 'avatar_url',
+            'matchType': 'match_type',
+            'userRole': 'user_role',
             'xiaohongshuId': 'xiaohongshu_id',
             'douyinId': 'douyin_id',
             'wechatOfficialAccount': 'wechat_official_account',
@@ -293,9 +297,7 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
             else:
                 # 其他格式转换为空数组
                 update_dict["location"] = []
-        print("user_id", user_id, "update_dict", update_dict)
         # 更新用户基础资料
-        print(f"准备执行查询: db.query(User).filter(User.id == {user_id}).first()")
         try:
             db_user = db.query(User).filter(User.id == user_id).first()
             print(f"查询成功，找到用户: {db_user}")
