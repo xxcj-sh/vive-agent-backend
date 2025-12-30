@@ -7,8 +7,8 @@ from app.services.feed_service import FeedService
 
 router = APIRouter()
 
-@router.get("/cards")
-async def get_feed_cards(
+@router.get("/item-cards")
+async def get_feed_item_cards(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(10, ge=1, le=50, description="每页数量"),
     card_type: Optional[str] = Query(None, description="卡片类型: topic, vote, all"),
@@ -25,7 +25,7 @@ async def get_feed_cards(
         user_id = str(current_user.get("id")) if current_user else None
         feed_service = FeedService(db)
         
-        return feed_service.get_feed_cards(
+        return feed_service.get_feed_item_cards(
             user_id=user_id,
             page=page,
             page_size=page_size,
@@ -39,8 +39,8 @@ async def get_feed_cards(
 
 
 
-@router.get("/recommendation-user-cards")
-async def get_recommendation_user_cards(
+@router.get("/user-cards")
+async def get_feed_user_cards(
     page: int = Query(1, description="页码"),
     pageSize: int = Query(10, description="每页数量"),
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
@@ -56,52 +56,48 @@ async def get_recommendation_user_cards(
     """
     try:
         feed_service = FeedService(db)
-        
-        # 如果用户未登录，返回随机的公开用户卡片
-        if not current_user:
-            # 获取5张随机的公开用户卡片
-            random_cards = feed_service.get_random_public_user_cards(limit=5)
+        if current_user: 
+            # 获取用户ID
+            if isinstance(current_user, dict):
+                user_id = str(current_user.get('id', ''))
+            else:
+                user_id = str(current_user.id)
             
-            return {
+            # 使用FeedService获取推荐卡片
+            result = feed_service.get_feed_user_cards(
+                user_id=user_id,
+                page=page,
+                page_size=pageSize
+            )
+            if len(result["cards"]) > 0:
+                return {
                 "code": 0,
                 "message": "success",
                 "data": {
-                    "cards": random_cards,
+                    "cards": result["cards"],
                     "pagination": {
-                        "page": 1,
-                        "pageSize": 5,
-                        "total": len(random_cards),
-                        "totalPages": 1
+                        "page": page,
+                        "pageSize": pageSize,
+                        "total": result["pagination"]["total"],
+                        "totalPages": result["pagination"]["totalPages"]
                     },
-                    "source": "random_public_cards_for_unauthenticated"
+                    "source": result["source"]
                 }
             }
-        
-        # 获取用户ID
-        if isinstance(current_user, dict):
-            user_id = str(current_user.get('id', ''))
-        else:
-            user_id = str(current_user.id)
-        
-        # 使用FeedService获取推荐卡片
-        result = feed_service.get_recommendation_user_cards(
-            user_id=user_id,
-            page=page,
-            page_size=pageSize
-        )
-        
+        # 未登录或者无法获得有效推荐的情况，获取 5 张随机的公开用户卡片
+        random_cards = feed_service.get_random_public_user_cards(limit=5)  
         return {
             "code": 0,
             "message": "success",
             "data": {
-                "cards": result["cards"],
+                "cards": random_cards,
                 "pagination": {
-                    "page": page,
-                    "pageSize": pageSize,
-                    "total": result["pagination"]["total"],
-                    "totalPages": result["pagination"]["totalPages"]
+                    "page": 1,
+                    "pageSize": 5,
+                    "total": len(random_cards),
+                    "totalPages": 1
                 },
-                "source": result["source"]
+                "source": "random_public_cards_for_unauthenticated"
             }
         }
             

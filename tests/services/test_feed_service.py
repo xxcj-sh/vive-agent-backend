@@ -283,7 +283,7 @@ class TestFeedServiceRecommendationUserCards:
             is_public=True
         )
     
-    def test_get_recommendation_user_cards_success(self, feed_service, mock_db, mock_user, monkeypatch):
+    def test_get_feed_user_cards_success(self, feed_service, mock_db, mock_user, monkeypatch):
         """测试成功获取推荐用户卡片"""
         # 创建模拟推荐用户数据（这是 UserConnectionService.get_recommended_users 的返回格式）
         mock_recommended_users = []
@@ -334,7 +334,7 @@ class TestFeedServiceRecommendationUserCards:
         mock_db.query.return_value = mock_card_query
         
         # 调用方法
-        result = feed_service.get_recommendation_user_cards(
+        result = feed_service.get_feed_user_cards(
             user_id="current_user_123",
             page=1,
             page_size=10
@@ -351,7 +351,7 @@ class TestFeedServiceRecommendationUserCards:
         assert result["pagination"]["totalPages"] == 1
         assert result["source"] == "recommendation_with_visit_logic"
     
-    def test_get_recommendation_user_cards_empty_result(self, feed_service, mock_db, monkeypatch):
+    def test_get_feed_user_cards_empty_result(self, feed_service, mock_db, monkeypatch):
         """测试没有推荐用户的情况"""
         # 模拟 UserConnectionService.get_recommended_users 返回空列表
         def mock_get_recommended_users(db, current_user_id, limit):
@@ -362,7 +362,7 @@ class TestFeedServiceRecommendationUserCards:
         monkeypatch.setattr(feed_module.UserConnectionService, 'get_recommended_users', mock_get_recommended_users)
         
         # 调用方法
-        result = feed_service.get_recommendation_user_cards(
+        result = feed_service.get_feed_user_cards(
             user_id="current_user_123",
             page=1,
             page_size=10
@@ -374,7 +374,7 @@ class TestFeedServiceRecommendationUserCards:
         assert result["pagination"]["totalPages"] == 0
         assert result["source"] == "recommendation_with_visit_logic"
     
-    def test_get_recommendation_user_cards_pagination(self, feed_service, mock_db, mock_user, monkeypatch):
+    def test_get_feed_user_cards_pagination(self, feed_service, mock_db, mock_user, monkeypatch):
         """测试分页功能"""
         # 创建模拟推荐用户数据（15个用户）
         mock_recommended_users = []
@@ -425,7 +425,7 @@ class TestFeedServiceRecommendationUserCards:
         mock_db.query.return_value = mock_card_query
         
         # 调用方法（第二页）
-        result = feed_service.get_recommendation_user_cards(
+        result = feed_service.get_feed_user_cards(
             user_id="current_user_123",
             page=2,
             page_size=10
@@ -489,7 +489,7 @@ class TestFeedServiceGetFeedCards:
             is_active=True
         )
     
-    def test_get_feed_cards_with_user_authenticated(self, feed_service, mock_db, mock_user, mock_topic_card, mock_vote_card, monkeypatch):
+    def test_get_feed_item_cards_with_user_authenticated(self, feed_service, mock_db, mock_user, mock_topic_card, mock_vote_card, monkeypatch):
         """测试用户已认证的情况"""
         # 创建模拟话题卡片响应（这是 TopicCardService.get_topic_cards 的返回格式）
         mock_topic_cards = [
@@ -600,7 +600,7 @@ class TestFeedServiceGetFeedCards:
         monkeypatch.setattr(feed_module.VoteService, 'get_vote_results', mock_get_vote_results)
         
         # 调用方法
-        result = feed_service.get_feed_cards(
+        result = feed_service.get_feed_item_cards(
             user_id="test_user_123",
             page=1,
             page_size=10
@@ -616,7 +616,7 @@ class TestFeedServiceGetFeedCards:
         assert result["page_size"] == 10
         assert result["total"] == 4
     
-    def test_get_feed_cards_anonymous_user(self, feed_service, mock_db, mock_topic_card, mock_vote_card, monkeypatch):
+    def test_get_feed_item_cards_anonymous_user(self, feed_service, mock_db, mock_topic_card, mock_vote_card, monkeypatch):
         """测试匿名用户的情况"""
         # 创建模拟话题卡片响应
         mock_topic_cards = [
@@ -700,7 +700,7 @@ class TestFeedServiceGetFeedCards:
         monkeypatch.setattr(feed_module.VoteService, 'get_vote_results', mock_get_vote_results)
         
         # 调用方法
-        result = feed_service.get_feed_cards(
+        result = feed_service.get_feed_item_cards(
             user_id=None,
             page=1,
             page_size=10
@@ -709,7 +709,7 @@ class TestFeedServiceGetFeedCards:
         # 验证结果
         assert len(result["items"]) == 2
     
-    def test_get_feed_cards_with_card_type_filter(self, feed_service, mock_db, mock_topic_card, monkeypatch):
+    def test_get_feed_item_cards_with_card_type_filter(self, feed_service, mock_db, mock_topic_card, monkeypatch):
         """测试按卡片类型筛选"""
         # 创建模拟话题卡片响应
         mock_topic_cards = [
@@ -751,7 +751,7 @@ class TestFeedServiceGetFeedCards:
         monkeypatch.setattr(feed_module.VoteService, 'get_recall_vote_cards', mock_get_recall_vote_cards)
         
         # 调用方法（只获取话题卡片）
-        result = feed_service.get_feed_cards(
+        result = feed_service.get_feed_item_cards(
             user_id="test_user_123",
             page=1,
             page_size=10,
@@ -762,7 +762,7 @@ class TestFeedServiceGetFeedCards:
         assert len(result["items"]) == 1
         assert result["items"][0]["type"] == "topic"
     
-    def test_get_feed_cards_with_category_filter(self, feed_service, mock_db, mock_topic_card, monkeypatch):
+    def test_get_feed_item_cards_with_category_filter(self, feed_service, mock_db, mock_topic_card, monkeypatch):
         """测试按分类筛选"""
         # 创建模拟话题卡片响应
         mock_topic_cards = [
@@ -804,7 +804,7 @@ class TestFeedServiceGetFeedCards:
         monkeypatch.setattr(feed_module.VoteService, 'get_recall_vote_cards', mock_get_recall_vote_cards)
         
         # 调用方法（按分类筛选）
-        result = feed_service.get_feed_cards(
+        result = feed_service.get_feed_item_cards(
             user_id="test_user_123",
             page=1,
             page_size=10,
@@ -815,7 +815,7 @@ class TestFeedServiceGetFeedCards:
         assert len(result["items"]) == 1
         assert result["items"][0]["category"] == "科技"
     
-    def test_get_feed_cards_empty_result(self, feed_service, mock_db, monkeypatch):
+    def test_get_feed_item_cards_empty_result(self, feed_service, mock_db, monkeypatch):
         """测试没有卡片的情况"""
         # 模拟 TopicCardService.get_topic_cards 方法返回空结果
         def mock_get_topic_cards(db, user_id, page, page_size, category=None):
@@ -837,7 +837,7 @@ class TestFeedServiceGetFeedCards:
         monkeypatch.setattr(feed_module.VoteService, 'get_recall_vote_cards', mock_get_recall_vote_cards)
         
         # 调用方法
-        result = feed_service.get_feed_cards(
+        result = feed_service.get_feed_item_cards(
             user_id="test_user_123",
             page=1,
             page_size=10
@@ -848,7 +848,7 @@ class TestFeedServiceGetFeedCards:
         assert result["total"] == 0
         assert result["total_pages"] == 0
     
-    def test_get_feed_cards_pagination(self, feed_service, mock_db, mock_topic_card, monkeypatch):
+    def test_get_feed_item_cards_pagination(self, feed_service, mock_db, mock_topic_card, monkeypatch):
         """测试分页功能"""
         # 创建15个模拟话题卡片
         mock_topic_cards = []
@@ -892,7 +892,7 @@ class TestFeedServiceGetFeedCards:
         monkeypatch.setattr(feed_module.VoteService, 'get_recall_vote_cards', mock_get_recall_vote_cards)
         
         # 调用方法（第二页）
-        result = feed_service.get_feed_cards(
+        result = feed_service.get_feed_item_cards(
             user_id="test_user_123",
             page=2,
             page_size=10

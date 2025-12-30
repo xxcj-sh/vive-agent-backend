@@ -82,8 +82,7 @@ class UserConnectionService:
         ).distinct().all()
         
         # 提取用户ID
-        # excluded_user_ids = [user_id[0] for user_id in recent_viewed_user_ids]
-        # TEST
+        excluded_user_ids = [user_id[0] for user_id in recent_viewed_user_ids]
         excluded_user_ids = []
 
         # 获取所有访问过的用户，按访问时间升序排列（最久未访问的在前）

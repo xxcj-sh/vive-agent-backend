@@ -32,7 +32,7 @@ class FeedService:
         
         return url
     
-    def get_feed_cards(self, user_id: Optional[str], page: int, page_size: int, 
+    def get_feed_item_cards(self, user_id: Optional[str], page: int, page_size: int, 
                       card_type: Optional[str] = None, category: Optional[str] = None) -> Dict[str, Any]:
         """
         获取统一的卡片流数据
@@ -231,7 +231,7 @@ class FeedService:
             traceback.print_exc()
             return []
     
-    def get_recommendation_user_cards(self, user_id: str, page: int, page_size: int) -> Dict[str, Any]:
+    def get_feed_user_cards(self, user_id: str, page: int, page_size: int) -> Dict[str, Any]:
         """
         获取推荐用户卡片
         
