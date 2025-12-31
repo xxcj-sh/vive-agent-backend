@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, case
 from datetime import datetime, timezone
 import logging
 
@@ -445,7 +445,6 @@ class VoteService:
             VoteCard.is_active == 1,
             VoteCard.visibility == "public"
         )
-        
         # 如果提供了用户ID，过滤掉该用户已参与投票的卡片
         if user_id:
             # 子查询：获取用户已参与投票的卡片ID
@@ -456,8 +455,14 @@ class VoteService:
             
             # 排除这些卡片
             query = query.filter(~VoteCard.id.in_(user_voted_card_ids))
+
         
         return query.order_by(
+            # 优先显示basic分类的问题
+            case(
+                (VoteCard.category == 'basic', 0),
+                else_=1
+            ),
             VoteCard.total_votes.desc(),
             VoteCard.view_count.desc()
         ).limit(limit).all()

@@ -86,7 +86,7 @@ class FeedService:
         # 获取投票卡片
         if card_type in ["vote", "all", None]:
             vote_service = VoteService(self.db)
-            recall_votes = vote_service.get_recall_vote_cards(limit=page_size)
+            recall_votes = vote_service.get_recall_vote_cards(limit=page_size, user_id=user_id)
             # 为每个卡片添加投票状态
             for card in recall_votes:
                 vote_results = vote_service.get_vote_results(card.id, user_id)
@@ -126,8 +126,8 @@ class FeedService:
                 }
                 all_cards.append(formatted_card)
         
-        # 按创建时间排序（最新的在前）
-        all_cards.sort(key=lambda x: x["created_at"] or "", reverse=True)
+        # 按创建时间排序（最旧的在前），确保 category='basic' 置顶，再按创建时间倒序
+        all_cards.sort(key=lambda x: (x.get("category") != "basic", x["created_at"] or ""), reverse=False)
         
         # 分页处理
         total = len(all_cards)
@@ -164,7 +164,6 @@ class FeedService:
                     coalesce(UserCard.is_deleted, 0) != 1
                 )
             ).order_by(func.random()).limit(limit).all()
-            print(f"获取到 {len(public_cards)} 条公开卡片")
             if not public_cards:
                 return []
             
