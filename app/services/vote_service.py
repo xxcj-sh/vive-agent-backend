@@ -208,8 +208,10 @@ class VoteService:
         
         # 奖励投票参与积分
         try:
-            points_service = PointsService(self.db)
-            points_result = points_service.reward_vote_participation(user_id)
+            if len(existing_relation) == 0:
+                points_service = PointsService(self.db)
+                points_result = points_service.reward_vote_participation(user_id)
+            
         except Exception as e:
             logger.warning(f"投票积分奖励发放失败: {str(e)}")
         
