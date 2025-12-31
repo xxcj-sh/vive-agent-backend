@@ -1550,3 +1550,79 @@ class LLMService:
         )
 
         return await self.call_llm_api(llm_request, provider, model_name)
+
+    async def generate_chat_summary(
+        self,
+        user_id: str,
+        chat_messages: List[str],
+        provider: LLMProvider = LLMProvider.VOLCENGINE,
+        model_name: str = settings.LLM_MODEL
+    ) -> Dict[str, Any]:
+        """
+        生成聊天内容总结
+        
+        Args:
+            user_id: 用户ID
+            chat_messages: 聊天消息列表
+            provider: LLM服务提供商
+            model_name: 模型名称
+            
+        Returns:
+            包含总结内容、消息数量、语言等信息的字典
+        """
+        try:
+            # 构建聊天内容上下文
+            chat_context = "\n".join([
+                f"No.{i+1} {msg}" for i, msg in enumerate(chat_messages)
+            ])
+            
+            # 构建总结提示词
+            prompt = f"""     
+            请提供简洁明了地总结用户表达意图和主题，不需要总结 AI 的回复内容，不超过200字。
+
+            用户和 AI 的聊天记录：
+            {chat_context}
+            """            
+            llm_request = LLMRequest(
+                user_id=user_id,
+                task_type=LLMTaskType.CHAT_SUMMARIZATION,
+                prompt=prompt.strip()
+            )
+            
+            # 调用LLM API
+            response = await self.call_llm_api(llm_request, provider, model_name)
+            
+            if response.success and response.data:
+                return {
+                    "success": True,
+                    "summary": response.data,
+                    "content": response.data,
+                    "message_count": str(len(chat_messages)),
+                    "language": "zh",
+                    "usage": response.usage,
+                    "duration": response.duration
+                }
+            else:
+                return {
+                    "success": False,
+                    "summary": "",
+                    "content": "",
+                    "message_count": str(len(chat_messages)),
+                    "language": "zh",
+                    "usage": response.usage,
+                    "duration": response.duration,
+                    "error": "LLM调用失败"
+                }
+                
+        except Exception as e:
+            logger.error(f"生成聊天总结失败: {str(e)}")
+            return {
+                "success": False,
+                "summary": "",
+                "content": "",
+                "message_count": str(len(chat_messages)),
+                "language": "zh",
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                "duration": 0,
+                "error": str(e)
+            }

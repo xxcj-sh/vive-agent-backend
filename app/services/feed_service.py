@@ -298,9 +298,7 @@ class FeedService:
             # 构建返回数据
             cards = []
             
-            for i, user_card in enumerate(paginated_cards):
-                print(f"处理第{i+1}个卡片: card_id={user_card.id}, user_id={user_card.user_id}")
-                
+            for i, user_card in enumerate(paginated_cards):                
                 # 获取卡片创建者信息，并检查用户状态
                 card_creator = self.db.query(User).filter(
                     and_(

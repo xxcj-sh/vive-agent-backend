@@ -141,9 +141,7 @@ async def login_by_phone(
         if not phone or not code:
             return BaseResponse(code=422, message="缺少必要参数", data={})
         
-        # 打印验证码信息到控制台
-        print(f"[验证码验证] 手机号: {phone}, 验证码: {code}")
-        
+        # 打印验证码信息到控制台        
         login_result = AuthService.login_by_phone(phone, code, db)
         
         return BaseResponse(

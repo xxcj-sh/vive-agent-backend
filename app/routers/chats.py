@@ -12,7 +12,9 @@ from app.database import get_db
 from app.models.schemas import ChatMessageResponse, ChatMessageCreate, ChatListResponse
 from app.models.chat_message import ChatSummary
 from app.models.user_card import Card
+from app.models.user_card_db import UserCard
 from app.models.schemas import ChatSummaryResponse, ChatSummaryCreate
+from app.services.llm_service import LLMService
 
 # 注意：匿名聊天API不需要认证，因为它是公开访问的
 router = APIRouter(prefix="/chats", tags=["聊天"])  # 设置/chats前缀，结合main.py中的/api/v1前缀得到/api/v1/chats
@@ -122,15 +124,34 @@ async def create_chat_summary(
     """创建聊天总结
     
     保存用户聊天的AI总结内容，并发送通知给卡片所有者
+    如果提供了user_messages，将使用LLM服务生成总结内容
     """
     try:
+        user_messages = summary_data.user_messages
+        
+        # 使用LLM服务生成总结
+        llm_service = LLMService(db)
+        summary_result = await llm_service.generate_chat_summary(
+            user_id=summary_data.user_id,
+            chat_messages=user_messages
+        )
+        
+        if summary_result.get("success"):
+            summary_content = summary_result["summary"]
+            # 更新消息数量
+            summary_data.chat_messages_count = summary_result["message_count"]
+        else:
+            # LLM生成失败，使用备用方案
+            summary_content = f"共{len(user_messages)}条消息，主要关注{user_messages[0][:50] if user_messages and user_messages[0] else '相关话题'}..."
+            summary_data.chat_messages_count = str(len(user_messages))
+        
         # 创建新的聊天总结记录
         new_summary = ChatSummary(
             user_id=summary_data.user_id,
             card_id=summary_data.card_id,
             session_id=summary_data.session_id,
             summary_type=summary_data.summary_type or 'chat',
-            summary_content=summary_data.summary_content,
+            summary_content=summary_content,
             chat_messages_count=summary_data.chat_messages_count,
             summary_language=summary_data.summary_language or 'zh',
             is_read=summary_data.is_read or False
@@ -156,8 +177,15 @@ async def get_unread_chat_summaries_count(
     获取用户未读的聊天总结数量
     """
     try:
+        # 首先查询当前用户拥有的所有card_id
+        from sqlalchemy import select
+        user_card_ids = select(UserCard.id).filter(
+            UserCard.user_id == user_id
+        )
+        
+        # 然后查询这些card相关的未读ChatSummary
         count = db.query(ChatSummary).filter(
-            ChatSummary.user_id == user_id,
+            ChatSummary.card_id.in_(user_card_ids),
             ChatSummary.is_read == False
         ).count()
         
@@ -186,7 +214,13 @@ async def get_chat_summaries(
         
         # 应用筛选条件
         if user_id:
-            query = query.filter(ChatSummary.user_id == user_id)
+            # 首先查询当前用户拥有的所有card_id
+            from sqlalchemy import select
+            user_card_ids = select(UserCard.id).filter(
+                UserCard.user_id == user_id
+            )
+            # 然后查询这些card相关的ChatSummary
+            query = query.filter(ChatSummary.card_id.in_(user_card_ids))
         if card_id:
             query = query.filter(ChatSummary.card_id == card_id)
         if session_id:

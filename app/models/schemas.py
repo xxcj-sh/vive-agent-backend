@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -158,14 +158,14 @@ class ChatSummaryCreate(BaseModel):
     card_id: Optional[str] = Field(None, description="卡片ID")
     session_id: Optional[str] = Field(None, description="会话ID")
     summary_type: Optional[str] = Field("chat", description="总结类型: chat, opinion, analysis")
-    summary_content: str = Field(..., description="总结内容")
     chat_messages_count: Optional[str] = Field(None, description="聊天消息数量")
     summary_language: Optional[str] = Field("zh", description="总结语言: zh, en")
     is_read: Optional[bool] = Field(False, description="是否已读")
+    user_messages: List[str] = Field(..., description="用户消息列表，用于LLM生成总结")
     
-    @field_validator('summary_content')
+    @field_validator('user_messages')
     @classmethod
-    def summary_content_must_not_be_empty(cls, v):
-        if not v or not v.strip():
-            raise ValueError('总结内容不能为空')
+    def user_messages_must_not_be_empty(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError('用户消息列表不能为空')
         return v
