@@ -310,7 +310,6 @@ class FeedService:
                 
                 # 获取用户的推荐信息
                 user_recommend_info = next((user for user in recommended_users if user['id'] == user_card.user_id), {})
-                print("card_creator:", card_creator, getattr(card_creator, 'nick_name'))
                 # 构建前端兼容的格式化卡片数据
                 card_data = {
                     # 基础信息
