@@ -367,65 +367,6 @@ async def extract_activity_info(
     }
 
 
-@router.post("/generate-coffee-chat-response")
-async def generate_coffee_chat_response(
-    request: dict,
-    db: Session = Depends(get_db)
-):
-    """
-    生成咖啡聊天对话回复
-    
-    专为咖啡聊天场景设计的对话生成接口，根据用户消息、对话历史和已提取的信息
-    生成自然、友好的咖啡约会安排对话回复
-    
-    测试接口，无需认证
-    """
-    service = LLMService(db)
-    
-    # 获取用户ID，默认为测试用户
-    user_id = request.get("user_id", "test-coffee-user")
-    user_message = request.get("user_message", "")
-    conversation_history = request.get("conversation_history", [])
-    extracted_info = request.get("extracted_info", {})
-    dialog_count = request.get("dialog_count", 0)
-    
-    try:
-        response = await service.generate_coffee_chat_response(
-            user_id=user_id,
-            user_message=user_message,
-            conversation_history=conversation_history,
-            extracted_info=extracted_info,
-            dialog_count=dialog_count,
-            provider=settings.LLM_PROVIDER,
-            model_name=settings.LLM_MODEL
-        )
-        
-        if not response.success:
-            raise HTTPException(status_code=500, detail="生成咖啡聊天回复失败")
-        
-        return {
-            "code": 0,
-            "message": "success",
-            "data": {
-                "response": response.data,
-                "usage": response.usage,
-                "duration": response.duration
-            }
-        }
-    except Exception as e:
-        logger.error(f"生成咖啡聊天回复失败: {str(e)}")
-        return {
-            "code": 500,
-            "message": f"生成失败: {str(e)}",
-            "data": {
-                "response": "抱歉，我现在无法生成回复，请稍后再试。",
-                "usage": {},
-                "duration": 0,
-                "error": str(e)
-            }
-        }
-
-
 @router.post("/process-scene")
 async def process_scene_request(
     request: dict,

@@ -968,65 +968,6 @@ class LLMService:
         async for chunk in stream:
             yield chunk
 
-    async def _handle_sports_chat_non_stream(
-        self,
-        user_id: str,
-        params: Dict[str, Any],
-        provider: LLMProvider,
-        model_name: str
-    ):
-        """处理体育聊天场景（非流式）"""
-        message = params.get("message", "")
-        conversation_history = params.get("conversation_history", [])
-        sports_context = params.get("sports_context", {})
-        
-        conversation_context = json.dumps(conversation_history, ensure_ascii=False)
-        sports_context_str = json.dumps(sports_context, ensure_ascii=False)
-        
-        prompt = f"""
-        你是一个体育话题专家.请基于以下信息参与体育相关讨论:
-        
-        对话历史:{conversation_context}
-        
-        用户消息:{message}
-        
-        体育上下文:{sports_context_str}
-        
-        请给出专业,有趣且能促进体育话题讨论继续的回复.
-        """
-        
-        request = LLMRequest(
-            user_id=user_id,
-            task_type=LLMTaskType.QUESTION_ANSWERING,
-            prompt=prompt
-        )
-        
-        response = await self.call_llm_api(request, provider, model_name)
-        return {
-            "success": response.success,
-            "data": response.data,
-            "usage": response.usage,
-            "duration": response.duration,
-            "scene_config_key": "sports-chat"
-        }
-
-    async def _handle_sports_chat(
-        self,
-        user_id: str,
-        params: Dict[str, Any],
-        provider: LLMProvider,
-        model_name: str,
-        stream: bool
-    ):
-        """处理体育聊天场景"""
-        if stream:
-            async for chunk in self._handle_sports_chat_stream(user_id, params, provider, model_name):
-                yield chunk
-            return
-        else:
-            result = await self._handle_sports_chat_non_stream(user_id, params, provider, model_name)
-            yield result
-
     async def _handle_generate_opinion_summary(
         self,
         user_id: str,
@@ -1316,8 +1257,7 @@ class LLMService:
         
         # 构建简洁的提示词 - 专注于生成自然流畅的回复
         prompt = f"""
-        你是一个友好, 自然的聊天助手. 请根据以下信息回复用户的消息:
-        
+        请根据以下信息回复用户的消息:
         聊天ID: {chat_id}
         用户消息: {message}
         你的身份简介: {card_bio}
@@ -1443,113 +1383,6 @@ class LLMService:
                 sentiment="neutral",
                 confidence_score=0.0
             )
-
-    async def generate_coffee_chat_response(
-        self,
-        user_id: str,
-        user_message: str,
-        conversation_history: List[Dict[str, Any]] = None,
-        extracted_info: Dict[str, Any] = None,
-        dialog_count: int = 0,
-        provider: LLMProvider = LLMProvider.VOLCENGINE,
-        model_name: str = settings.LLM_MODEL
-    ) -> LLMResponse:
-        """
-        生成咖啡聊天场景下的对话回复
-        
-        Args:
-            user_id: 用户ID
-            user_message: 用户输入消息
-            conversation_history: 对话历史记录
-            extracted_info: 已提取的信息(时间, 地点, 偏好等)
-            dialog_count: 对话轮数
-            provider: LLM服务提供商
-            model_name: 模型名称
-            
-        Returns:
-            LLM响应对象
-        """
-        # 构建上下文信息
-        time_info = extracted_info.get('time') if extracted_info else None
-        location_info = extracted_info.get('location') if extracted_info else None
-        preferences = extracted_info.get('preferences') if extracted_info else {}
-        
-        # 根据对话进度构建不同的提示词
-        if not time_info and not location_info:
-            # 信息都不足
-            prompt_parts = [
-                f"你是一个友好的咖啡约会安排助手. 用户说:\"{user_message}\"",
-                "",
-                "请用温暖,自然的语气回复,表达你帮助安排咖啡约会的意愿.",
-                "回复要简洁友好,像真人对话一样,可以询问用户的基本偏好.",
-                "",
-                "直接给出回复内容,不要包含其他解释."
-            ]
-            prompt = "\n".join(prompt_parts)
-        elif time_info and location_info:
-            # 已有足够信息,提供推荐
-            prompt_parts = [
-                f"用户说:\"{user_message}\"",
-                "",
-                "已收集的信息:",
-                f"- 时间:{time_info}",
-                f"- 地点:{location_info}",
-                f"- 偏好:{json.dumps(preferences, ensure_ascii=False) if preferences else '无特殊要求'}",
-                "",
-                "请基于这些信息为用户推荐具体的咖啡店,包括店名,地址,特色等.",
-                "语气要热情专业,提供实用建议.",
-                "",
-                "直接给出回复内容,不要包含其他解释."
-            ]
-            prompt = "\n".join(prompt_parts)
-        elif time_info and not location_info:
-            # 有时间缺地点
-            prompt_parts = [
-                f"用户说:\"{user_message}\"",
-                "",
-                f"已知用户希望在 {time_info} 见面.",
-                "",
-                "请用自然的语气询问用户希望在哪个区域或具体地点喝咖啡,",
-                "可以提供一些热门区域作为参考.",
-                "",
-                "直接给出回复内容,不要包含其他解释."
-            ]
-            prompt = "\n".join(prompt_parts)
-        elif location_info and not time_info:
-            # 有地点缺时间
-            prompt_parts = [
-                f"用户说:\"{user_message}\"",
-                "",
-                f"已知用户希望在 {location_info} 区域喝咖啡.",
-                "",
-                "请用自然的语气询问用户希望什么时间见面,",
-                "可以提供一些时间建议.",
-                "",
-                "直接给出回复内容,不要包含其他解释."
-            ]
-            prompt = "\n".join(prompt_parts)
-        else:
-            # 信息不足,继续收集
-            history_str = json.dumps(conversation_history[-3:], ensure_ascii=False) if conversation_history else '无历史'
-            prompt_parts = [
-                "用户说:\"" + user_message + "\"",
-                "",
-                "对话历史:" + history_str,
-                "",
-                "请用友好,耐心的语气继续收集用户的信息,",
-                "可以询问时间,地点或偏好,帮助用户明确需求.",
-                "",
-                "直接给出回复内容,不要包含其他解释."
-            ]
-            prompt = "\n".join(prompt_parts)
-
-        llm_request = LLMRequest(
-            user_id=user_id,
-            task_type=LLMTaskType.CONVERSATION_SUGGESTION,
-            prompt=prompt.strip()
-        )
-
-        return await self.call_llm_api(llm_request, provider, model_name)
 
     async def generate_chat_summary(
         self,
