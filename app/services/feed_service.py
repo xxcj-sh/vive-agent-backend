@@ -212,14 +212,13 @@ class FeedService:
                     # 其他字段
                     "createdAt": card.created_at.isoformat() if card.created_at else "",
                     "displayName": getattr(card, 'display_name', None),
-                    "creatorName": getattr(card, 'display_name', None) or getattr(user, 'name', '匿名用户'),
+                    "creatorName": getattr(user, 'nick_name', '匿名用户'),
                     "creatorAvatar": self._process_media_url(getattr(user, 'avatar_url', None) or ""),
                     "creatorAge": getattr(user, 'age', 25),
                     "creatorOccupation": getattr(user, 'occupation', ''),
                     "cardTitle": str(card.display_name),
                     "visibility": 'everyone' if getattr(card, 'visibility', 'public') == 'public' else getattr(card, 'visibility', 'public')
-                }
-                
+                }                
                 formatted_cards.append(card_data)
             
             return formatted_cards
@@ -302,8 +301,7 @@ class FeedService:
                 card_creator = self.db.query(User).filter(
                     and_(
                         User.id == str(user_card.user_id),
-                        User.is_active == True,
-                        User.status != 'deleted'
+                        User.is_active == 1
                     )
                 ).first()
                 if not card_creator:
@@ -312,13 +310,12 @@ class FeedService:
                 
                 # 获取用户的推荐信息
                 user_recommend_info = next((user for user in recommended_users if user['id'] == user_card.user_id), {})
-                
+                print("card_creator:", card_creator, getattr(card_creator, 'nick_name'))
                 # 构建前端兼容的格式化卡片数据
                 card_data = {
                     # 基础信息
                     "id": str(user_card.id),
                     "userId": str(card_creator.id),
-                    "name": getattr(user_card, 'display_name', None) or getattr(card_creator, 'name', '匿名用户'),
                     "avatar": self._process_media_url(getattr(user_card, 'avatar_url', None) or getattr(card_creator, 'avatar_url', None) or ""),
                     "age": getattr(card_creator, 'age', 25),
                     "occupation": getattr(card_creator, 'occupation', ''),
@@ -346,7 +343,7 @@ class FeedService:
                     # 其他字段（兼容前端格式）
                     "createdAt": user_card.created_at.isoformat() if user_card.created_at else "",
                     "displayName": getattr(user_card, 'display_name', None),
-                    "creatorName": getattr(card_creator, 'name', '匿名用户'),
+                    "creatorName": getattr(card_creator, 'nick_name', '匿名用户'),
                     "creatorAvatar": self._process_media_url(getattr(card_creator, 'avatar_url', None) or ""),
                     "creatorAge": getattr(card_creator, 'age', 25),
                     "creatorOccupation": getattr(card_creator, 'occupation', ''),
