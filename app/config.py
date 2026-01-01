@@ -60,7 +60,8 @@ class Settings(BaseSettings):
     # ===========================
     LLM_API_KEY: str = ""
     LLM_BASE_URL: str = "https://ark.cn-beijing.volces.com/api/v3"
-    LLM_MODEL: str = "doubao-seed-1-6-250615"
+    # 微分智能体-线上调用服务
+    LLM_MODEL: str = "ep-20260101155759-d69zq"
     LLM_PROVIDER: str = "volcengine"
     LLM_MAX_TOKENS: int = 1000
     LLM_TIMEOUT: int = 30
