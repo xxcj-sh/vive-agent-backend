@@ -263,9 +263,7 @@ async def generate_chat_suggestions(
     db: Session = Depends(get_db)
 ):
     """生成个性化聊天建议
-    
-    根据当前用户的画像数据和卡片的偏好设置，生成个性化的聊天建议
-    支持缓存机制，相同用户和卡片组合的建议会被缓存30分钟
+    根据双方的用户画像，为当前用户提供与目标用户的聊天建议，从当前用户的立场考虑
     """
     try:
         # 验证卡片是否存在
@@ -312,31 +310,27 @@ async def generate_chat_suggestions(
             )
         
         # 构建LLM提示词
-        user_personality = user_profile_summary or "未知用户"
+        user_personality = user_profile_summary or "微分智能体的新用户"
         
         preferences_str = json.dumps(card_preferences, ensure_ascii=False, indent=2) if card_preferences else "无"
         
         prompt = f"""
-请根据以下信息生成适合与这个AI分身聊天的个性化建议:
-
-## 用户画像信息
-用户性格特征和画像摘要: {user_personality}
+## 当前用户画像信息
+当前用户性格特征和画像摘要: {user_personality}
 用户详细信息: {json.dumps(user_raw_profile, ensure_ascii=False, indent=2) if user_raw_profile else "无"}
 
-## AI分身信息
-AI分身简介: {card_bio}
-AI分身偏好设置: {preferences_str}
+## 对方信息
+对方的身份简介: {card_bio}
+对方的偏好: {preferences_str}
 
-请生成{request.max_suggestions}条个性化聊天建议，要求:
-1. 建议应该帮助用户了解可以和这个AI分身聊什么
-2. 建议应该基于用户的画像和AI分身的偏好设置进行个性化推荐
-3. 每条建议应该简洁明了，具有可操作性
-4. 建议应该符合AI分身的人物设定和偏好
-5. 建议应该积极引导用户发起有意义的对话
+请从当前用户角度出发，提供与对方的聊天建议，可以考虑以下几点:
+1. 当前用户可以从对方那里获得什么信息
+2. 当前用户跟对方可能有哪些共同感兴趣的话题
+3. 当前用户和对方有哪些共同点
 
 请以JSON格式回复，格式如下:
 {{
-    "suggestions": ["建议1", "建议2", "建议3"],
+    "suggestions": ["xxxx"],
     "confidence": 0.85
 }}
 """
