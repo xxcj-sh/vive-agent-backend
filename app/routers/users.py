@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
@@ -165,10 +165,84 @@ class WeChatOpenIdResponse(BaseModel):
     user_id: Optional[str] = Field(None, description="用户ID")
 
 
+def trigger_user_profile_generation(db: Session, user_id: str, user_data: Dict[str, Any]):
+    """
+    后台任务：触发用户画像生成
+    
+    这个函数作为 BackgroundTasks 传入，确保在请求返回后继续执行
+    """
+    from app.services.user_profile.user_profile_service import UserProfileService
+    import asyncio
+    
+    async def _generate():
+        try:
+            profile_service = UserProfileService(db)
+            await profile_service.refresh_profile_on_user_update(user_id, user_data)
+            print(f"用户画像生成完成: user_id={user_id}")
+        except Exception as e:
+            print(f"用户画像生成失败: user_id={user_id}, error={str(e)}")
+    
+    # 创建新的事件循环来执行异步任务
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(_generate())
+        loop.close()
+    except Exception as e:
+        print(f"执行用户画像生成任务失败: user_id={user_id}, error={str(e)}")
+
+
+def generate_profile_on_user_creation(db: Session, user_id: str):
+    """
+    用户创建时生成初始画像
+    """
+    from app.services.user_profile.user_profile_service import UserProfileService
+    import asyncio
+    
+    async def _generate():
+        try:
+            profile_service = UserProfileService(db)
+            
+            # 获取用户信息
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                print(f"用户不存在，无法生成画像: user_id={user_id}")
+                return
+            
+            user_data = {
+                'nick_name': user.nick_name,
+                'gender': user.gender,
+                'age': user.age,
+                'bio': user.bio,
+                'occupation': user.occupation,
+                'location': user.location,
+                'education': user.education,
+                'interests': user.interests
+            }
+            
+            await profile_service.generate_profile_from_user_data(
+                user_id=user_id,
+                user_data=user_data,
+                existing_raw_profile=None
+            )
+            print(f"用户创建时画像生成完成: user_id={user_id}")
+        except Exception as e:
+            print(f"用户创建时画像生成失败: user_id={user_id}, error={str(e)}")
+    
+    # 创建新的事件循环来执行异步任务
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(_generate())
+        loop.close()
+    except Exception as e:
+        print(f"执行用户创建画像生成任务失败: user_id={user_id}, error={str(e)}")
+
+
 
 # 路由
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
+def create_user(user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -206,7 +280,14 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         # 如果卡片创建失败，只记录日志，不影响用户注册流程
         print(f"自动创建 SOCIAL_BASIC 卡片失败，用户ID: {new_user.id}, 错误: {str(e)}")
     
-    return new_user
+    # 用户注册成功后，异步生成用户画像
+    background_tasks.add_task(generate_profile_on_user_creation, db, new_user.id)
+    
+    return BaseResponse(
+        code=0, 
+        message="用户创建成功", 
+        data=UserResponse.from_orm(new_user).dict()
+    )
 
 @router.get("/", response_model=List[UserResponse])
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -243,7 +324,7 @@ def get_current_user_info(current_user: Dict[str, Any] = Depends(get_current_use
     return BaseResponse(code=0, message="success", data=processed_data)
 
 @router.put("/me")
-def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any] = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_current_user(profile_data: ProfileUpdate, background_tasks: BackgroundTasks, current_user: Dict[str, Any] = Depends(get_current_user), db: Session = Depends(get_db)):
     """更新当前用户基础信息"""
     if not current_user:
         raise HTTPException(status_code=401, detail="用户未认证")
@@ -361,6 +442,30 @@ def update_current_user(profile_data: ProfileUpdate, current_user: Dict[str, Any
                 except Exception as e:
                     # 如果卡片创建失败，只记录日志，不影响用户更新流程
                     print(f"用户更新信息后自动创建 SOCIAL_BASIC 卡片失败，用户ID: {user_id}, 错误: {str(e)}")
+        
+        # 检查是否需要触发用户画像生成
+        # 当用户更新了关键信息（bio, gender, age, occupation, location）时重新生成画像
+        profile_trigger_fields = ['bio', 'gender', 'age', 'occupation', 'location', 'nick_name', 'education', 'interests']
+        should_regenerate_profile = any(
+            field in update_dict for field in profile_trigger_fields
+        )
+        
+        if should_regenerate_profile:
+            # 准备用户数据
+            user_data_for_profile = {
+                'nick_name': updated_user.nick_name,
+                'gender': updated_user.gender,
+                'age': updated_user.age,
+                'bio': updated_user.bio,
+                'occupation': updated_user.occupation,
+                'location': updated_user.location,
+                'education': updated_user.education,
+                'interests': updated_user.interests
+            }
+            
+            # 使用 BackgroundTasks 异步触发画像生成（不阻塞响应）
+            background_tasks.add_task(trigger_user_profile_generation, db, user_id, user_data_for_profile)
+            print(f"用户信息更新后已触发画像生成，用户ID: {user_id}")
         
         from app.models.schemas import BaseResponse
         # 移除SQLAlchemy内部字段并返回干净的用户数据

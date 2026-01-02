@@ -189,8 +189,7 @@ class UserProfileService:
     
     def _format_raw_profile(self, raw_profile: str) -> str:
         """
-        格式化raw_profile字符串，提高可读性
-        将紧凑的JSON格式化为带有缩进和换行的易读格式
+        格式化 raw_profile 字符串，提高可读性
         """
         try:
             import json
@@ -379,3 +378,124 @@ class UserProfileService:
             profile = await self.create_user_profile(profile_data)
         
         return profile
+
+    async def generate_profile_from_user_data(
+        self, 
+        user_id: str, 
+        user_data: Dict[str, Any],
+        existing_raw_profile: Optional[str] = None
+    ) -> UserProfile:
+        """
+        根据用户基础信息生成用户画像
+        
+        当用户创建账号或更新个人信息时调用此方法
+        结合用户表的基础信息（bio, gender, age, occupation, location）
+        和用户画像表中已有的 raw_profile 信息，使用 LLM 异步生成新的画像数据
+        
+        Args:
+            user_id: 用户ID
+            user_data: 用户基础信息字典，包含 bio, gender, age, occupation, location 等
+            existing_raw_profile: 已有的 raw_profile 数据（可选）
+            
+        Returns:
+            更新后的 UserProfile 对象
+        """
+        import json
+        from datetime import datetime
+        
+        # 1. 准备画像数据
+        profile_data = {
+            "user_id": user_id,
+            "nickname": user_data.get("nick_name") or user_data.get("nickName"),
+            "gender": user_data.get("gender"),
+            "age": user_data.get("age"),
+            "bio": user_data.get("bio"),
+            "occupation": user_data.get("occupation"),
+            "location": user_data.get("location"),
+            "education": user_data.get("education"),
+            "interests": user_data.get("interests"),
+            "update_time": datetime.now().isoformat()
+        }
+        
+        # 清理空值
+        profile_data = {k: v for k, v in profile_data.items() if v is not None}
+        
+        # 2. 如果存在已有的 raw_profile，合并数据
+        if existing_raw_profile:
+            try:
+                existing_data = json.loads(existing_raw_profile)
+                # 合并已有数据，新数据优先
+                for key, value in existing_data.items():
+                    if key not in profile_data:
+                        profile_data[key] = value
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.warning(f"解析 existing_raw_profile 失败: {e}")
+        
+        # 3. 准备 raw_profile JSON 字符串
+        raw_profile_json = json.dumps(profile_data, ensure_ascii=False)
+        
+        # 4. 调用 LLM 生成 profile_summary
+        profile_summary = await self._generate_profile_summary(user_id, profile_data)
+        
+        # 5. 获取或创建用户画像记录
+        db_profile = self.get_user_profile(user_id)
+        if db_profile:
+            # 更新现有画像
+            db_profile.raw_profile = self._format_raw_profile(raw_profile_json)
+            db_profile.profile_summary = profile_summary
+            db_profile.update_reason = "用户信息更新触发画像生成"
+            db_profile.updated_at = datetime.now()
+            
+            # 创建历史记录
+            self._create_history_record(db_profile, "update", "system", "用户信息更新触发LLM画像生成")
+        else:
+            # 创建新画像
+            db_profile = UserProfile(
+                user_id=user_id,
+                raw_profile=self._format_raw_profile(raw_profile_json),
+                profile_summary=profile_summary,
+                update_reason="用户创建触发画像生成"
+            )
+            self.db.add(db_profile)
+        
+        self.db.commit()
+        self.db.refresh(db_profile)
+        
+        logger.info(f"用户画像生成成功: user_id={user_id}")
+        return db_profile
+
+    async def refresh_profile_on_user_update(
+        self, 
+        user_id: str, 
+        user_data: Dict[str, Any]
+    ) -> Optional[UserProfile]:
+        """
+        在用户信息更新后刷新用户画像
+        
+        这是主要的入口方法，会在用户更新基础信息后被调用
+        结合用户基础信息和已有画像数据，使用 LLM 重新生成画像
+        
+        Args:
+            user_id: 用户ID
+            user_data: 更新后的用户基础信息
+            
+        Returns:
+            更新后的 UserProfile 对象，如果用户不存在则返回 None
+        """
+        # 检查用户是否存在
+        from app.models.user import User
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logger.warning(f"用户不存在，无法生成画像: user_id={user_id}")
+            return None
+        
+        # 获取已有的 raw_profile
+        existing_profile = self.get_user_profile(user_id)
+        existing_raw_profile = existing_profile.raw_profile if existing_profile else None
+        
+        # 生成新画像
+        return await self.generate_profile_from_user_data(
+            user_id=user_id,
+            user_data=user_data,
+            existing_raw_profile=existing_raw_profile
+        )
