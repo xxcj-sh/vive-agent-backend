@@ -19,7 +19,7 @@ class UserCard(Base):
     avatar_url = Column(String(500), nullable=True)
     bio = Column(Text, nullable=True)
     profile_data = Column(JSON, nullable=True)
-    preferences = Column(JSON, nullable=True)
+    preferences = Column(String, nullable=True)
     visibility = Column(String(20), default="public")  # public, private
     is_active = Column(Integer, default=1)
     is_deleted = Column(Integer, default=0)

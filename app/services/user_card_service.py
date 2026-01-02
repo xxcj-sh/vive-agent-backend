@@ -35,10 +35,13 @@ class UserCardService:
             profile_data = json.dumps({}, ensure_ascii=False)
             
         preferences = card_data.preferences
-        if preferences is not None and isinstance(preferences, dict):
-            preferences = json.dumps(preferences, ensure_ascii=False)
+        if preferences is not None:
+            if isinstance(preferences, dict):
+                preferences = json.dumps(preferences, ensure_ascii=False)
+            else:
+                preferences = str(preferences)
         else:
-            preferences = json.dumps({}, ensure_ascii=False)
+            preferences = ""
         
         db_card = UserCard(
             id=card_id,
@@ -99,11 +102,6 @@ class UserCardService:
             profile_data = json.loads(card.profile_data) if card.profile_data else {}
         except (json.JSONDecodeError, TypeError):
             profile_data = {}
-            
-        try:
-            preferences = json.loads(card.preferences) if card.preferences else {}
-        except (json.JSONDecodeError, TypeError):
-            preferences = {}
         
         result = {
             "id": card.id,
@@ -113,7 +111,7 @@ class UserCardService:
             "avatar_url": card.avatar_url,
             "bio": card.bio or "",
             "profile_data": profile_data,
-            "preferences": preferences,
+            "preferences": card.preferences,
             "visibility": card.visibility,
             "is_active": card.is_active,
             "search_code": card.search_code,
@@ -156,17 +154,23 @@ class UserCardService:
         for field, value in update_data.items():
             if field in ["bio", "profile_data", "preferences", "visibility", "search_code", "avatar_url", "display_name"]:
                 # 对 JSON 字段进行序列化
-                if field in ["profile_data", "preferences"]:
+                if field in ["profile_data"]:
                     if value is not None:
                         if isinstance(value, dict):
                             value = json.dumps(value, ensure_ascii=False)
                             print(f"更新{field}后:", value)
                         else:
-                            # 如果不是预期的类型，使用默认值
                             value = json.dumps({}, ensure_ascii=False)
                     else:
-                        # 空值使用默认值
                         value = json.dumps({}, ensure_ascii=False)
+                elif field in ["preferences"]:
+                    if value is not None:
+                        if isinstance(value, dict):
+                            value = json.dumps(value, ensure_ascii=False)
+                        else:
+                            value = str(value)
+                    else:
+                        value = ""
                 setattr(card, field, value)
                 
         card.updated_at = datetime.now()
@@ -225,12 +229,6 @@ class UserCardService:
                 except (json.JSONDecodeError, TypeError):
                     card.profile_data = {}
             
-            if isinstance(card.preferences, str):
-                try:
-                    card.preferences = json.loads(card.preferences)
-                except (json.JSONDecodeError, TypeError):
-                    card.preferences = {}
-            
             processed_cards.append(card)
         
         # 重新按场景分组处理后的卡片
@@ -287,11 +285,6 @@ class UserCardService:
             except (json.JSONDecodeError, TypeError):
                 profile_data = {}
             
-            try:
-                preferences = json.loads(card.preferences) if card.preferences else {}
-            except (json.JSONDecodeError, TypeError):
-                preferences = {}
-            
             # 获取用户基础信息
             user = db.query(User).filter(User.id == card.user_id).first()
             user_info = {}
@@ -316,7 +309,7 @@ class UserCardService:
                 "avatar_url": card.avatar_url,
                 "bio": card.bio,
                 "profile_data": profile_data,
-                "preferences": preferences,
+                "preferences": card.preferences,
                 "visibility": card.visibility,
                 "created_at": card.created_at,
                 "updated_at": card.updated_at,

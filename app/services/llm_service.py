@@ -19,8 +19,8 @@ from app.config import settings
 from app.models.llm_usage_log import LLMUsageLog, LLMProvider, LLMTaskType
 from app.models.llm_schemas import (
     LLMRequest,
-    LLMResponse, ConversationSuggestionResponse, ProfileAnalysisResponse,
-    OpinionSummarizationResponse
+    LLMResponse, ConversationSuggestionResponse,
+    OpinionSummarizationResponse, ProfileSummaryResponse
 )
 from app.configs.prompt_config_manager import prompt_config_manager
 
@@ -425,26 +425,31 @@ class LLMService:
         except Exception as e:
             logger.error(f"LLM使用日志处理失败: {str(e)}")
     
-    # 特定任务的便捷方法
-    async def analyze_user_profile(
+
+    async def generate_profile_summary(
         self,
         user_id: str,
-        profile_data: Dict[str, Any],
-        card_type: str,
+        profile_data_str: str,
         provider: LLMProvider = LLMProvider.VOLCENGINE,
-        model_name: str = settings.LLM_MODEL
-    ) -> ProfileAnalysisResponse:
+        model_name: str = settings.LLM_MODEL,
+        existing_profile_str:str = None
+    ) -> ProfileSummaryResponse:
         """分析用户资料"""
         prompt = f"""
-        请分析以下用户资料:
-        
-        卡片类型:{card_type}
-        
-        用户数据:{json.dumps(profile_data, ensure_ascii=False)}
-        
-        请提供深入的分析,包括个性特征,兴趣爱好,价值观等方面的洞察.
+        请分析提供的用户数据，得到用户画像描述（少于 1000 个字），以及用户画像总结文本（字数少于 100 字），并以 JSON 格式输出
+        要求以事实为依据，不凭空臆测，可以进行适当信息压缩。
+        最新提交的用户数据:{profile_data_str}
+
+        以 JSON 输出格式：
+        {{
+            "description": "用户画像描述",
+            "summary": "用户画像总结"
+        }}
         """
-        
+        if existing_profile_str:
+            prompt += f"""
+                当前的用户画像数据:{existing_profile_str}
+                """
         request = LLMRequest(
             user_id=user_id,
             task_type=LLMTaskType.PROFILE_ANALYSIS,
@@ -455,30 +460,28 @@ class LLMService:
         
         if response.success:
             try:
-                analysis_data = json.loads(response.data) if response.data else {}
-                return ProfileAnalysisResponse(
+                rs = json.loads(response.data)
+                return ProfileSummaryResponse(
                     success=True,
                     data=response.data,
+                    profile_summary=rs.get('summary', ''),
+                    profile_description=rs.get('description', ''),
                     usage=response.usage,
-                    duration=response.duration,
-                    personality=analysis_data.get('personality', ''),
-                    interests=analysis_data.get('interests', []),
-                    values=analysis_data.get('values', [])
+                    duration=response.duration
                 )
             except json.JSONDecodeError:
-                return ProfileAnalysisResponse(
+                return ProfileSummaryResponse(
                     success=True,
-                    data=response.data,
+                    profile_summary=response.data,
+                    profile_description=response.data,
                     usage=response.usage,
-                    duration=response.duration,
-                    personality=response.data,
-                    interests=[],
-                    values=[]
+                    duration=response.duration
                 )
         
-        return ProfileAnalysisResponse(
+        return ProfileSummaryResponse(
             success=False,
-            data=None,
+            profile_summary=None,
+            profile_description=None,
             usage=response.usage,
             duration=response.duration,
             personality='',
@@ -1016,7 +1019,7 @@ class LLMService:
         chatHistory: List[Dict[str, Any]],
         suggestionType: str,
         maxSuggestions: int,
-        preferences: Dict[str, Any],
+        preferences: str,
         bio: str,
         trigger_and_output: Dict[str, Any]
     ) -> str:
@@ -1038,7 +1041,7 @@ class LLMService:
                 "house_renting",
                 base_info=base_info,
                 max_suggestions=maxSuggestions,
-                preferences=json.dumps(preferences, ensure_ascii=False),
+                preferences=preferences if preferences else "",
                 bio=bio,
                 trigger_and_output=json.dumps(trigger_and_output, ensure_ascii=False)
             )
@@ -1049,7 +1052,7 @@ class LLMService:
                 prompt_type,
                 base_info=base_info,
                 max_suggestions=maxSuggestions,
-                preferences=json.dumps(preferences, ensure_ascii=False),
+                preferences=preferences if preferences else "",
                 bio=bio,
                 trigger_and_output=json.dumps(trigger_and_output, ensure_ascii=False)
             )
@@ -1071,7 +1074,7 @@ class LLMService:
         chatHistory = context.get("chatHistory", [])
         
         # 获取卡片主人信息
-        card_owner_preferences = {}
+        card_owner_preferences = ""
         cart_trigger_and_output = {}
         card_bio = ""
         role_type = ""
@@ -1176,7 +1179,7 @@ class LLMService:
         chatHistory = context.get("chatHistory", [])
         
         # 获取卡片主人信息
-        card_owner_preferences = {}
+        card_owner_preferences = ""
         cart_trigger_and_output = {}
         card_bio = ""
         role_type = ""
@@ -1240,7 +1243,7 @@ class LLMService:
         
         # 获取卡片信息
         card_bio = ""
-        card_preferences = {}
+        card_preferences = ""
         try:
             from app.models.user_card_db import UserCard
             from app.services.user_card_service import UserCardService
@@ -1261,7 +1264,7 @@ class LLMService:
         聊天ID: {chat_id}
         用户消息: {message}
         你的身份简介: {card_bio}
-        你的偏好: {json.dumps(card_preferences, ensure_ascii=False)}
+        你的偏好: {card_preferences}
         你们的聊天历史: {json.dumps(chat_history[-5:], ensure_ascii=False) if chat_history else '无历史记录'}
         {f'卡片主人性格: {personality}' if personality else ''}
         

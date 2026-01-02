@@ -43,17 +43,20 @@ class LLMResponse(BaseModel):
     
 class ProfileAnalysisResponse(LLMResponse):
     """用户资料分析响应"""
-    analysis: Dict[str, Any] = Field(..., description="分析结果")
-    key_insights: List[str] = Field(..., description="关键洞察")
-    recommendations: List[str] = Field(..., description="改进建议")
+    analysis: Optional[Dict[str, Any]] = Field(None, description="分析结果")
+    key_insights: Optional[List[str]] = Field(None, description="关键洞察")
+    recommendations: Optional[List[str]] = Field(None, description="改进建议")
+
+class ProfileSummaryResponse(LLMResponse):
+    """用户资料总结响应"""
+    profile_summary: str = Field(..., description="用户画像总结")
+    profile_description: str = Field(..., description="用户画像描述")
     
 class InterestAnalysisResponse(LLMResponse):
     """用户兴趣分析响应"""
     interests: List[str] = Field(..., description="识别出的兴趣")
     categories: Dict[str, List[str]] = Field(..., description="兴趣分类")
     match_suggestions: List[str] = Field(..., description="匹配建议")
-    
-
     
 class QuestionAnsweringResponse(LLMResponse):
     """用户提问回答响应"""
@@ -150,3 +153,20 @@ class OpinionSummarizationResponse(LLMResponse):
     key_points: List[str] = Field(..., description="关键观点")
     sentiment: str = Field(..., description="情感倾向")
     confidence_score: float = Field(..., description="置信度分数")
+
+
+class ChatSuggestionRequest(BaseModel):
+    """Index页面个性化聊天建议请求"""
+    card_id: str = Field(..., description="卡片ID")
+    user_profile_summary: Optional[str] = Field(None, description="浏览用户的画像摘要")
+    user_raw_profile: Optional[Dict[str, Any]] = Field(None, description="浏览用户的原始画像数据")
+    card_bio: Optional[str] = Field(None, description="卡片主人的简介")
+    card_preferences: Optional[Dict[str, Any]] = Field(None, description="卡片主人的偏好设置")
+    max_suggestions: int = Field(default=3, ge=1, le=10, description="最大建议数量")
+
+
+class ChatSuggestionResponse(BaseModel):
+    """Index页面个性化聊天建议响应"""
+    suggestions: List[str] = Field(..., description="聊天建议列表")
+    confidence: float = Field(..., description="置信度")
+    generated_at: datetime = Field(default_factory=datetime.utcnow, description="生成时间")

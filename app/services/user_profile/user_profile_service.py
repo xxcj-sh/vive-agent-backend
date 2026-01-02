@@ -2,7 +2,7 @@
 用户画像服务
 提供用户画像的CRUD操作和历史记录管理
 """
-
+import json
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -38,21 +38,23 @@ class UserProfileService:
 
         # 解析JSON数据并生成LLM总结
         summary_text = None
+        description_text = None
         try:
-            import json
             profile_dict = json.loads(profile_data.raw_profile)
 
             # 异步调用LLM生成总结文本
-            summary_text = await self._generate_profile_summary(profile_data.user_id, profile_dict)
-            logger.info(f"成功生成用户画像总结: user_id={profile_data.user_id}")
+            profile_rs = await self._generate_profile_summary(profile_data.user_id, profile_dict)
+            summary_text = profile_rs.profile_summary
+            description_text = profile_rs.profile_description
+
+            logger.info(f"成功生成用户画像总结: user_id={profile_data.user_id}, {profile_rs}")
         except Exception as e:
             logger.error(f"生成用户画像总结失败: user_id={profile_data.user_id}, error={str(e)}")
             # 如果生成失败，设置基本总结
             summary_text = self._generate_basic_summary({})
-
         # 创建新画像
         db_profile_data = profile_data.dict()
-        db_profile_data['raw_profile'] = formatted_profile_data
+        db_profile_data['raw_profile'] = description_text
         db_profile_data['profile_summary'] = summary_text
         db_profile = UserProfile(**db_profile_data)
         self.db.add(db_profile)
@@ -102,9 +104,6 @@ class UserProfileService:
             )
             return await self.create_user_profile(create_data)
 
-        # 记录更新前的数据
-        old_data = db_profile.raw_profile
-
         # 如果有raw_profile更新，需要重新生成总结文本
         if profile_update.raw_profile:
             # 格式化原始数据
@@ -117,8 +116,9 @@ class UserProfileService:
                 profile_dict = json.loads(profile_update.raw_profile)
 
                 # 异步调用LLM生成总结文本
-                summary_text = await self._generate_profile_summary(user_id, profile_dict)
-                setattr(db_profile, 'profile_summary', summary_text)
+                profile_rs = await self._generate_profile_summary(user_id, profile_dict)
+                setattr(db_profile, 'profile_summary', profile_rs.profile_summary)
+                setattr(db_profile, 'raw_profile', profile_rs.profile_description)
 
                 logger.info(f"成功生成并更新用户画像总结: user_id={user_id}")
             except Exception as e:
@@ -210,14 +210,13 @@ class UserProfileService:
             logger.warning(f"格式化raw_profile失败，使用原始格式: {e}")
             return raw_profile
 
-    async def _generate_profile_summary(self, user_id: str, profile_data: Dict[str, Any], card_type: str = "social") -> str:
+    async def _generate_profile_summary(self, user_id: str, profile_data_str: str, existing_profile_str: str = None) -> dict:
         """
         调用LLM服务生成用户画像总结文本
 
         Args:
             user_id: 用户ID
             profile_data: 用户基本数据（JSON格式的字典）
-            card_type: 卡片类型，默认为"social"
 
         Returns:
             str: LLM生成的总结文本
@@ -231,65 +230,35 @@ class UserProfileService:
             llm_service = LLMService(self.db)
 
             # 调用LLM分析用户画像
-            response = await llm_service.analyze_user_profile(
+            response = await llm_service.generate_profile_summary(
                 user_id=user_id,
-                profile_data=profile_data,
-                card_type=card_type,
+                profile_data_str=profile_data_str,
+                existing_profile_str=existing_profile_str,
                 provider=LLMProvider.VOLCENGINE
             )
 
             if response.success and response.data:
-                # 提取分析结果
-                data = response.data
-
-                # 构建自然语言的总结文本
-                summary_parts = []
-
-                # 添加主要分析结果
-                if "analysis" in data:
-                    if isinstance(data["analysis"], dict):
-                        # 如果是字典格式，转换为文本描述
-                        analysis_text = self._format_analysis_dict(data["analysis"])
-                        if analysis_text:
-                            summary_parts.append(analysis_text)
-                    else:
-                        # 如果已经是文本格式
-                        summary_parts.append(str(data["analysis"]))
-
-                # 添加关键洞察
-                if "key_insights" in data and data["key_insights"]:
-                    insights = data["key_insights"]
-                    if isinstance(insights, list) and len(insights) > 0:
-                        summary_parts.append("关键洞察：")
-                        for i, insight in enumerate(insights, 1):
-                            summary_parts.append(f"  {i}. {insight}")
-
-                # 添加建议
-                if "recommendations" in data and data["recommendations"]:
-                    recommendations = data["recommendations"]
-                    if isinstance(recommendations, list) and len(recommendations) > 0:
-                        summary_parts.append("个性化建议：")
-                        for i, rec in enumerate(recommendations, 1):
-                            summary_parts.append(f"  {i}. {rec}")
-
-                # 合并所有部分
-                summary_text = "\n\n".join(summary_parts)
-
-                # 如果LLM返回内容但格式不符合预期，使用原始数据生成基本总结
-                if not summary_text.strip():
-                    summary_text = self._generate_basic_summary(profile_data)
-
-                logger.info(f"成功生成用户画像总结: user_id={user_id}")
-                return summary_text
+                try:
+                    # 解析LLM返回的JSON字符串
+                    result = json.loads(response.data)
+                    parsed_description = result.get("description", "")
+                    parsed_summary = result.get("summary", "")
+                    return {
+                        "description": parsed_description,
+                        "summary": parsed_summary
+                    }
+                except json.JSONDecodeError:
+                    logger.warning(f"LLM返回的JSON格式错误: user_id={user_id}")
+                    return self._generate_basic_summary(profile_data_str)
 
             # 如果LLM调用失败，生成基本总结
             logger.warning(f"LLM分析失败，生成基本总结: user_id={user_id}")
-            return self._generate_basic_summary(profile_data)
+            return self._generate_basic_summary(profile_data_str)
 
         except Exception as e:
             # 记录错误并返回基本总结
             logger.error(f"生成用户画像总结失败: user_id={user_id}, error={str(e)}")
-            return self._generate_basic_summary(profile_data)
+            return self._generate_basic_summary(profile_data_str)
 
     def _format_analysis_dict(self, analysis: Dict[str, Any]) -> str:
         """
@@ -325,7 +294,7 @@ class UserProfileService:
         }
         return key_map.get(key, key)
 
-    def _generate_basic_summary(self, profile_data: Dict[str, Any]) -> str:
+    def _generate_basic_summary(self, profile_data: Dict[str, Any]) -> dict:
         """
         生成基础的用户画像总结（当LLM不可用时使用）
         """
@@ -359,7 +328,10 @@ class UserProfileService:
             if "birthday" in profile_data and profile_data['birthday'] != "未知":
                 parts.append(f"生日: {profile_data['birthday']}")
 
-            return "\n".join(parts)
+            return {
+                "description": "\n".join(parts),
+                "summary": "\n".join(parts)
+            }
 
         except Exception as e:
             logger.error(f"生成基础总结失败: {e}")
@@ -383,7 +355,7 @@ class UserProfileService:
         self, 
         user_id: str, 
         user_data: Dict[str, Any],
-        existing_raw_profile: Optional[str] = None
+        existing_profile: str = None
     ) -> UserProfile:
         """
         根据用户基础信息生成用户画像
@@ -420,29 +392,17 @@ class UserProfileService:
         # 清理空值
         profile_data = {k: v for k, v in profile_data.items() if v is not None}
         
-        # 2. 如果存在已有的 raw_profile，合并数据
-        if existing_raw_profile:
-            try:
-                existing_data = json.loads(existing_raw_profile)
-                # 合并已有数据，新数据优先
-                for key, value in existing_data.items():
-                    if key not in profile_data:
-                        profile_data[key] = value
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.warning(f"解析 existing_raw_profile 失败: {e}")
+        # 2. 准备 raw_profile JSON 字符串
+        profile_data_str = json.dumps(profile_data, ensure_ascii=False)
         
-        # 3. 准备 raw_profile JSON 字符串
-        raw_profile_json = json.dumps(profile_data, ensure_ascii=False)
-        
-        # 4. 调用 LLM 生成 profile_summary
-        profile_summary = await self._generate_profile_summary(user_id, profile_data)
-        
-        # 5. 获取或创建用户画像记录
+        # 3. 调用 LLM 生成 profile_dict
+        profile_dict = await self._generate_profile_summary(user_id, profile_data_str, existing_profile)
+        # 4. 获取或创建用户画像记录
         db_profile = self.get_user_profile(user_id)
         if db_profile:
             # 更新现有画像
-            db_profile.raw_profile = self._format_raw_profile(raw_profile_json)
-            db_profile.profile_summary = profile_summary
+            db_profile.raw_profile = profile_dict.get("description", "")
+            db_profile.profile_summary = profile_dict.get("summary", "")
             db_profile.update_reason = "用户信息更新触发画像生成"
             db_profile.updated_at = datetime.now()
             
@@ -452,8 +412,8 @@ class UserProfileService:
             # 创建新画像
             db_profile = UserProfile(
                 user_id=user_id,
-                raw_profile=self._format_raw_profile(raw_profile_json),
-                profile_summary=profile_summary,
+                raw_profile=profile_dict.get("description", ""),
+                profile_summary=profile_dict.get("summary", ""),
                 update_reason="用户创建触发画像生成"
             )
             self.db.add(db_profile)
@@ -497,5 +457,5 @@ class UserProfileService:
         return await self.generate_profile_from_user_data(
             user_id=user_id,
             user_data=user_data,
-            existing_raw_profile=existing_raw_profile
+            existing_profile=existing_raw_profile
         )

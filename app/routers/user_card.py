@@ -3,9 +3,17 @@ from sqlalchemy.orm import Session
 from app.utils.db_config import get_db
 from app.services.user_card_service import UserCardService
 from app.services.data_adapter import DataService
+from app.services.llm_service import LLMService
+from app.services.user_profile.user_profile_service import UserProfileService
 from app.models.user_card import CardCreate, CardUpdate
+from app.models.llm_schemas import ChatSuggestionRequest, ChatSuggestionResponse
 from app.dependencies import get_current_user
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from datetime import datetime
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/user-cards",
@@ -120,7 +128,7 @@ def update_card(
     
     if existing_card.user_id != user_id:
         raise HTTPException(status_code=403, detail="Permission denied")
-    
+    print("card_data:", card_data)
     # 执行更新
     updated_card = UserCardService.update_card(db, card_id, card_data.dict(exclude_unset=True))
     if not updated_card:
@@ -136,8 +144,8 @@ def update_card(
             "display_name": updated_card.display_name,
             "avatar_url": updated_card.avatar_url,
             "bio": updated_card.bio,
-                "profile_data": updated_card.profile_data or {},
-            "preferences": updated_card.preferences or {},
+            "profile_data": updated_card.profile_data or {},
+            "preferences": updated_card.preferences,
             "visibility": updated_card.visibility,
             "updated_at": updated_card.updated_at
         }
@@ -213,5 +221,132 @@ def get_user_recent_topics(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"获取用户最近话题失败: {str(e)}")
+
+
+@router.post("/chat-suggestions", response_model=ChatSuggestionResponse)
+async def generate_chat_suggestions(
+    request: ChatSuggestionRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """生成个性化聊天建议
+    
+    根据当前用户的画像数据和卡片的偏好设置，生成个性化的聊天建议
+    """
+    try:
+        # 验证卡片是否存在
+        card = UserCardService.get_card_by_id(db, request.card_id)
+        if not card:
+            raise HTTPException(status_code=404, detail="Card not found")
+        
+        # 检查卡片是否被删除或未激活
+        if card.is_deleted == 1 or card.is_active == 0:
+            raise HTTPException(status_code=404, detail="Card not found or inactive")
+        
+        # 获取卡片主人的偏好和简介信息
+        card_bio = request.card_bio or card.bio or ""
+        card_preferences = request.card_preferences or (card.preferences or {})
+        
+        # 获取浏览用户的画像信息
+        current_user_id = current_user.get("id")
+        user_profile_summary = request.user_profile_summary
+        user_raw_profile = request.user_raw_profile
+        
+        # 如果没有提供用户画像数据，尝试从数据库获取
+        if not user_profile_summary and current_user_id:
+            user_profile_service = UserProfileService(db)
+            user_profile = user_profile_service.get_user_profile(current_user_id)
+            if user_profile:
+                user_profile_summary = user_profile.profile_summary
+                try:
+                    user_raw_profile = json.loads(user_profile.raw_profile) if user_profile.raw_profile else {}
+                except:
+                    user_raw_profile = {}
+        
+        # 构建LLM提示词
+        user_personality = user_profile_summary or "未知用户"
+        
+        preferences_str = json.dumps(card_preferences, ensure_ascii=False, indent=2) if card_preferences else "无"
+        
+        prompt = f"""
+请根据以下信息生成适合与这个AI分身聊天的个性化建议:
+
+## 用户画像信息
+用户性格特征和画像摘要: {user_personality}
+用户详细信息: {json.dumps(user_raw_profile, ensure_ascii=False, indent=2) if user_raw_profile else "无"}
+
+## AI分身信息
+AI分身简介: {card_bio}
+AI分身偏好设置: {preferences_str}
+
+请生成{request.max_suggestions}条个性化聊天建议，要求:
+1. 建议应该帮助用户了解可以和这个AI分身聊什么
+2. 建议应该基于用户的画像和AI分身的偏好设置进行个性化推荐
+3. 每条建议应该简洁明了，具有可操作性
+4. 建议应该符合AI分身的人物设定和偏好
+5. 建议应该积极引导用户发起有意义的对话
+
+请以JSON格式回复，格式如下:
+{{
+    "suggestions": ["建议1", "建议2", "建议3"],
+    "confidence": 0.85
+}}
+"""
+        
+        # 调用LLM服务生成建议
+        llm_service = LLMService(db)
+        from app.models.llm_schemas import LLMRequest, LLMResponse
+        from app.models.llm_usage_log import LLMTaskType
+        
+        llm_request = LLMRequest(
+            user_id=current_user_id,
+            task_type=LLMTaskType.CONVERSATION_SUGGESTION,
+            prompt=prompt
+        )
+        
+        response = await llm_service.call_llm_api(llm_request)
+        
+        if not response.success or not response.data:
+            # 如果LLM调用失败，返回默认建议
+            logger.warning(f"LLM生成聊天建议失败，使用默认建议: card_id={request.card_id}")
+            default_suggestions = [
+                f"可以和{card.display_name}聊聊ta的 bio：{card_bio[:50]}..." if card_bio else f"可以和{card.display_name}打个招呼",
+                "问问{card.display_name}今天过得怎么样".format(card=card) if card else "询问对方今天的情况",
+                "可以和{card.display_name}聊聊你们的共同兴趣".format(card=card) if card else "讨论共同话题"
+            ][:request.max_suggestions]
+            
+            return ChatSuggestionResponse(
+                suggestions=default_suggestions,
+                confidence=0.5,
+                generated_at=datetime.utcnow()
+            )
+        
+        # 解析LLM响应
+        try:
+            # 尝试解析JSON格式的响应
+            suggestion_data = json.loads(response.data)
+            suggestions = suggestion_data.get("suggestions", [])
+            confidence = suggestion_data.get("confidence", response.usage.get("total_tokens", 0) / 1000.0)
+        except (json.JSONDecodeError, AttributeError):
+            # 如果解析失败，将整个响应作为单条建议
+            logger.warning(f"解析聊天建议JSON失败，使用原始响应: card_id={request.card_id}")
+            suggestions = [response.data] if response.data else []
+            confidence = 0.6
+        
+        # 确保返回指定数量的建议
+        suggestions = suggestions[:request.max_suggestions]
+        
+        return ChatSuggestionResponse(
+            suggestions=suggestions,
+            confidence=confidence
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"生成聊天建议失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"生成聊天建议失败: {str(e)}")
 
 

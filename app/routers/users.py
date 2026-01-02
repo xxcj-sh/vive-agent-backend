@@ -223,7 +223,7 @@ def generate_profile_on_user_creation(db: Session, user_id: str):
             await profile_service.generate_profile_from_user_data(
                 user_id=user_id,
                 user_data=user_data,
-                existing_raw_profile=None
+                existing_profile=None
             )
             print(f"用户创建时画像生成完成: user_id={user_id}")
         except Exception as e:
@@ -253,6 +253,8 @@ def create_user(user: UserCreate, background_tasks: BackgroundTasks, db: Session
     user_data = user.dict()
     user_data.pop("password")
     user_data["hashed_password"] = hashed_password
+    # 新注册用户默认提供 100 积分用于创建初始用户卡片
+    user_data["points"] = 100
     
     # 创建用户
     db_user = User(**user_data)
@@ -391,57 +393,19 @@ def update_current_user(profile_data: ProfileUpdate, background_tasks: Backgroun
         if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        print(f"开始更新用户属性，更新字典: {update_dict}")
         try:
             for key, value in update_dict.items():
-                print(f"设置属性: {key} = {value}")
                 setattr(db_user, key, value)
-            print("所有属性设置完成，准备提交事务")
             db.commit()
-            print("事务提交成功，准备刷新用户对象")
             db.refresh(db_user)
             updated_user = db_user
-            print(f"用户更新成功: {updated_user}")
         except Exception as update_error:
-            print(f"更新用户时出错: {update_error}")
-            print(f"错误类型: {type(update_error)}")
             import traceback
             traceback.print_exc()
             db.rollback()
             raise HTTPException(status_code=500, detail=f"更新用户失败: {str(update_error)}")
         if not updated_user:
             raise HTTPException(status_code=404, detail="User not found")
-        
-        # 检查是否需要自动创建 SOCIAL_BASIC 卡片
-        # 当用户首次完善基础信息（如昵称、头像、简介等）时创建
-        has_basic_info = bool(
-            updated_user.nick_name or 
-            updated_user.avatar_url or 
-            updated_user.bio
-        )
-        
-        if has_basic_info:
-            # 检查用户是否已存在 SOCIAL_BASIC 卡片
-            existing_card = UserCardService.get_user_card_by_role(db, user_id, UserRoleType.SOCIAL_BASIC.value)
-            
-            if not existing_card:
-                try:
-                    # 构建 SOCIAL_BASIC 卡片数据
-                    social_basic_card = CardCreate(
-                        role_type=UserRoleType.SOCIAL_BASIC.value,
-                        display_name=updated_user.nick_name or f"用户{updated_user.id[:8]}",
-                        avatar_url=updated_user.avatar_url or "https://picsum.photos/200/200?random=default",
-                        bio=updated_user.bio or "",
-                        visibility="public"
-                    )
-                    
-                    # 创建卡片
-                    UserCardService.create_card(db, user_id, social_basic_card)
-                    print(f"用户更新信息后自动创建 SOCIAL_BASIC 卡片成功，用户ID: {user_id}")
-                    
-                except Exception as e:
-                    # 如果卡片创建失败，只记录日志，不影响用户更新流程
-                    print(f"用户更新信息后自动创建 SOCIAL_BASIC 卡片失败，用户ID: {user_id}, 错误: {str(e)}")
         
         # 检查是否需要触发用户画像生成
         # 当用户更新了关键信息（bio, gender, age, occupation, location）时重新生成画像
