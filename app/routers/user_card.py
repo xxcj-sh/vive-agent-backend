@@ -9,11 +9,44 @@ from app.models.user_card import CardCreate, CardUpdate
 from app.models.llm_schemas import ChatSuggestionRequest, ChatSuggestionResponse
 from app.dependencies import get_current_user
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
+import hashlib
 import logging
 
 logger = logging.getLogger(__name__)
+
+# 简单的内存缓存，用于存储聊天建议
+_chat_suggestions_cache: Dict[str, Dict[str, Any]] = {}
+_CACHE_EXPIRY_MINUTES = 30  # 缓存过期时间（分钟）
+
+def _generate_cache_key(user_id: str, card_id: str) -> str:
+    """生成缓存键"""
+    cache_data = f"{user_id}:{card_id}"
+    return hashlib.md5(cache_data.encode('utf-8')).hexdigest()
+
+def _get_cached_suggestions(cache_key: str) -> Optional[Dict[str, Any]]:
+    """获取缓存的建议，如果缓存存在且未过期"""
+    if cache_key in _chat_suggestions_cache:
+        cached_data = _chat_suggestions_cache[cache_key]
+        if datetime.utcnow() - cached_data['cached_at'] < timedelta(minutes=_CACHE_EXPIRY_MINUTES):
+            logger.info(f"缓存命中: {cache_key}")
+            return cached_data['data']
+        else:
+            del _chat_suggestions_cache[cache_key]
+    return None
+
+def _cache_suggestions(cache_key: str, suggestions: List[str], confidence: float):
+    """缓存建议数据"""
+    _chat_suggestions_cache[cache_key] = {
+        'data': {
+            'suggestions': suggestions,
+            'confidence': confidence,
+            'generated_at': datetime.utcnow()
+        },
+        'cached_at': datetime.utcnow()
+    }
+    logger.info(f"已缓存聊天建议: {cache_key}")
 
 router = APIRouter(
     prefix="/user-cards",
@@ -232,6 +265,7 @@ async def generate_chat_suggestions(
     """生成个性化聊天建议
     
     根据当前用户的画像数据和卡片的偏好设置，生成个性化的聊天建议
+    支持缓存机制，相同用户和卡片组合的建议会被缓存30分钟
     """
     try:
         # 验证卡片是否存在
@@ -262,6 +296,20 @@ async def generate_chat_suggestions(
                     user_raw_profile = json.loads(user_profile.raw_profile) if user_profile.raw_profile else {}
                 except:
                     user_raw_profile = {}
+        
+        # 检查缓存（使用当前用户的ID和卡片ID生成缓存键）
+        cache_key = None
+        cached_result = None
+        if current_user_id:
+            cache_key = _generate_cache_key(current_user_id, request.card_id)
+            cached_result = _get_cached_suggestions(cache_key)
+        
+        if cached_result:
+            return ChatSuggestionResponse(
+                suggestions=cached_result['suggestions'],
+                confidence=cached_result['confidence'],
+                generated_at=cached_result['generated_at']
+            )
         
         # 构建LLM提示词
         user_personality = user_profile_summary or "未知用户"
@@ -335,6 +383,10 @@ AI分身偏好设置: {preferences_str}
         
         # 确保返回指定数量的建议
         suggestions = suggestions[:request.max_suggestions]
+        
+        # 缓存结果
+        if cache_key:
+            _cache_suggestions(cache_key, suggestions, confidence)
         
         return ChatSuggestionResponse(
             suggestions=suggestions,
