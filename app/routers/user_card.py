@@ -268,7 +268,7 @@ async def generate_chat_suggestions(
     try:
         if not current_user:
             return ChatSuggestionResponse(
-                suggestions=['没能获取到你的信息，可能是你没登陆，暂时不能生成交流建议'],
+                suggestions=['没能获取到你的信息，可能是因为没登陆，暂时不能找到共同话题'],
                 confidence=0
             )
 
