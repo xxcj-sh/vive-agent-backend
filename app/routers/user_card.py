@@ -266,6 +266,12 @@ async def generate_chat_suggestions(
     根据双方的用户画像，为当前用户提供与目标用户的聊天建议，从当前用户的立场考虑
     """
     try:
+        if not current_user:
+            return ChatSuggestionResponse(
+                suggestions=['没能获取到你的信息，可能是你没登陆，暂时不能生成交流建议'],
+                confidence=0
+            )
+
         # 验证卡片是否存在
         card = UserCardService.get_card_by_id(db, request.card_id)
         if not card:
@@ -323,7 +329,7 @@ async def generate_chat_suggestions(
 对方的身份简介: {card_bio}
 对方的偏好: {preferences_str}
 
-请从当前用户角度出发，提供与对方的聊天建议，可以考虑以下几点:
+请从当前用户角度出发，分析当前用户既可以与对方交谈，又感兴趣的话题，可以考虑以下几点:
 1. 当前用户可以从对方那里获得什么信息
 2. 当前用户跟对方可能有哪些共同感兴趣的话题
 3. 当前用户和对方有哪些共同点

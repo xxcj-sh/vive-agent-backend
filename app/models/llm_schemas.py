@@ -169,4 +169,4 @@ class ChatSuggestionResponse(BaseModel):
     """Index页面个性化聊天建议响应"""
     suggestions: List[str] = Field(..., description="聊天建议列表")
     confidence: float = Field(..., description="置信度")
-    generated_at: datetime = Field(default_factory=datetime.utcnow, description="生成时间")
+    generated_at: datetime = Field(datetime.utcnow(), description="生成时间")
