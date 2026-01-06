@@ -296,10 +296,7 @@ async def generate_chat_suggestions(
             user_profile = user_profile_service.get_user_profile(current_user_id)
             if user_profile:
                 user_profile_summary = user_profile.profile_summary
-                try:
-                    user_raw_profile = json.loads(user_profile.raw_profile) if user_profile.raw_profile else {}
-                except:
-                    user_raw_profile = {}
+                user_raw_profile = user_profile.raw_profile
         
         # 检查缓存（使用当前用户的ID和卡片ID生成缓存键）
         cache_key = None
@@ -321,20 +318,21 @@ async def generate_chat_suggestions(
         preferences_str = json.dumps(card_preferences, ensure_ascii=False, indent=2) if card_preferences else "无"
         
         prompt = f"""
-## 当前用户画像信息
-当前用户性格特征和画像摘要: {user_personality}
-用户详细信息: {json.dumps(user_raw_profile, ensure_ascii=False, indent=2) if user_raw_profile else "无"}
+## 当前浏览用户画像信息
+用户画像摘要: {user_personality}
+用户详细信息: {user_raw_profile}
 
-## 对方信息
-对方的身份简介: {card_bio}
-对方的偏好: {preferences_str}
+## 被浏览用户的名片信息
+身份简介: {card_bio}
+偏好: {preferences_str}
 
+## 任务
 请从当前用户角度出发，分析当前用户既可以与对方交谈，又感兴趣的话题，可以考虑以下几点:
 1. 当前用户可以从对方那里获得什么信息
 2. 当前用户跟对方可能有哪些共同感兴趣的话题
 3. 当前用户和对方有哪些共同点
 
-请以JSON格式回复，格式如下:
+以JSON格式回复，格式如下:
 {{
     "suggestions": ["xxxx"],
     "confidence": 0.85

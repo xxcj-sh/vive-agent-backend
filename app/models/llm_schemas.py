@@ -159,7 +159,7 @@ class ChatSuggestionRequest(BaseModel):
     """Index页面个性化聊天建议请求"""
     card_id: str = Field(..., description="卡片ID")
     user_profile_summary: Optional[str] = Field(None, description="浏览用户的画像摘要")
-    user_raw_profile: Optional[Dict[str, Any]] = Field(None, description="浏览用户的原始画像数据")
+    user_raw_profile: Optional[str] = Field(None, description="浏览用户的原始画像数据")
     card_bio: Optional[str] = Field(None, description="卡片主人的简介")
     card_preferences: Optional[Dict[str, Any]] = Field(None, description="卡片主人的偏好设置")
     max_suggestions: int = Field(default=3, ge=1, le=10, description="最大建议数量")
