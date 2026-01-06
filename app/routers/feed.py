@@ -71,7 +71,9 @@ async def get_feed_user_cards(
                 page=page,
                 page_size=pageSize
             )
-            if len(result["cards"]) > 0:
+            feed_card_list = result["cards"]
+            # 能返回超过 5 张卡片时，直接使用基于用户关系的 feed 算法
+            if len(result["cards"]) >= pageSize :
                 return {
                 "code": 0,
                 "message": "success",
@@ -87,7 +89,8 @@ async def get_feed_user_cards(
                 }
             }
         # 未登录或者无法获得有效推荐的情况，获取 5 张随机的公开用户卡片
-        random_cards = feed_service.get_random_public_user_cards(limit=5)  
+        random_cards = feed_service.get_random_public_user_cards(limit=pageSize)  
+        random_cards.extend(feed_card_list)
         return {
             "code": 0,
             "message": "success",
