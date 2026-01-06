@@ -61,6 +61,10 @@ class PointsService:
         if not user:
             raise ValueError("用户不存在")
         
+        if user.points is None:
+            user.points = 0
+            user.level = 0
+        
         old_points = user.points
         user.points += points
         
@@ -93,6 +97,20 @@ class PointsService:
         if not user:
             raise ValueError("用户不存在")
         
+        is_cold_start = self._is_cold_start_user(user)
+        
+        if points == 0 or is_cold_start:
+            return {
+                'success': True,
+                'user_id': user_id,
+                'points_consumed': 0,
+                'old_points': user.points,
+                'new_points': user.points,
+                'reason': reason,
+                'is_cold_start': is_cold_start,
+                'message': '冷启动阶段免费' if is_cold_start else '无需扣除积分'
+            }
+        
         if user.points < points:
             return {
                 'success': False,
@@ -115,6 +133,20 @@ class PointsService:
             'new_points': user.points,
             'reason': reason
         }
+    
+    def _is_cold_start_user(self, user: User) -> bool:
+        """判断是否为冷启动阶段用户（30天内注册）"""
+        if not user.created_at:
+            return False
+        
+        now = datetime.now(user.created_at.tzinfo) if user.created_at.tzinfo else datetime.now()
+        created_at = user.created_at
+        
+        if hasattr(created_at, 'tzinfo') and created_at.tzinfo:
+            now = datetime.now(created_at.tzinfo)
+        
+        diff_days = (now - created_at).days
+        return diff_days <= 30
     
     def reward_survey_completion(self, user_id: str) -> Dict[str, Any]:
         """奖励问卷完成"""
