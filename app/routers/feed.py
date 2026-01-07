@@ -58,6 +58,7 @@ async def get_feed_user_cards(
     """
     try:
         feed_service = FeedService(db)
+        feed_card_list = []
         if current_user: 
             # 获取用户ID
             if isinstance(current_user, dict):
