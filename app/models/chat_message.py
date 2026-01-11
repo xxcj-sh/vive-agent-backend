@@ -18,6 +18,8 @@ class ChatMessage(Base):
     message_type = Column(String(20), default='text')  # 消息类型: text, image, audio, video
     sender_type = Column(String(20), nullable=False)  # 发送者类型: user, ai, system
     session_id = Column(String(36), nullable=True, index=True)  # 会话ID（可选）
+    is_anonymous = Column(Boolean, default=False, index=True)  # 是否为匿名消息
+    is_read = Column(Boolean, default=False, index=True)  # 是否已读
     created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
@@ -34,6 +36,8 @@ class ChatMessage(Base):
             'message_type': self.message_type,
             'sender_type': self.sender_type,
             'session_id': self.session_id,
+            'is_anonymous': self.is_anonymous,
+            'is_read': self.is_read,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
