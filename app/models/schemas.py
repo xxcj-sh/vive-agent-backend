@@ -117,12 +117,15 @@ class ChatMessageResponse(BaseModel):
     type: str = Field(..., description="消息类型，如text、image等")
     sender: str = Field(..., description="发送者类型，如user、assistant等")
     created_at: str = Field(..., description="创建时间，ISO格式")
+    is_anonymous: bool = Field(False, description="是否为匿名消息")
 
 
 class ChatMessageCreate(BaseModel):
+    user_id: Optional[str] = Field(None, description="用户ID")
     content: str = Field(..., description="消息内容")
     type: Optional[str] = Field("text", description="消息类型，如text、image等")
     is_anonymous: Optional[bool] = Field(False, description="是否为匿名消息")
+    session_id: Optional[str] = Field(None, description="用户会话链接 ID")
     
     @field_validator('content')
     @classmethod

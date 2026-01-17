@@ -557,11 +557,14 @@ class LLMService:
         try:
             # 根据场景配置键处理不同的LLM调用
             if scene_config_key == "conversation-suggestions":
-                return await self._handle_conversation_suggestions(user_id, params, provider, model_name, False)
+                result = await self._handle_conversation_suggestions_non_stream(user_id, params, provider, model_name)
+                return result
             elif scene_config_key == "simple-chat":
-                return await self._handle_simple_chat(user_id, params, provider, model_name, False)
+                result = await self._handle_simple_chat_non_stream(user_id, params, provider, model_name)
+                return result
             elif scene_config_key == "topic-discussion":
-                return await self._handle_topic_discussion(user_id, params, provider, model_name, False)
+                result = await self._handle_topic_discussion_non_stream(user_id, params, provider, model_name)
+                return result
             elif scene_config_key == "generate-opinion-summary":
                 return await self._handle_generate_opinion_summary(user_id, params, provider, model_name)
             else:
@@ -591,13 +594,13 @@ class LLMService:
         try:
             # 根据场景配置键处理不同的LLM调用
             if scene_config_key == "conversation-suggestions":
-                async for chunk in self._handle_conversation_suggestions(user_id, params, provider, model_name, True):
+                async for chunk in self._handle_conversation_suggestions_stream(user_id, params, provider, model_name):
                     yield chunk
             elif scene_config_key == "simple-chat":
-                async for chunk in self._handle_simple_chat(user_id, params, provider, model_name, True):
+                async for chunk in self._handle_simple_chat_stream(user_id, params, provider, model_name):
                     yield chunk
             elif scene_config_key == "topic-discussion":
-                async for chunk in self._handle_topic_discussion(user_id, params, provider, model_name, True):
+                async for chunk in self._handle_topic_discussion_stream(user_id, params, provider, model_name):
                     yield chunk
             else:
                 logger.warning(f"未知的场景配置键(不支持流式): {scene_config_key}")

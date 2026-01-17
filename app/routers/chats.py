@@ -4,23 +4,21 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime
 
 from app.database import get_db
 from app.models.schemas import ChatMessageResponse, ChatMessageCreate, ChatListResponse
-from app.models.chat_message import ChatSummary
+from app.models.chat_message import ChatSummary, ChatMessage
 from app.models.user_card import Card
 from app.models.user_card_db import UserCard
+from app.dependencies import get_current_user
 from app.models.schemas import ChatSummaryResponse, ChatSummaryCreate
 from app.services.llm_service import LLMService
 
 # 注意：匿名聊天API不需要认证，因为它是公开访问的
 router = APIRouter(prefix="/chats", tags=["聊天"])  # 设置/chats前缀，结合main.py中的/api/v1前缀得到/api/v1/chats
-
-# 模拟数据存储
-mock_messages = []
 
 @router.get("", response_model=ChatListResponse)
 async def get_chat_list(
@@ -41,43 +39,54 @@ async def get_chat_list(
         raise HTTPException(status_code=500, detail=f"获取聊天列表失败: {str(e)}")
 
 
-@router.get("/{chat_id}/messages", response_model=List[ChatMessageResponse])
+@router.get("/{card_id}/messages", response_model=List[ChatMessageResponse])
 async def get_chat_messages(
-    chat_id: str,
+    card_id: str,
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user)
 ):
     """获取聊天历史记录
     
-    根据聊天ID获取消息历史，支持分页
+    根据卡片ID获取消息历史，支持分页。需要用户认证，确保用户只能访问其有权限的聊天记录。
     """
     try:
-        # 返回模拟数据
-        chat_messages = [msg for msg in mock_messages if msg['session_id'] == chat_id]
+        if not current_user:
+            raise HTTPException(status_code=403, detail="您没有权限访问此卡片的聊天记录")
+            
+        # 从数据库查询消息
+        query = db.query(ChatMessage).filter(ChatMessage.card_id == card_id, ChatMessage.user_id == current_user.get("id"))
         
         # 按创建时间排序
-        chat_messages.sort(key=lambda x: x['created_at'])
+        query = query.order_by(ChatMessage.created_at.asc())
+        
+        # 应用分页
+        offset = (page - 1) * limit
+        chat_messages = query.offset(offset).limit(limit).all()
         
         # 转换为响应格式
         result = []
         for msg in chat_messages:
             result.append({
-                "id": msg['id'],
-                "content": msg['content'],
-                "type": msg['message_type'],
-                "sender": msg['sender_type'],
-                "created_at": msg['created_at'].isoformat()
+                "id": msg.id,
+                "content": msg.content,
+                "type": msg.message_type,
+                "sender": msg.sender_type,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+                "is_anonymous": msg.is_anonymous
             })
         
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取聊天消息失败: {str(e)}")
 
 
-@router.post("/{chat_id}/messages", response_model=ChatMessageResponse)
-async def send_chat_message(
-    chat_id: str,
+@router.post("/{card_id}/messages", response_model=ChatMessageResponse)
+async def save_user_message(
+    card_id: str,
     message_data: ChatMessageCreate,
     db: Session = Depends(get_db)
 ):
@@ -89,31 +98,114 @@ async def send_chat_message(
         # 判断是否为匿名消息
         is_anonymous = hasattr(message_data, 'is_anonymous') and message_data.is_anonymous
         
-        # 创建模拟消息对象
-        new_message = {
-            'id': str(uuid.uuid4()),
-            'user_id': None if is_anonymous else "default_user",
-            'content': message_data.content,
-            'message_type': message_data.type or "text",
-            'sender_type': "user",
-            'session_id': chat_id,
-            'created_at': datetime.now(),
-            'updated_at': datetime.now()
-        }
+        # 创建数据库消息对象
+        new_message = ChatMessage(
+            user_id= message_data.user_id,
+            card_id=card_id,
+            session_id=message_data.session_id,
+            content=message_data.content,
+            message_type=message_data.type or "text",
+            sender_type="user",
+            is_anonymous=is_anonymous
+        )
         
-        # 保存到模拟存储
-        mock_messages.append(new_message)
+        # 保存到数据库
+        db.add(new_message)
+        db.commit()
+        db.refresh(new_message)
         
         # 返回响应
         return {
-            "id": new_message['id'],
-            "content": new_message['content'],
-            "type": new_message['message_type'],
-            "sender": new_message['sender_type'],
-            "created_at": new_message['created_at'].isoformat()
+            "id": new_message.id,
+            "content": new_message.content,
+            "type": new_message.message_type,
+            "sender": new_message.sender_type,
+            "created_at": new_message.created_at.isoformat() if new_message.created_at else None,
+            "is_anonymous": new_message.is_anonymous
         }
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"发送消息失败: {str(e)}")
+
+
+@router.post("/{card_id}/messages/ai", response_model=ChatMessageResponse)
+async def save_ai_message(
+    card_id: str,
+    message_data: ChatMessageCreate,
+    db: Session = Depends(get_db)
+):
+    """保存AI回复消息
+    
+    专门用于保存AI生成的回复消息
+    """
+    try:
+        new_message = ChatMessage(
+            user_id=message_data.user_id,
+            card_id=card_id,
+            content=message_data.content,
+            message_type=message_data.type or "text",
+            sender_type="ai",
+            session_id=message_data.session_id
+        )
+        
+        db.add(new_message)
+        db.commit()
+        db.refresh(new_message)
+        
+        return {
+            "id": new_message.id,
+            "content": new_message.content,
+            "type": new_message.message_type,
+            "sender": new_message.sender_type,
+            "created_at": new_message.created_at.isoformat() if new_message.created_at else None,
+            "is_anonymous": new_message.is_anonymous
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"保存AI消息失败: {str(e)}")
+
+
+@router.delete("/{card_id}/messages/{message_id}")
+async def delete_message(
+    card_id: str,
+    message_id: str,
+    db: Session = Depends(get_db)
+):
+    """删除单条聊天消息"""
+    try:
+        message = db.query(ChatMessage).filter(
+            ChatMessage.id == message_id,
+            ChatMessage.card_id == card_id
+        ).first()
+        
+        if not message:
+            raise HTTPException(status_code=404, detail="消息不存在")
+        
+        db.delete(message)
+        db.commit()
+        
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"删除消息失败: {str(e)}")
+
+
+@router.delete("/{card_id}/messages")
+async def clear_chat_messages(
+    card_id: str,
+    db: Session = Depends(get_db)
+):
+    """清空指定卡片的所有消息"""
+    try:
+        db.query(ChatMessage).filter(ChatMessage.card_id == card_id).delete()
+        db.commit()
+        
+        return {"success": True}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"清空消息失败: {str(e)}")
 
 
 @router.post("/summaries", response_model=ChatSummaryResponse)
