@@ -23,6 +23,8 @@ from app.models.llm_schemas import (
     OpinionSummarizationResponse, ProfileSummaryResponse
 )
 from app.configs.prompt_config_manager import prompt_config_manager
+from app.models.user_card_db import UserCard
+from app.models.user_profile import UserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,32 @@ class LLMService:
             )
         # 其他客户端初始化...
         # 可以根据需要添加更多提供商
+
+    def _get_card_preferences(self, card_id: str):
+        """获取卡片的偏好设置用于引导对话生成"""
+        if not card_id:
+            return '', ''
+        try:
+            card = self.db.query(UserCard).filter(UserCard.id == card_id).first()
+            if card and card.preferences:
+                return card.preferences, card.user_id
+        except Exception as e:
+            logger.warning(f"获取卡片偏好设置失败: {e}")
+        return '', ''
+
+    def _get_user_raw_profile(self, creator_id: str) -> str:
+        """获取创建者的用户画像原始数据"""
+        if not creator_id:
+            return ''
+        try:
+            profile = self.db.query(UserProfile).filter(UserProfile.user_id == creator_id).first()
+            if profile and profile.raw_profile:
+                if isinstance(profile.raw_profile, str):
+                    return profile.raw_profile
+                return json.dumps(profile.raw_profile, ensure_ascii=False)
+        except Exception as e:
+            logger.warning(f"获取用户画像失败: {e}")
+        return ''
     
     async def call_llm_api(
         self,
@@ -644,15 +672,20 @@ class LLMService:
         """处理对话建议场景 - 非流式"""
         conversation_history = params.get("conversation_history", [])
         context = params.get("context", {})
-        
+        card_id = params.get("cardId", "")
+        card_preferences, card_creator_id = self._get_card_preferences(card_id)
+        preferences_str = json.dumps(card_preferences, ensure_ascii=False) if card_preferences else "{}"
+
         prompt = f"""
-        基于以下对话历史和上下文,生成3个合适的对话建议:
+        基于以下对话历史、上下文和用户卡片偏好设置,生成3个合适的对话建议:
+        
+        用户卡片偏好设置:{preferences_str}
         
         对话历史:{json.dumps(conversation_history, ensure_ascii=False)}
         
         上下文:{json.dumps(context, ensure_ascii=False)}
         
-        请生成3个自然,有趣且符合上下文的对话建议,帮助用户继续对话.
+        请根据用户卡片偏好设置,生成3个自然,有趣且符合上下文的对话建议,帮助用户继续对话.
         """
         
         request = LLMRequest(
@@ -680,15 +713,20 @@ class LLMService:
         """处理对话建议场景 - 流式"""
         conversation_history = params.get("conversation_history", [])
         context = params.get("context", {})
-        
+        card_id = params.get("cardId", "")
+        card_preferences, card_creator_id = self._get_card_preferences(card_id)
+        preferences_str = json.dumps(card_preferences, ensure_ascii=False) if card_preferences else "{}"
+
         prompt = f"""
-        基于以下对话历史和上下文,生成3个合适的对话建议:
+        基于以下对话历史、上下文和用户卡片偏好设置,生成3个合适的对话建议:
+        
+        用户卡片偏好设置:{preferences_str}
         
         对话历史:{json.dumps(conversation_history, ensure_ascii=False)}
         
         上下文:{json.dumps(context, ensure_ascii=False)}
         
-        请生成3个自然,有趣且符合上下文的对话建议,帮助用户继续对话.
+        请根据用户卡片偏好设置,生成3个自然,有趣且符合上下文的对话建议,帮助用户继续对话.
         """
         
         request = LLMRequest(
@@ -728,18 +766,15 @@ class LLMService:
     ):
         """处理简单聊天场景 - 非流式"""
         message = params.get("message", "")
-        
         # 处理匿名模式
         context = params.get("context", {})
         is_anonymous = context.get("isAnonymous", False)
         chat_type = context.get("chatType", "general")
-        
-        # 获取对话历史（兼容旧格式和新格式）
-        conversation_history = params.get("conversation_history", [])
-        if not conversation_history and context:
-            # 尝试从上下文中获取历史记录
-            conversation_history = context.get("conversationHistory", [])
-        
+        card_id = context.get("cardId", "")
+        card_preferences, card_creator_id = self._get_card_preferences(card_id)
+        preferences_str = json.dumps(card_preferences, ensure_ascii=False) if card_preferences else "{}"
+
+        conversation_history = context.get("recentMessages", [])
         conversation_context = json.dumps(conversation_history, ensure_ascii=False)
         
         # 匿名模式使用特殊的人物设定
@@ -747,25 +782,23 @@ class LLMService:
             system_prompt = "你正在与匿名用户对话。请保持专业、友善的态度，不要询问或假设用户的个人身份信息。"
         else:
             system_prompts = {
-                "general": "请自然地和用户对话.",
+                "general": "请自然地和用户对话，回复内容不宜太长，可以模拟对话体的兴趣，长短相接",
                 "topic": "请帮助用户深入讨论话题.",
                 "sports": "请和用户讨论体育相关话题."
             }
             system_prompt = system_prompts.get(chat_type, system_prompts['general'])
-        # 匿名模式使用特殊的人物设定
-        character_profile = params.get("character_profile", "")   
+        
+        character_profile = self._get_user_raw_profile(card_creator_id)
         prompt = f"""
-        你的人物设定：{character_profile}
-
         {system_prompt}
+        你的人物设定 {character_profile}
+        聊天过程中需要完成的任务 {preferences_str}
+        对话历史 {conversation_context}
         
-        对话历史:{conversation_context}
+        用户消息: {message}
         
-        用户消息:{message}
-        
-        请给出自然,相关的回复.
+        请给出自然，与设定相关的回复.
         """
-
         request = LLMRequest(
             user_id=user_id,
             task_type=LLMTaskType.QUESTION_ANSWERING,
