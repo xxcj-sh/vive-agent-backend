@@ -1449,7 +1449,7 @@ class LLMService:
             ])
             
             # 构建总结提示词
-            prompt = f"""请提供简洁明了地总结用户表达意图和主题，不需要总结 AI 的回复内容，不超过200字。用户和 AI 的聊天记录：{chat_context}"""            
+            prompt = f"""总结用户想要做什么，以及聊了什么，忽略 AI 的回复内容，不超过200字。用户和 AI 的聊天记录：{chat_context}"""            
             llm_request = LLMRequest(
                 user_id=user_id,
                 task_type=LLMTaskType.CHAT_SUMMARIZATION,
