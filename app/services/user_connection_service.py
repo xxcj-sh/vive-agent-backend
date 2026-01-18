@@ -125,7 +125,7 @@ class UserConnectionService:
             
             # 按访问时间排序（最久未访问的在前）
             user_visit_map = {conn.to_user_id: conn.updated_at for conn in visited_connections}
-            candidate_users.sort(key=lambda user: user_visit_map.get(user.id, datetime.min))
+            candidate_users.sort(key=lambda user: user_visit_map.get(user.id) or datetime.min)
         
         # 过滤掉最近两周浏览过的用户
         filtered_users = [user for user in candidate_users if user.id not in excluded_user_ids]
@@ -143,7 +143,7 @@ class UserConnectionService:
             
             # 按访问时间排序（最近的在前）
             visitor_time_map = {conn.from_user_id: conn.updated_at for conn in recent_visitors}
-            recent_visitor_users.sort(key=lambda user: visitor_time_map.get(user.id, datetime.min), reverse=True)
+            recent_visitor_users.sort(key=lambda user: visitor_time_map.get(user.id) or datetime.min, reverse=True)
             
             # 2. 将最近访客添加到推荐列表前面，并去重
             final_recommended = []

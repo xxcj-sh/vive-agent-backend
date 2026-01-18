@@ -229,6 +229,121 @@ class FeedService:
             traceback.print_exc()
             return []
     
+    def get_fallback_cards(self, user_id: Optional[str], page_size: int = 10) -> List[Dict[str, Any]]:
+        """
+        获取兜底推荐卡片（当主推荐策略无结果时使用）
+        
+        兜底策略：
+        1. 获取随机公开用户卡片（优先）
+        2. 获取活跃的话题卡片（按最新排序）
+        3. 获取活跃的投票卡片（按最新排序）
+        4. 按 2:1 比例混合
+        
+        Args:
+            user_id: 当前用户ID（可选）
+            page_size: 每页数量
+            
+        Returns:
+            格式化的兜底卡片列表
+        """
+        try:
+            fallback_cards = []
+            
+            # 1. 获取随机公开用户卡片
+            public_user_cards = self.get_random_public_user_cards(limit=page_size * 2)
+            for card in public_user_cards:
+                card["scene_type"] = "social"
+                card["card_type"] = "user"
+                card["isRecommendation"] = True
+                card["recommendationReason"] = "热门推荐"
+            fallback_cards.extend(public_user_cards)
+            
+            # 2. 获取活跃的话题卡片（按最新排序）
+            topic_result = TopicCardService.get_topic_cards(
+                db=self.db,
+                user_id=user_id,
+                page=1,
+                page_size=page_size,
+                category=None
+            )
+            if topic_result and "items" in topic_result:
+                for card in topic_result["items"]:
+                    formatted_card = {
+                        "id": card.id,
+                        "type": "topic",
+                        "scene_type": "topic",
+                        "card_type": "topic",
+                        "title": card.title,
+                        "content": card.description or card.title,
+                        "category": card.category,
+                        "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
+                        "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
+                        "user_id": card.user_id,
+                        "user_avatar": card.creator_avatar or '',
+                        "user_nickname": card.creator_nickname or '匿名用户',
+                        "like_count": card.like_count or 0,
+                        "comment_count": card.discussion_count or 0,
+                        "has_liked": False,
+                        "images": [card.cover_image] if card.cover_image else [],
+                        "is_anonymous": card.is_anonymous or 0,
+                        "isRecommendation": True,
+                        "recommendationReason": "热门话题"
+                    }
+                    fallback_cards.append(formatted_card)
+            
+            # 3. 获取活跃的投票卡片
+            vote_service = VoteService(self.db)
+            recall_votes = vote_service.get_recall_vote_cards(limit=page_size, user_id=user_id)
+            
+            for card in recall_votes:
+                vote_results = vote_service.get_vote_results(card.id, user_id)
+                user = self.db.query(User).filter(
+                    User.id == card.user_id,
+                    User.is_active == True
+                ).first()
+                
+                if not user:
+                    continue
+                
+                formatted_card = {
+                    "id": card.id,
+                    "type": "vote",
+                    "scene_type": "vote",
+                    "card_type": "topic",
+                    "vote_type": card.vote_type,
+                    "title": card.title,
+                    "content": card.description or card.title,
+                    "category": card.category,
+                    "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
+                    "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
+                    "user_id": card.user_id,
+                    "user_avatar": user.avatar_url if user else '',
+                    "user_nickname": user.nick_name if user else '匿名用户',
+                    "vote_options": vote_results["options"],
+                    "total_votes": card.total_votes or 0,
+                    "has_voted": vote_results["has_voted"],
+                    "user_votes": vote_results["user_votes"],
+                    "vote_deadline": card.end_time.isoformat() if hasattr(card, 'end_time') and card.end_time else None,
+                    "max_selections": 1,
+                    "allow_discussion": True,
+                    "images": [card.cover_image] if card.cover_image else [],
+                    "isRecommendation": True,
+                    "recommendationReason": "热门投票"
+                }
+                fallback_cards.append(formatted_card)
+            
+            # 4. 混合排序（用户卡片优先，按 2:1 比例）
+            mixed_cards = self._mix_feed_cards(fallback_cards, page_size)
+            
+            print(f"[FeedService] 兜底推荐返回卡片数量: {len(mixed_cards)}")
+            return mixed_cards
+            
+        except Exception as e:
+            print(f"获取兜底推荐卡片异常: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
     def get_feed_user_cards(self, user_id: str, page: int, page_size: int) -> Dict[str, Any]:
         """
         获取推荐用户卡片
@@ -476,6 +591,11 @@ class FeedService:
             
             # 应用混合推荐算法
             mixed_cards = self._mix_feed_cards(all_cards, page_size)
+            
+            # 兜底策略：如果混合后的卡片列表为空，使用兜底推荐
+            if not mixed_cards:
+                print(f"[FeedService] 主推荐策略无结果，使用兜底推荐策略")
+                mixed_cards = self.get_fallback_cards(user_id, page_size * 3)
             
             # 计算总数量（基于分页）
             total = len(mixed_cards)
