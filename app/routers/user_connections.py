@@ -121,7 +121,6 @@ async def update_connection_status(
 @router.get("", response_model=BaseResponse)
 async def get_user_connections(
     connection_type: Optional[ConnectionType] = None,
-    status: Optional[ConnectionStatus] = None,
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -130,7 +129,6 @@ async def get_user_connections(
     
     Args:
         connection_type: 连接类型过滤
-        status: 状态过滤
         current_user: 当前用户信息
         db: 数据库会话
         
@@ -143,9 +141,7 @@ async def get_user_connections(
             db=db,
             user_id=current_user["id"],
             connection_type=connection_type,
-            status=status,
-            as_requester=True,
-            as_addressee=True
+            as_addressee=False
         )
         
         # 构建带有用户信息的响应数据
@@ -269,52 +265,6 @@ async def record_user_view(
         return BaseResponse(
             code=1000,
             message=f"记录浏览失败: {str(e)}",
-            data={}
-        )
-
-@router.get("/recommendations", response_model=BaseResponse)
-async def get_user_recommendations(
-    limit: int = 10,
-    current_user: Dict[str, Any] = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    获取推荐用户列表
-    
-    推荐逻辑：
-    1. 根据用户上次访问(VISIT)时间顺序排列，选取最久未访问的若干用户
-    2. 从中剔除最近两周曾经浏览(VIEW)过的用户
-    3. 按顺序展示给用户
-    
-    Args:
-        limit: 返回用户数量限制
-        current_user: 当前用户信息
-        db: 数据库会话
-        
-    Returns:
-        推荐用户列表
-    """
-    try:
-        # 获取推荐用户列表
-        recommended_users = UserConnectionService.get_recommended_users(
-            db=db,
-            current_user_id=current_user["id"],
-            limit=limit
-        )
-        
-        return BaseResponse(
-            code=0,
-            message="success",
-            data={
-                "users": recommended_users,
-                "total": len(recommended_users)
-            }
-        )
-        
-    except Exception as e:
-        return BaseResponse(
-            code=1000,
-            message=f"获取推荐用户失败: {str(e)}",
             data={}
         )
 

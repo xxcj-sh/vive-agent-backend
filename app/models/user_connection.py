@@ -10,10 +10,6 @@ import enum
 
 # 关系类型枚举
 class ConnectionType(str, enum.Enum):
-    FOLLOW = "FOLLOW"  # 关注关系
-    FRIEND = "FRIEND"  # 好友关系
-    MENTOR = "MENTOR"  # 导师关系
-    PARTNER = "PARTNER"  # 合作伙伴关系
     VISIT = "VISIT"  # 访问关系（访问他人主页）
     VIEW = "VIEW"  # 浏览关系（在推荐页面浏览卡片）
 
@@ -34,7 +30,7 @@ class UserConnection(Base):
     to_user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # 关系类型和状态
-    connection_type = Column(SQLEnum(ConnectionType), default=ConnectionType.FOLLOW, nullable=False)
+    connection_type = Column(SQLEnum(ConnectionType), default=ConnectionType.VIEW, nullable=False)
     status = Column(SQLEnum(ConnectionStatus), default=ConnectionStatus.ACCEPTED, nullable=False)
     
     # 添加时间和更新时间
@@ -59,7 +55,7 @@ def generate_user_connection_id() -> str:
 
 class UserConnectionBase(BaseModel):
     to_user_id: str
-    connection_type: ConnectionType = Field(default=ConnectionType.FOLLOW)
+    connection_type: ConnectionType = Field(default=ConnectionType.VIEW)
     remark: Optional[str] = None
 
 class UserConnectionCreate(UserConnectionBase):

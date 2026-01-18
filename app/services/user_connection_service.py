@@ -274,15 +274,7 @@ class UserConnectionService:
         ).first()
         
         if existing_connection:
-            # 如果已有待处理请求，直接返回
-            if existing_connection.status == ConnectionStatus.PENDING:
-                return existing_connection
-            # 如果已有接受的连接，提示已存在
-            elif existing_connection.status == ConnectionStatus.ACCEPTED:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="已存在与该用户的连接关系"
-                )
+            return existing_connection
         
         # 检查目标用户是否存在
         target_user = db.query(User).filter(User.id == connection_data.to_user_id).first()
