@@ -370,3 +370,196 @@ class FeedService:
             import traceback
             traceback.print_exc()
             raise e
+    
+    def get_unified_feed_cards(self, user_id: Optional[str], page: int = 1, page_size: int = 10) -> Dict[str, Any]:
+        """
+        获取统一的推荐卡片流（混合 user、topic、vote 卡片）
+        
+        推荐策略：
+        1. 优先推荐用户可能感兴趣的用户卡片（基于访问历史）
+        2. 穿插推荐话题卡片和投票卡片
+        3. 混合比例：每 2 个用户卡片搭配 1 个话题/投票卡片
+        
+        Args:
+            user_id: 当前用户ID（可选，未登录用户传 None）
+            page: 页码
+            page_size: 每页数量
+            
+        Returns:
+            包含混合推荐卡片和分页信息的字典
+        """
+        try:
+            all_cards = []
+            
+            if user_id:
+                # 已登录用户：获取推荐用户卡片
+                user_cards_result = self.get_feed_user_cards(user_id, page, page_size * 3)
+                user_cards = user_cards_result.get("cards", [])
+                
+                # 为用户卡片添加类型标识
+                for card in user_cards:
+                    card["scene_type"] = "social"
+                    card["card_type"] = "user"
+                
+                all_cards.extend(user_cards)
+            
+            # 获取话题卡片
+            topic_result = TopicCardService.get_topic_cards(
+                db=self.db,
+                user_id=user_id,
+                page=page,
+                page_size=page_size * 2,
+                category=None
+            )
+            
+            if topic_result and "items" in topic_result:
+                for card in topic_result["items"]:
+                    formatted_card = {
+                        "id": card.id,
+                        "type": "topic",
+                        "scene_type": "topic",
+                        "card_type": "topic",
+                        "title": card.title,
+                        "content": card.description or card.title,
+                        "category": card.category,
+                        "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
+                        "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
+                        "user_id": card.user_id,
+                        "user_avatar": card.creator_avatar or '',
+                        "user_nickname": card.creator_nickname or '匿名用户',
+                        "like_count": card.like_count or 0,
+                        "comment_count": card.discussion_count or 0,
+                        "has_liked": False,
+                        "images": [card.cover_image] if card.cover_image else [],
+                        "is_anonymous": card.is_anonymous or 0
+                    }
+                    all_cards.append(formatted_card)
+            
+            # 获取投票卡片
+            vote_service = VoteService(self.db)
+            recall_votes = vote_service.get_recall_vote_cards(limit=page_size * 2, user_id=user_id)
+            
+            for card in recall_votes:
+                vote_results = vote_service.get_vote_results(card.id, user_id)
+                user = self.db.query(User).filter(
+                    User.id == card.user_id,
+                    User.is_active == True
+                ).first()
+                
+                if not user:
+                    continue
+                
+                formatted_card = {
+                    "id": card.id,
+                    "type": "vote",
+                    "scene_type": "vote",
+                    "card_type": "topic",
+                    "vote_type": card.vote_type,
+                    "title": card.title,
+                    "content": card.description or card.title,
+                    "category": card.category,
+                    "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
+                    "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
+                    "user_id": card.user_id,
+                    "user_avatar": user.avatar_url if user else '',
+                    "user_nickname": user.nick_name if user else '匿名用户',
+                    "vote_options": vote_results["options"],
+                    "total_votes": card.total_votes or 0,
+                    "has_voted": vote_results["has_voted"],
+                    "user_votes": vote_results["user_votes"],
+                    "vote_deadline": card.end_time.isoformat() if hasattr(card, 'end_time') and card.end_time else None,
+                    "max_selections": 1,
+                    "allow_discussion": True,
+                    "images": [card.cover_image] if card.cover_image else []
+                }
+                all_cards.append(formatted_card)
+            
+            # 应用混合推荐算法
+            mixed_cards = self._mix_feed_cards(all_cards, page_size)
+            
+            # 计算总数量（基于分页）
+            total = len(mixed_cards)
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            items = mixed_cards[start_idx:end_idx]
+            
+            return {
+                "items": items,
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": (total + page_size - 1) // page_size if total > 0 else 1,
+                "has_next": end_idx < total,
+                "has_prev": page > 1
+            }
+            
+        except Exception as e:
+            print(f"获取统一推荐卡片异常: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "items": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": 1,
+                "has_next": False,
+                "has_prev": False
+            }
+    
+    def _mix_feed_cards(self, cards: List[Dict[str, Any]], page_size: int) -> List[Dict[str, Any]]:
+        """
+        混合推荐卡片
+        
+        策略：
+        1. 分离用户卡片和话题/投票卡片
+        2. 按照 2:1 的比例交替排列
+        3. 用户卡片优先展示
+        
+        Args:
+            cards: 原始卡片列表
+            page_size: 每页数量
+            
+        Returns:
+            混合排序后的卡片列表
+        """
+        if not cards:
+            return []
+        
+        # 分离卡片类型
+        user_cards = [c for c in cards if c.get("card_type") == "user" or c.get("scene_type") == "social"]
+        topic_cards = [c for c in cards if c.get("card_type") == "topic" or c.get("scene_type") in ["topic", "vote"]]
+        
+        # 合并话题和投票卡片
+        topic_vote_cards = topic_cards
+        
+        # 优先保留用户卡片
+        user_ratio = 2
+        topic_ratio = 1
+        batch_size = user_ratio + topic_ratio
+        
+        # 计算每批应该保留的卡片数量
+        max_user_cards = min(len(user_cards), page_size * 2)
+        max_topic_cards = min(len(topic_vote_cards), page_size)
+        
+        selected_user = user_cards[:max_user_cards]
+        selected_topic = topic_vote_cards[:max_topic_cards]
+        
+        # 混合排序：2 个用户卡片 + 1 个话题卡片交替
+        mixed = []
+        user_idx = 0
+        topic_idx = 0
+        
+        while user_idx < len(selected_user) or topic_idx < len(selected_topic):
+            # 添加用户卡片（最多 2 个）
+            for _ in range(user_ratio):
+                if user_idx < len(selected_user):
+                    mixed.append(selected_user[user_idx])
+                    user_idx += 1
+            
+            # 添加话题/投票卡片（1 个）
+            if topic_idx < len(selected_topic):
+                mixed.append(selected_topic[topic_idx])
+                topic_idx += 1
+        
+        return mixed

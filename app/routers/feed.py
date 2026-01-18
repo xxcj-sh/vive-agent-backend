@@ -43,8 +43,8 @@ async def get_feed_item_cards(
 @router.get("/user-cards")
 @router.get("/recommendation-user-cards")
 async def get_feed_user_cards(
-    page: int = Query(1, description="页码"),
-    pageSize: int = Query(10, description="每页数量"),
+    page: int = Query(1, ge=1, description="页码"),
+    pageSize: int = Query(10, ge=1, description="每页数量"),
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -116,3 +116,40 @@ async def get_feed_user_cards(
             "message": f"获取推荐卡片失败: {str(e)}",
             "data": None
         }
+
+@router.get("/unified")
+async def get_unified_feed_cards(
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(10, ge=1, le=50, description="每页数量"),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    获取统一的推荐卡片流（混合 user、topic、vote 卡片）
+    
+    推荐策略：
+    1. 优先推荐用户可能感兴趣的用户卡片（基于访问历史）
+    2. 穿插推荐话题卡片和投票卡片
+    3. 混合比例：每 2 个用户卡片搭配 1 个话题/投票卡片
+    """
+    try:
+        user_id = str(current_user.get("id")) if current_user else None
+        feed_service = FeedService(db)
+        
+        result = feed_service.get_unified_feed_cards(
+            user_id=user_id,
+            page=page,
+            page_size=page_size
+        )
+        
+        return {
+            "code": 0,
+            "message": "success",
+            "data": result
+        }
+        
+    except Exception as e:
+        print(f"获取统一推荐卡片失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"获取统一推荐卡片失败: {str(e)}")
