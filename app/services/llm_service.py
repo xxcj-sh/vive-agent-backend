@@ -792,12 +792,14 @@ class LLMService:
         prompt = f"""
         {system_prompt}
         你的人物设定 {character_profile}
-        聊天过程中需要完成的任务 {preferences_str}
+        
+        在场景合适的情况下尝试完成的任务，如果对话场景不合适则忽略任务：{preferences_str}
+        
         对话历史 {conversation_context}
         
         用户消息: {message}
         
-        请给出自然，与设定相关的回复.
+        请给出自然，与设定相关的回复，不要添加你不确认的信息或者占位符在回复结果中
         """
         request = LLMRequest(
             user_id=user_id,
