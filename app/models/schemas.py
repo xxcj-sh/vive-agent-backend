@@ -126,6 +126,7 @@ class ChatMessageCreate(BaseModel):
     type: Optional[str] = Field("text", description="消息类型，如text、image等")
     is_anonymous: Optional[bool] = Field(False, description="是否为匿名消息")
     session_id: Optional[str] = Field(None, description="用户会话链接 ID")
+    card_id: Optional[str] = Field(None, description="卡片ID")
     
     @field_validator('content')
     @classmethod

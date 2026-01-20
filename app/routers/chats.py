@@ -101,10 +101,11 @@ async def save_user_message(
         # 从请求中获取用户ID和卡片ID（如果有的话）
         user_id = getattr(message_data, 'user_id', None) or None
         card_id = getattr(message_data, 'card_id', None) or None
+        print("message_data:", message_data)
         
         # 创建数据库消息对象
         new_message = ChatMessage(
-            user_id= message_data.user_id,
+            user_id=user_id,
             card_id=card_id,
             session_id=message_data.session_id,
             content=message_data.content,
