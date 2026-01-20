@@ -497,7 +497,7 @@ async def process_scene_stream(
         raise HTTPException(status_code=400, detail="scene_config_key不能为空")
     
     # 检查是否支持流式处理
-    streamable_scenes = ["conversation-suggestions", "simple-chat", "coffee-chat", "topic-discussion", "sports-chat"]
+    streamable_scenes = ["conversation-suggestions", "simple-chat", "topic-discussion"]
     if scene_config_key not in streamable_scenes:
         raise HTTPException(status_code=400, detail=f"场景 {scene_config_key} 不支持流式处理")
     

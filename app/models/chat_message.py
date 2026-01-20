@@ -12,14 +12,13 @@ class ChatMessage(Base):
     __tablename__ = "chat_messages"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(36), nullable=True, index=True)  # 用户ID（移除外键约束，允许为NULL，支持匿名聊天）
-    card_id = Column(String(36), ForeignKey('user_cards.id'), nullable=True, index=True)  # 卡片ID（可选）
+    user_id = Column(String(36), ForeignKey('users.id'), index=True)
+    card_id = Column(String(36), ForeignKey('user_cards.id'), index=True)
+    session_id = Column(String(36), nullable=True, index=True)  # 会话ID（可选）
     content = Column(Text, nullable=False)  # 消息内容
     message_type = Column(String(20), default='text')  # 消息类型: text, image, audio, video
-    sender_type = Column(String(20), nullable=False)  # 发送者类型: user, ai, system
-    session_id = Column(String(36), nullable=True, index=True)  # 会话ID（可选）
+    sender_type = Column(String(20), nullable=False)  # 发送者类型: user, ai, system, card_creator
     is_anonymous = Column(Boolean, default=False, index=True)  # 是否为匿名消息
-    is_read = Column(Boolean, default=False, index=True)  # 是否已读
     created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
@@ -35,11 +34,10 @@ class ChatMessage(Base):
             'content': self.content,
             'message_type': self.message_type,
             'sender_type': self.sender_type,
-            'session_id': self.session_id,
-            'is_anonymous': self.is_anonymous,
-            'is_read': self.is_read,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'is_anonymous': self.is_anonymous,
+            'session_id': self.session_id
         }
 
 
@@ -48,8 +46,8 @@ class ChatSummary(Base):
     __tablename__ = "chat_summaries"
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(36), nullable=True, index=True)  # 用户ID（可选，支持匿名聊天）
-    card_id = Column(String(36), ForeignKey('user_cards.id'), nullable=True, index=True)  # 卡片ID（可选）
+    user_id = Column(String(36), ForeignKey('users.id'), index=True)
+    card_id = Column(String(36), ForeignKey('user_cards.id'), index=True)
     session_id = Column(String(36), nullable=True, index=True)  # 会话ID（可选）
     summary_type = Column(String(20), default='chat')  # 总结类型: chat, opinion, analysis
     summary_content = Column(Text, nullable=False)  # 总结内容

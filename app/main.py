@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, properties, llm, chats, topic_cards, user_connections, vote_cards, feed, content_moderation, points
+from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, llm, chats, topic_cards, user_connections, vote_cards, feed, content_moderation, points
 from app.routers.user_profile import router as user_profile_router
 
 from app.utils.db_init import init_db
@@ -39,9 +39,10 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(membership.router, prefix="/api/v1")
 app.include_router(membership_orders.router, prefix="/api/v1")
 app.include_router(file.router, prefix="/files")
-# 话题卡片路由（需要在properties之前注册，避免被通配符路由拦截）
+# 话题卡片路由（需要在通配符路由之前注册，避免被拦截）
 app.include_router(topic_cards.router, prefix="/api/v1/topic-cards")
-app.include_router(properties.router, prefix="/api/v1")
+# 用户连接路由（需要在通配符路由之前注册，避免被拦截）
+app.include_router(user_connections.router, prefix="/api/v1/user-connections")
 app.include_router(user_card.router, prefix="/api/v1")
 app.include_router(llm.router, prefix="/api/v1")
 
@@ -51,11 +52,6 @@ app.include_router(user_profile_router, prefix="/api/v1")
 
 
 app.include_router(chats.router, prefix="/api/v1")
-
-
-
-# 用户连接路由
-app.include_router(user_connections.router, prefix="/api/v1/user-connections")
 
 
 

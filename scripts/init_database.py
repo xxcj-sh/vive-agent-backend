@@ -110,8 +110,15 @@ def create_optimization_indexes():
                 ("vote_cards", ["category"]),
                 ("vote_cards", ["is_active"]),
                 ("chat_messages", ["user_id", "created_at"]),
+                ("chat_messages", ["card_id", "created_at"]),
+                ("chat_messages", ["is_anonymous"]),
+                ("chat_messages", ["sender_type"]),
                 ("chat_messages", ["session_id"]),
                 ("chat_messages", ["message_type"]),
+                ("chat_summaries", ["user_id", "created_at"]),
+                ("chat_summaries", ["card_id", "created_at"]),
+                ("chat_summaries", ["is_read"]),
+                ("chat_summaries", ["summary_type"]),
                 ("llm_usage_logs", ["user_id", "created_at"]),
                 ("llm_usage_logs", ["task_type"]),
                 ("llm_usage_logs", ["provider"]),
@@ -175,7 +182,7 @@ def verify_tables():
             # 检查关键表是否存在
             expected_tables = [
                 'users', 'user_profiles', 'user_cards', 'topic_cards',
-                'vote_cards', 'chat_messages', 'user_profile_history',
+                'vote_cards', 'chat_messages', 'chat_summaries', 'user_profile_history',
                 'user_profile_feedback', 'user_profile_scores', 'user_profile_score_history',
                 'user_profile_skills', 'llm_usage_logs', 'membership_orders',
                 'content_moderations'
