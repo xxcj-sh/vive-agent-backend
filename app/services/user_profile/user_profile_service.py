@@ -5,11 +5,16 @@
 import json
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, text
 from app.models.user_profile import UserProfile, UserProfileCreate, UserProfileUpdate
 from app.models.user_profile_history import UserProfileHistory, UserProfileHistoryCreate
 from app.services.embedding_service import embedding_service
 from app.utils.logger import logger
+
+
+def _embedding_to_json(embedding: List[float]) -> str:
+    """将 embedding 列表转换为 JSON 字符串"""
+    return json.dumps(embedding, ensure_ascii=False)
 
 
 class UserProfileService:
@@ -39,36 +44,55 @@ class UserProfileService:
         description_text = None
         try:
             profile_dict = json.loads(profile_data.raw_profile)
-            # 异步调用LLM生成总结文本
             profile_rs = await self._generate_profile_summary(profile_data.user_id, profile_dict)
-            summary_text = profile_rs.profile_summary
-            description_text = profile_rs.profile_description
+            summary_text = profile_rs.get("summary", "") if isinstance(profile_rs, dict) else str(profile_rs)
+            description_text = profile_rs.get("description", "") if isinstance(profile_rs, dict) else str(profile_rs)
 
             logger.info(f"成功生成用户画像总结: user_id={profile_data.user_id}, {profile_rs}")
         except Exception as e:
             logger.error(f"生成用户画像总结失败: user_id={profile_data.user_id}, error={str(e)}")
-            # 如果生成失败，设置基本总结
-            summary_text = self._generate_basic_summary({})
-        # 创建新画像
-        db_profile_data = profile_data.dict()
-        db_profile_data['raw_profile'] = description_text
-        db_profile_data['profile_summary'] = summary_text
+            basic_summary = self._generate_basic_summary({})
+            summary_text = basic_summary.get("description", "") if isinstance(basic_summary, dict) else str(basic_summary)
+            description_text = summary_text
 
         embedding_text = description_text or profile_data.raw_profile
+        embedding_json = None
         if embedding_text:
             embedding = await embedding_service.generate_embedding_with_retry(embedding_text)
             if embedding:
-                db_profile_data['raw_profile_embedding'] = embedding
+                embedding_json = _embedding_to_json(embedding)
                 logger.info(f"成功生成用户画像向量: user_id={profile_data.user_id}")
             else:
-                logger.warning(f"生成用户画像向量失败: user_id={profile_data.user_id}")
+                logger.warning(f"生成用户画像向量失败，使用零向量: user_id={profile_data.user_id}")
+                embedding_json = _embedding_to_json([0.0] * 1024)
         else:
-            logger.warning(f"用户画像文本为空，无法生成向量: user_id={profile_data.user_id}")
+            logger.warning(f"用户画像文本为空，使用零向量: user_id={profile_data.user_id}")
+            embedding_json = _embedding_to_json([0.0] * 1024)
 
-        db_profile = UserProfile(**db_profile_data)
-        self.db.add(db_profile)
-        self.db.commit()
-        self.db.refresh(db_profile)
+        try:
+            self.db.execute(
+                text("""
+                    INSERT INTO user_profiles 
+                    (id, user_id, raw_profile, raw_profile_embedding, profile_summary, update_reason, created_at, updated_at)
+                    VALUES 
+                    (:id, :user_id, :raw_profile, VEC_FROMTEXT(:embedding), :summary, :reason, NOW(), NOW())
+                """),
+                {
+                    "id": str(profile_data.user_id) + "-" + str(hash(profile_data.raw_profile) % 10000),
+                    "user_id": profile_data.user_id,
+                    "raw_profile": description_text,
+                    "embedding": embedding_json,
+                    "summary": summary_text,
+                    "reason": profile_data.update_reason or "初始创建"
+                }
+            )
+            self.db.commit()
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"插入用户画像失败: user_id={profile_data.user_id}, error={str(e)}")
+            raise
+
+        db_profile = self.get_user_profile(profile_data.user_id)
 
         # 创建历史记录
         self._create_history_record(db_profile, "create", "system", "初始创建")
@@ -114,6 +138,7 @@ class UserProfileService:
             return await self.create_user_profile(create_data)
 
         # 如果有raw_profile更新，需要重新生成总结文本
+        embedding_json = None
         if profile_update.raw_profile:
             # 格式化原始数据
             formatted_profile = self._format_raw_profile(profile_update.raw_profile)
@@ -124,36 +149,73 @@ class UserProfileService:
                 import json
                 profile_dict = json.loads(profile_update.raw_profile)
 
-                # 异步调用LLM生成总结文本
                 profile_rs = await self._generate_profile_summary(user_id, profile_dict)
-                setattr(db_profile, 'profile_summary', profile_rs.profile_summary)
-                setattr(db_profile, 'raw_profile', profile_rs.profile_description)
+                if isinstance(profile_rs, dict):
+                    profile_summary = profile_rs.get("summary", "")
+                    profile_description = profile_rs.get("description", "")
+                else:
+                    profile_summary = str(profile_rs)
+                    profile_description = profile_summary
 
-                embedding_text = profile_rs.profile_description or profile_update.raw_profile
+                setattr(db_profile, 'profile_summary', profile_summary)
+                setattr(db_profile, 'raw_profile', profile_description)
+
+                embedding_text = profile_description or profile_update.raw_profile
+                embedding_json = None
                 if embedding_text:
                     embedding = await embedding_service.generate_embedding_with_retry(embedding_text)
                     if embedding:
-                        setattr(db_profile, 'raw_profile_embedding', embedding)
+                        embedding_json = _embedding_to_json(embedding)
                         logger.info(f"成功生成用户画像向量: user_id={user_id}")
                     else:
-                        logger.warning(f"生成用户画像向量失败: user_id={user_id}")
+                        logger.warning(f"生成用户画像向量失败，使用零向量: user_id={user_id}")
+                        embedding_json = _embedding_to_json([0.0] * 1024)
                 else:
-                    logger.warning(f"用户画像文本为空，无法生成向量: user_id={user_id}")
+                    logger.warning(f"用户画像文本为空，使用零向量: user_id={user_id}")
+                    embedding_json = _embedding_to_json([0.0] * 1024)
 
                 logger.info(f"成功生成并更新用户画像总结: user_id={user_id}")
             except Exception as e:
                 logger.error(f"生成用户画像总结失败: user_id={user_id}, error={str(e)}")
-                # 如果生成失败，设置基本总结
-                setattr(db_profile, 'profile_summary', self._generate_basic_summary({}))
+                basic_summary = self._generate_basic_summary({})
+                if isinstance(basic_summary, dict):
+                    setattr(db_profile, 'profile_summary', basic_summary.get("description", ""))
+                else:
+                    setattr(db_profile, 'profile_summary', str(basic_summary))
+                embedding_json = None
 
-        # 更新其他字段
         update_data = profile_update.dict(exclude_unset=True)
         for field, value in update_data.items():
             if field not in ['raw_profile', 'profile_summary'] and value is not None:
                 setattr(db_profile, field, value)
 
-        self.db.commit()
-        self.db.refresh(db_profile)
+        update_fields = ["raw_profile = :raw_profile", "profile_summary = :summary", "updated_at = NOW()"]
+        update_params = {
+            "raw_profile": db_profile.raw_profile,
+            "summary": db_profile.profile_summary
+        }
+
+        if embedding_json is not None:
+            update_fields.append("raw_profile_embedding = VEC_FROMTEXT(:embedding)")
+            update_params["embedding"] = embedding_json
+        else:
+            update_fields.append("raw_profile_embedding = VEC_FROMTEXT(:embedding)")
+            update_params["embedding"] = _embedding_to_json([0.0] * 1024)
+
+        update_params["user_id"] = user_id
+
+        try:
+            self.db.execute(
+                text(f"UPDATE user_profiles SET {', '.join(update_fields)} WHERE user_id = :user_id"),
+                update_params
+            )
+            self.db.commit()
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"更新用户画像失败: user_id={user_id}, error={str(e)}")
+            raise
+
+        db_profile = self.get_user_profile(user_id)
 
         # 创建历史记录
         change_reason = profile_update.update_reason or "用户更新"

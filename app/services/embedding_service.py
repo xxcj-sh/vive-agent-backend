@@ -76,9 +76,12 @@ class EmbeddingService:
 
                 if result.get("data") and len(result["data"]) > 0:
                     embedding = result["data"][0].get("embedding")
-                    if embedding:
+                    if embedding is not None and embedding != 0:
                         logger.info(f"成功生成用户画像向量，维度: {len(embedding)}")
                         return embedding
+                    else:
+                        logger.warning(f"豆包向量模型返回空 embedding: {embedding}")
+                        return None
 
                 logger.warning("豆包向量模型返回数据为空")
                 return None
