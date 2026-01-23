@@ -61,6 +61,9 @@ class EmbeddingService:
                 "Authorization": f"Bearer {api_key}"
             }
 
+            logger.debug(f"调用豆包向量模型，输入文本长度: {len(text)}")
+            logger.debug(f"请求参数: model={self.model_name}, dimensions={self.vector_dimension}, encoding_format={self.encoding_format}")
+
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
                     self.api_url,
@@ -74,16 +77,26 @@ class EmbeddingService:
 
                 result = response.json()
 
-                if result.get("data") and len(result["data"]) > 0:
-                    embedding = result["data"][0].get("embedding")
-                    if embedding is not None and embedding != 0:
-                        logger.info(f"成功生成用户画像向量，维度: {len(embedding)}")
-                        return embedding
-                    else:
-                        logger.warning(f"豆包向量模型返回空 embedding: {embedding}")
-                        return None
-
-                logger.warning("豆包向量模型返回数据为空")
+                logger.debug(f"豆包向量模型响应类型: data={type(result.get('data'))}")
+                
+                data_value = result.get("data")
+                logger.debug(f"data_value 类型: {type(data_value)}")
+                
+                embedding = None
+                if isinstance(data_value, list) and len(data_value) > 0:
+                    embedding = data_value[0].get("embedding")
+                elif isinstance(data_value, dict):
+                    embedding = data_value.get("embedding")
+                
+                if embedding is not None and isinstance(embedding, list) and len(embedding) > 0:
+                    logger.info(f"成功生成用户画像向量，维度: {len(embedding)}")
+                    return embedding
+                elif embedding is None:
+                    logger.warning(f"豆包向量模型返回 None embedding")
+                elif isinstance(embedding, list) and len(embedding) == 0:
+                    logger.warning(f"豆包向量模型返回空列表 []")
+                else:
+                    logger.warning(f"豆包向量模型返回异常 embedding: type={type(embedding)}")
                 return None
 
         except httpx.TimeoutException:
@@ -93,7 +106,9 @@ class EmbeddingService:
             logger.error(f"解析豆包向量模型响应失败: {e}")
             return None
         except Exception as e:
-            logger.error(f"生成用户画像向量时发生错误: {e}")
+            logger.error(f"生成用户画像向量时发生错误: {type(e).__name__}: {e}")
+            import traceback
+            logger.error(f"详细堆栈: {traceback.format_exc()}")
             return None
 
     def _format_vector(self, embedding: List[float]) -> str:
