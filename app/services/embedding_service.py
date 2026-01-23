@@ -24,7 +24,7 @@ class EmbeddingService:
         self.encoding_format = "float"
         self.timeout = 30.0
 
-    async def generate_profile_embedding(self, text: str) -> Optional[str]:
+    async def generate_profile_embedding(self, text: str) -> Optional[List[float]]:
         """
         生成用户画像文本的语义向量
 
@@ -32,7 +32,7 @@ class EmbeddingService:
             text: 用户画像文本内容
 
         Returns:
-            向量字符串，格式为 '[0.1, 0.2, ...]'
+            向量列表，1024 维
         """
         if not text or not text.strip():
             logger.warning("输入文本为空，无法生成向量")
@@ -77,9 +77,8 @@ class EmbeddingService:
                 if result.get("data") and len(result["data"]) > 0:
                     embedding = result["data"][0].get("embedding")
                     if embedding:
-                        vector_str = self._format_vector(embedding)
                         logger.info(f"成功生成用户画像向量，维度: {len(embedding)}")
-                        return vector_str
+                        return embedding
 
                 logger.warning("豆包向量模型返回数据为空")
                 return None
@@ -96,7 +95,7 @@ class EmbeddingService:
 
     def _format_vector(self, embedding: List[float]) -> str:
         """
-        格式化向量为字符串
+        格式化向量为字符串（用于日志或调试）
 
         Args:
             embedding: 向量列表
@@ -106,12 +105,28 @@ class EmbeddingService:
         """
         return json.dumps(embedding, ensure_ascii=False)
 
+    def parse_vector_from_text(self, vector_text: str) -> Optional[List[float]]:
+        """
+        从文本解析向量
+
+        Args:
+            vector_text: 向量文本字符串，格式为 '[0.1, 0.2, ...]'
+
+        Returns:
+            向量列表
+        """
+        try:
+            return json.loads(vector_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"解析向量文本失败: {e}")
+            return None
+
     async def generate_embedding_with_retry(
         self,
         text: str,
         max_retries: int = 2,
         retry_delay: float = 1.0
-    ) -> Optional[str]:
+    ) -> Optional[List[float]]:
         """
         带重试机制的向量生成
 
@@ -121,7 +136,7 @@ class EmbeddingService:
             retry_delay: 重试间隔（秒）
 
         Returns:
-            向量字符串
+            向量列表
         """
         for attempt in range(max_retries):
             embedding = await self.generate_profile_embedding(text)
