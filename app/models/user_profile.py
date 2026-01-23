@@ -3,10 +3,9 @@
 用于存储LLM生成的用户画像数据
 """
 
-from sqlalchemy import Column, String, Text, DateTime, Integer, Index
+from sqlalchemy import Column, String, Text, DateTime, Integer
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.mysql import VECTOR
 from app.database import Base
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -14,18 +13,23 @@ from datetime import datetime
 import uuid
 import json
 
-
-class VectorColumn:
-    """自定义向量列类型，支持阿里云 RDS MySQL VECTOR 类型"""
-    
-    @staticmethod
-    def create_vector_column(dimension: int = 1024):
-        """创建向量列"""
-        return Column(VECTOR(dimension), nullable=True, comment=f"用户画像语义向量（{dimension}维）")
+try:
+    from sqlalchemy.dialects.mysql import VECTOR
+    VECTOR_TYPE_AVAILABLE = True
+except ImportError:
+    VECTOR = None
+    VECTOR_TYPE_AVAILABLE = False
 
 
-# 向量维度配置
 VECTOR_DIMENSION = 1024
+
+
+def get_embedding_column():
+    """获取向量列，根据 SQLAlchemy 版本选择合适的类型"""
+    if VECTOR_TYPE_AVAILABLE:
+        return Column(VECTOR(VECTOR_DIMENSION), nullable=True, comment=f"用户画像语义向量（{VECTOR_DIMENSION}维，豆包模型生成）")
+    else:
+        return Column(Text, nullable=True, comment=f"用户画像语义向量（{VECTOR_DIMENSION}维，JSON格式存储）")
 
 
 class UserProfile(Base):
@@ -39,7 +43,7 @@ class UserProfile(Base):
     raw_profile = Column(Text, nullable=True, comment="原始用户画像数据（JSON格式）")
 
     # 用户画像语义向量 - 使用阿里云 RDS MySQL VECTOR 类型
-    raw_profile_embedding = Column(VECTOR(VECTOR_DIMENSION), nullable=True, comment=f"用户画像语义向量（{VECTOR_DIMENSION}维，豆包模型生成）")
+    raw_profile_embedding = get_embedding_column()
 
     # 生成的总结文本 - LLM生成的自然语言用户画像描述（可直接阅读的文本）
     profile_summary = Column(Text, nullable=True, comment="用户画像总结文本（LLM生成的可读文本）")
