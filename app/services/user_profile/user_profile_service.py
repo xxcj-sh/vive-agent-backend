@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from app.models.user_profile import UserProfile, UserProfileCreate, UserProfileUpdate
 from app.models.user_profile_history import UserProfileHistory, UserProfileHistoryCreate
+from app.services.embedding_service import embedding_service
 from app.utils.logger import logger
 
 
@@ -33,15 +34,11 @@ class UserProfileService:
             logger.info(f"用户 {profile_data.user_id} 的用户画像已存在，将更新现有画像")
             return await self.update_user_profile(existing.id, UserProfileUpdate(**profile_data.dict()))
 
-        # 格式化raw_profile以提高可读性
-        formatted_profile_data = self._format_raw_profile(profile_data.raw_profile)
-
-        # 解析JSON数据并生成LLM总结
+        # 解析 JSON 数据并生成 LLM 总结
         summary_text = None
         description_text = None
         try:
             profile_dict = json.loads(profile_data.raw_profile)
-
             # 异步调用LLM生成总结文本
             profile_rs = await self._generate_profile_summary(profile_data.user_id, profile_dict)
             summary_text = profile_rs.profile_summary
@@ -56,6 +53,18 @@ class UserProfileService:
         db_profile_data = profile_data.dict()
         db_profile_data['raw_profile'] = description_text
         db_profile_data['profile_summary'] = summary_text
+
+        embedding_text = description_text or profile_data.raw_profile
+        if embedding_text:
+            embedding = await embedding_service.generate_embedding_with_retry(embedding_text)
+            if embedding:
+                db_profile_data['raw_profile_embedding'] = embedding
+                logger.info(f"成功生成用户画像向量: user_id={profile_data.user_id}")
+            else:
+                logger.warning(f"生成用户画像向量失败: user_id={profile_data.user_id}")
+        else:
+            logger.warning(f"用户画像文本为空，无法生成向量: user_id={profile_data.user_id}")
+
         db_profile = UserProfile(**db_profile_data)
         self.db.add(db_profile)
         self.db.commit()
@@ -119,6 +128,17 @@ class UserProfileService:
                 profile_rs = await self._generate_profile_summary(user_id, profile_dict)
                 setattr(db_profile, 'profile_summary', profile_rs.profile_summary)
                 setattr(db_profile, 'raw_profile', profile_rs.profile_description)
+
+                embedding_text = profile_rs.profile_description or profile_update.raw_profile
+                if embedding_text:
+                    embedding = await embedding_service.generate_embedding_with_retry(embedding_text)
+                    if embedding:
+                        setattr(db_profile, 'raw_profile_embedding', embedding)
+                        logger.info(f"成功生成用户画像向量: user_id={user_id}")
+                    else:
+                        logger.warning(f"生成用户画像向量失败: user_id={user_id}")
+                else:
+                    logger.warning(f"用户画像文本为空，无法生成向量: user_id={user_id}")
 
                 logger.info(f"成功生成并更新用户画像总结: user_id={user_id}")
             except Exception as e:

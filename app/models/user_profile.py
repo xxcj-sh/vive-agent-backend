@@ -20,8 +20,11 @@ class UserProfile(Base):
     id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), nullable=False, index=True, comment="用户ID")
 
-    # 原始画像数据 - 存储LLM生成的完整用户画像（JSON格式，便于结构化数据处理）
+    # 原始画像数据 - 存储LLM生成的完整用户画像
     raw_profile = Column(Text, nullable=True, comment="原始用户画像数据（JSON格式）")
+
+    # 用户画像语义向量 - 用于支持语义检索功能
+    raw_profile_embedding = Column(Text, nullable=True, comment="用户画像语义向量（1024维，豆包模型生成）")
 
     # 生成的总结文本 - LLM生成的自然语言用户画像描述（可直接阅读的文本）
     profile_summary = Column(Text, nullable=True, comment="用户画像总结文本（LLM生成的可读文本）")
@@ -40,6 +43,7 @@ class UserProfileBase(BaseModel):
     """用户画像基础模型"""
     user_id: str = Field(..., description="用户ID")
     raw_profile: Optional[str] = Field(None, description="原始用户画像数据（JSON格式）")
+    raw_profile_embedding: Optional[str] = Field(None, description="用户画像语义向量（1024维，豆包模型生成）")
     profile_summary: Optional[str] = Field(None, description="用户画像总结文本（LLM生成的可读文本）")
     update_reason: Optional[str] = Field(None, description="更新原因")
 
@@ -61,7 +65,7 @@ class UserProfileResponse(UserProfileBase):
     id: str = Field(..., description="画像ID")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: Optional[datetime] = Field(None, description="更新时间")
-    
+
     class Config:
         from_attributes = True
 
