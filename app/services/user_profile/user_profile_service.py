@@ -479,26 +479,72 @@ class UserProfileService:
         
         # 3. 调用 LLM 生成 profile_dict
         profile_dict = await self._generate_profile_summary(user_id, profile_data_str, existing_profile)
+        
         # 4. 获取或创建用户画像记录
         db_profile = self.get_user_profile(user_id)
+        
+        # 生成新的 raw_profile 文本
+        new_raw_profile = profile_dict.get("description", "")
+        new_profile_summary = profile_dict.get("summary", "")
+        
+        # 生成 embedding
+        embedding_text = new_raw_profile or json.dumps(profile_data, ensure_ascii=False)
+        embedding_json = None
+        if embedding_text:
+            try:
+                embedding = await embedding_service.generate_embedding_with_retry(embedding_text)
+                if embedding:
+                    embedding_json = _embedding_to_json(embedding)
+                    logger.info(f"成功生成用户画像向量: user_id={user_id}")
+                else:
+                    logger.warning(f"生成用户画像向量失败，使用零向量: user_id={user_id}")
+                    embedding_json = _embedding_to_json([0.0] * 1024)
+            except Exception as e:
+                logger.error(f"生成用户画像向量失败: user_id={user_id}, error={str(e)}")
+                embedding_json = _embedding_to_json([0.0] * 1024)
+        else:
+            logger.warning(f"用户画像文本为空，使用零向量: user_id={user_id}")
+            embedding_json = _embedding_to_json([0.0] * 1024)
+        
         if db_profile:
             # 更新现有画像
-            db_profile.raw_profile = profile_dict.get("description", "")
-            db_profile.profile_summary = profile_dict.get("summary", "")
+            db_profile.raw_profile = new_raw_profile
+            db_profile.profile_summary = new_profile_summary
             db_profile.update_reason = "用户信息更新触发画像生成"
             db_profile.updated_at = datetime.now()
             
             # 创建历史记录
             self._create_history_record(db_profile, "update", "system", "用户信息更新触发LLM画像生成")
+            
+            # 更新 embedding
+            self.db.execute(
+                text("UPDATE user_profiles SET raw_profile = :raw_profile, profile_summary = :summary, raw_profile_embedding = VEC_FROMTEXT(:embedding), updated_at = NOW() WHERE user_id = :user_id"),
+                {
+                    "raw_profile": new_raw_profile,
+                    "summary": new_profile_summary,
+                    "embedding": embedding_json,
+                    "user_id": user_id
+                }
+            )
         else:
             # 创建新画像
             db_profile = UserProfile(
                 user_id=user_id,
-                raw_profile=profile_dict.get("description", ""),
-                profile_summary=profile_dict.get("summary", ""),
+                raw_profile=new_raw_profile,
+                profile_summary=new_profile_summary,
                 update_reason="用户创建触发画像生成"
             )
             self.db.add(db_profile)
+            self.db.flush()
+            
+            # 更新 embedding
+            self.db.execute(
+                text("UPDATE user_profiles SET raw_profile_embedding = VEC_FROMTEXT(:embedding) WHERE user_id = :user_id"),
+                {
+                    "embedding": embedding_json,
+                    "user_id": user_id
+                }
+            )
         
         self.db.commit()
         self.db.refresh(db_profile)
