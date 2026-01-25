@@ -20,6 +20,7 @@ class User(Base):
     gender = Column(Integer, nullable=True)
     age = Column(Integer, nullable=True)
     bio = Column(Text, nullable=True)
+    birthday = Column(String(20), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     occupation = Column(String(100), nullable=True)
@@ -63,6 +64,7 @@ class UserBase(BaseModel):
     gender: Optional[int] = None
     age: Optional[int] = None
     bio: Optional[str] = None
+    birthday: Optional[str] = None
     occupation: Optional[str] = None
     location: Optional[str] = None
     education: Optional[str] = None
@@ -88,6 +90,7 @@ class UserResponse(BaseModel):
     gender: Optional[int] = None
     age: Optional[int] = None
     bio: Optional[str] = None
+    birthday: Optional[str] = None
     occupation: Optional[str] = None
     location: Optional[str] = None
     education: Optional[str] = None
@@ -124,6 +127,7 @@ class UserProfileUpdate(BaseModel):
     gender: Optional[int] = None
     age: Optional[int] = None
     bio: Optional[str] = None
+    birthday: Optional[str] = None
     occupation: Optional[str] = None
     location: Optional[str] = None
     education: Optional[str] = None

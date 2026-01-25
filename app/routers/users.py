@@ -96,6 +96,7 @@ class ProfileUpdate(BaseModel):
     occupation: Optional[str] = None
     location: Optional[Any] = None
     bio: Optional[str] = None
+    birthday: Optional[str] = None
     interests: Optional[List[str]] = None
     preferences: Optional[Dict[str, Any]] = None
     phone: Optional[str] = None
@@ -253,8 +254,7 @@ def create_user(user: UserCreate, background_tasks: BackgroundTasks, db: Session
     user_data = user.dict()
     user_data.pop("password")
     user_data["hashed_password"] = hashed_password
-    # 新注册用户默认提供 100 积分用于创建初始用户卡片
-    user_data["points"] = 100
+    user_data["points"] = 0
     
     # 创建用户
     db_user = User(**user_data)

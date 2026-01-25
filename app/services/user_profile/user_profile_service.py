@@ -462,8 +462,7 @@ class UserProfileService:
         gender_map = {
             0: "未知",
             1: "男性",
-            2: "女性",
-            3: "其他"
+            2: "女性"
         }
         gender_text = gender_map.get(gender_value, "未知") if gender_value is not None else "未知"
         
