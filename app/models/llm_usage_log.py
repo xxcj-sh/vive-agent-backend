@@ -33,6 +33,8 @@ class LLMTaskType(str, enum.Enum):
     ACTIVITY_INFO_EXTRACTION = "activity_info_extraction"
     OPINION_SUMMARIZATION = "opinion_summarization"
     CHAT_SUMMARIZATION = "chat_summarization"
+    SEMANTIC_SEARCH_EXPANSION = "semantic_search_expansion"
+    DISPLAY_REASON_GENERATION = "display_reason_generation"
 
 class LLMUsageLog(Base):
     """大语言模型调用日志表"""
