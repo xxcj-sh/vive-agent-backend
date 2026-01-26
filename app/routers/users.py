@@ -1137,6 +1137,7 @@ async def generate_display_reasons(
     candidate_info = []
     for i, candidate in enumerate(candidates[:10]):  # 最多处理10个候选用户
         raw_profile = candidate.get('raw_profile', {})
+        user_id = candidate["user_id"]
         if isinstance(raw_profile, dict):
             name = raw_profile.get('nickname', raw_profile.get('name', f'用户{candidate["user_id"][:8]}'))
             bio = raw_profile.get('bio', raw_profile.get('description', ''))
@@ -1144,7 +1145,7 @@ async def generate_display_reasons(
             name = f'用户{candidate["user_id"][:8]}'
             bio = str(raw_profile)[:200] if raw_profile else ''
 
-        candidate_info.append(f"{i+1}. 用户{name}：{bio}")
+        candidate_info.append(f"{i+1}. 用户ID {user_id}, 用户名：{name}, 个人简介：{bio}")
 
     candidates_text = '\n'.join(candidate_info)
 
@@ -1222,8 +1223,7 @@ async def semantic_search(
     1. 调用 LLM 对用户输入进行语义改写和扩展，得到 3 条近似搜索语句
     2. 调用豆包 embedding 向量模型，得到语义对应的向量
     3. 基于向量在用户画像数据库中进行向量检索，得到最相近的备选用户
-    4. 将备选用户传递给 LLM，生成每个用户的展示理由
-    5. 返回搜索结果和展示理由
+    4. 返回搜索结果
     """
     try:
         # 初始化服务
@@ -1239,13 +1239,11 @@ async def semantic_search(
 
         # 步骤2：使用 embedding 模型生成查询向量
         print(f"[SemanticSearch] 步骤2：调用embedding模型生成向量...")
-        # 使用原始查询和扩展查询的组合文本生成向量
         combined_query = f"{request.query} {' '.join(expanded_queries)}"
         embedding = await embedding_service.generate_embedding_with_retry(combined_query)
 
         if not embedding:
             print(f"[SemanticSearch] embedding生成失败")
-            # 降级使用简单的关键词搜索
             embedding = await embedding_service.generate_embedding_with_retry(request.query)
             if not embedding:
                 return BaseResponse(
@@ -1261,17 +1259,15 @@ async def semantic_search(
 
         # 步骤3：向量检索
         print(f"[SemanticSearch] 步骤3：执行向量检索...")
-        # 排除当前用户
         exclude_user_ids = []
         if current_user:
             user_id = current_user.get("id")
             if user_id:
                 exclude_user_ids = [user_id]
 
-        # 执行向量相似度搜索
         limit = request.page_size
         offset = (request.page - 1) * request.page_size
-        search_limit = offset + limit + 10  # 多取一些用于分页
+        search_limit = offset + limit + 10
 
         candidates = profile_service.search_by_vector_similarity(
             embedding=embedding,
@@ -1281,11 +1277,10 @@ async def semantic_search(
 
         print(f"[SemanticSearch] 向量检索找到 {len(candidates)} 个候选用户")
 
-        # 处理分页
         paginated_candidates = candidates[offset:offset + limit]
         total = len(candidates)
 
-        # 步骤4：获取用户详细信息并生成展示理由
+        # 步骤4：获取用户详细信息
         print(f"[SemanticSearch] 步骤4：获取用户详细信息...")
         data_service = DataService()
         items = []
@@ -1293,12 +1288,10 @@ async def semantic_search(
         for candidate in paginated_candidates:
             user_id = candidate['user_id']
 
-            # 获取用户基本信息
             user_data = data_service.get_user_by_id(user_id)
             if not user_data:
                 continue
 
-            # 处理头像URL
             avatar_url = user_data.get('avatar_url') or user_data.get('avatarUrl', '')
             if avatar_url:
                 avatar_url = ensure_full_url(avatar_url)
@@ -1317,19 +1310,10 @@ async def semantic_search(
             )
             items.append(item)
 
-        # 步骤5：生成展示理由
-        print(f"[SemanticSearch] 步骤5：生成展示理由...")
-        display_reasons = await generate_display_reasons(
-            request.query,
-            candidates[:10],  # 只对前10个候选人生成理由
-            llm_service
-        )
-
-        # 构建响应
         response_data = SemanticSearchResponse(
             items=[item.dict() for item in items],
             expanded_queries=expanded_queries,
-            display_reasons=display_reasons,
+            display_reasons={},
             total=total
         )
 
