@@ -639,13 +639,13 @@ class UserProfileService:
         # 将查询向量转换为 JSON 字符串
         embedding_json = json.dumps(embedding, ensure_ascii=False)
 
-        # 构建查询 SQL，使用 VEC_COSINE 计算余弦相似度
+        # 构建查询 SQL，使用 VEC_DISTANCE_COSINE 计算余弦相似度
         sql = """
             SELECT 
                 user_id,
                 raw_profile,
                 profile_summary,
-                VEC_COSINE(raw_profile_embedding, VEC_FROMTEXT(:embedding)) AS similarity
+                VEC_DISTANCE_COSINE(raw_profile_embedding, VEC_FROMTEXT(:embedding)) AS similarity
             FROM user_profiles
             WHERE raw_profile_embedding IS NOT NULL
         """
