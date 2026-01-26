@@ -43,6 +43,10 @@
     "generate_opinion_summary": {
       "description": "生成观点总结场景的提示词模板",
       "template": "请分析以下对话内容，提取用户表达的主要观点，并生成简洁准确的总结。"
+    },
+    "connection_suggestion": {
+      "description": "探索页面AI推荐语生成",
+      "template": "{prompt}"
     }
   }
 }

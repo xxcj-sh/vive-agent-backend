@@ -595,6 +595,8 @@ class LLMService:
                 return result
             elif scene_config_key == "generate-opinion-summary":
                 return await self._handle_generate_opinion_summary(user_id, params, provider, model_name)
+            elif scene_config_key == "connection-suggestion":
+                return await self._handle_connection_suggestion(user_id, params, provider, model_name)
             else:
                 logger.warning(f"未知的场景配置键: {scene_config_key}")
                 return {
@@ -1045,6 +1047,40 @@ class LLMService:
             "usage": response.usage,
             "duration": response.duration,
             "scene_config_key": "generate-opinion-summary"
+        }
+
+    async def _handle_connection_suggestion(
+        self,
+        user_id: str,
+        params: Dict[str, Any],
+        provider: LLMProvider,
+        model_name: str
+    ) -> Dict[str, Any]:
+        """处理连接建议场景（探索页面AI推荐语）"""
+        prompt = params.get("prompt", "")
+        
+        if not prompt:
+            return {
+                "success": True,
+                "data": "",
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                "duration": 0,
+                "scene_config_key": "connection-suggestion"
+            }
+        
+        llm_request = LLMRequest(
+            user_id=user_id,
+            task_type=LLMTaskType.CONVERSATION_SUGGESTION,
+            prompt=prompt
+        )
+        
+        response = await self.call_llm_api(llm_request, provider, model_name)
+        return {
+            "success": response.success,
+            "data": response.data,
+            "usage": response.usage,
+            "duration": response.duration,
+            "scene_config_key": "connection-suggestion"
         }
     
 
