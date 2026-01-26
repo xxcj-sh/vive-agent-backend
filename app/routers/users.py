@@ -20,6 +20,10 @@ from app.models.user_card import (
 )
 from app.models.user_card import CardCreate
 from app.models.enums import SceneType, UserRoleType
+from app.services.embedding_service import embedding_service
+from app.services.user_profile.user_profile_service import UserProfileService
+from app.services.llm_service import LLMService
+from app.models.llm_schemas import LLMProvider, LLMRequest
 
 router = APIRouter(
     prefix="/users",
@@ -1015,5 +1019,341 @@ def get_user_card_by_user_id(
                 "user_id": user_id
             }
         }
+
+
+class SemanticSearchRequest(BaseModel):
+    """语义搜索请求模型"""
+    query: str = Field(..., description="用户的自然语言搜索查询", min_length=1, max_length=500)
+    page: int = Field(1, description="页码", ge=1)
+    page_size: int = Field(20, description="每页数量", ge=1, le=100)
+
+
+class SemanticSearchItem(BaseModel):
+    """搜索结果项模型"""
+    user_id: str = Field(..., description="用户ID")
+    name: Optional[str] = Field(None, description="用户名称")
+    avatar_url: Optional[str] = Field(None, description="头像URL")
+    bio: Optional[str] = Field(None, description="个人简介")
+    gender: Optional[int] = Field(None, description="性别：1-男，2-女")
+    age: Optional[int] = Field(None, description="年龄")
+    location: Optional[Any] = Field(None, description="位置信息")
+    occupation: Optional[str] = Field(None, description="职业")
+    interests: Optional[List[str]] = Field(None, description="兴趣爱好")
+    similarity: float = Field(..., description="相似度分数")
+
+
+class SemanticSearchResponse(BaseModel):
+    """语义搜索响应模型"""
+    items: List[SemanticSearchItem] = Field(default_factory=list, description="搜索结果列表")
+    expanded_queries: List[str] = Field(default_factory=list, description="LLM扩展的搜索语句")
+    display_reasons: Dict[str, str] = Field(default_factory=dict, description="每个用户的AI展示理由")
+    total: int = Field(0, description="总结果数")
+
+
+async def expand_query_with_llm(query: str, llm_service: LLMService) -> List[str]:
+    """
+    使用 LLM 对用户查询进行语义改写和扩展，生成多条近似搜索语句
+
+    Args:
+        query: 用户的原始搜索查询
+        llm_service: LLM服务实例
+
+    Returns:
+        扩展后的搜索语句列表
+    """
+    prompt = f"""
+用户想要搜索符合以下条件的人：
+
+"{query}"
+
+请根据这个搜索条件，生成 3 条语义相近但表述不同的搜索语句。每条语句应该：
+1. 保持原始搜索意图
+2. 使用不同的表达方式
+3. 覆盖更多可能的同义词和描述方式
+
+请直接返回 3 条搜索语句，每条一行，不要添加任何解释或编号。
+"""
+
+    try:
+        request = LLMRequest(
+            user_id="system",
+            prompt=prompt,
+            task_type="semantic_search_expansion"
+        )
+
+        response = await llm_service.call_llm_api(
+            request=request,
+            provider=LLMProvider.VOLCENGINE
+        )
+
+        if response.success and response.data:
+            # 解析LLM返回的查询扩展结果
+            expanded_queries = []
+            for line in response.data.strip().split('\n'):
+                line = line.strip()
+                # 过滤掉空行和可能的编号
+                if line and not line.startswith('#'):
+                    # 移除可能的编号前缀如 "1. " 或 "① "
+                    cleaned_line = line
+                    for prefix in ['1. ', '2. ', '3. ', '① ', '② ', '③ ', '- ', '* ']:
+                        if cleaned_line.startswith(prefix):
+                            cleaned_line = cleaned_line[len(prefix):]
+                    if cleaned_line:
+                        expanded_queries.append(cleaned_line)
+
+            # 确保返回恰好3条
+            while len(expanded_queries) < 3:
+                expanded_queries.append(query)
+
+            return expanded_queries[:3]
+
+    except Exception as e:
+        print(f"[SemanticSearch] LLM查询扩展失败: {str(e)}")
+
+    # 如果LLM调用失败，返回原始查询作为默认
+    return [query, query, query]
+
+
+async def generate_display_reasons(
+    query: str,
+    candidates: List[Dict[str, Any]],
+    llm_service: LLMService
+) -> Dict[str, str]:
+    """
+    使用 LLM 为每个候选用户生成展示理由
+
+    Args:
+        query: 用户的搜索查询
+        candidates: 候选用户列表
+        llm_service: LLM服务实例
+
+    Returns:
+        user_id -> 展示理由 的映射字典
+    """
+    if not candidates:
+        return {}
+
+    # 构建提示信息
+    candidate_info = []
+    for i, candidate in enumerate(candidates[:10]):  # 最多处理10个候选用户
+        raw_profile = candidate.get('raw_profile', {})
+        if isinstance(raw_profile, dict):
+            name = raw_profile.get('nickname', raw_profile.get('name', f'用户{candidate["user_id"][:8]}'))
+            bio = raw_profile.get('bio', raw_profile.get('description', ''))
+        else:
+            name = f'用户{candidate["user_id"][:8]}'
+            bio = str(raw_profile)[:200] if raw_profile else ''
+
+        candidate_info.append(f"{i+1}. 用户{name}：{bio}")
+
+    candidates_text = '\n'.join(candidate_info)
+
+    prompt = f"""
+用户想要搜索："{query}"
+
+以下是搜索到的候选用户信息：
+
+{candidates_text}
+
+请为每个用户生成一个简短的展示理由，说明为什么这个用户符合搜索条件。
+理由应该：
+1. 突出用户与搜索条件的匹配点
+2. 语言简洁自然，不超过30个字
+3. 包含具体的关键信息
+
+请按编号顺序返回JSON格式的理由列表，格式如下：
+{{
+    "user_1_id": "理由1",
+    "user_2_id": "理由2",
+    ...
+}}
+"""
+
+    try:
+        request = LLMRequest(
+            user_id="system",
+            prompt=prompt,
+            task_type="display_reason_generation"
+        )
+
+        response = await llm_service.call_llm_api(
+            request=request,
+            provider=LLMProvider.VOLCENGINE
+        )
+
+        if response.success and response.data:
+            # 尝试解析JSON响应
+            try:
+                # 尝试直接解析
+                reasons = json.loads(response.data)
+                if isinstance(reasons, dict):
+                    return reasons
+            except json.JSONDecodeError:
+                pass
+
+            # 如果直接解析失败，尝试提取JSON
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', response.data)
+            if json_match:
+                try:
+                    reasons = json.loads(json_match.group())
+                    if isinstance(reasons, dict):
+                        return reasons
+                except json.JSONDecodeError:
+                    pass
+
+    except Exception as e:
+        print(f"[SemanticSearch] 生成展示理由失败: {str(e)}")
+
+    # 如果LLM调用失败，返回空字典
+    return {}
+
+
+@router.post("/semantic-search", response_model=BaseResponse)
+async def semantic_search(
+    request: SemanticSearchRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    对话式语义搜索用户
+
+    流程：
+    1. 调用 LLM 对用户输入进行语义改写和扩展，得到 3 条近似搜索语句
+    2. 调用豆包 embedding 向量模型，得到语义对应的向量
+    3. 基于向量在用户画像数据库中进行向量检索，得到最相近的备选用户
+    4. 将备选用户传递给 LLM，生成每个用户的展示理由
+    5. 返回搜索结果和展示理由
+    """
+    try:
+        # 初始化服务
+        llm_service = LLMService(db)
+        profile_service = UserProfileService(db)
+
+        print(f"[SemanticSearch] 开始语义搜索，用户查询: {request.query}")
+
+        # 步骤1：使用 LLM 扩展查询
+        print(f"[SemanticSearch] 步骤1：调用LLM扩展查询...")
+        expanded_queries = await expand_query_with_llm(request.query, llm_service)
+        print(f"[SemanticSearch] 扩展后的查询: {expanded_queries}")
+
+        # 步骤2：使用 embedding 模型生成查询向量
+        print(f"[SemanticSearch] 步骤2：调用embedding模型生成向量...")
+        # 使用原始查询和扩展查询的组合文本生成向量
+        combined_query = f"{request.query} {' '.join(expanded_queries)}"
+        embedding = await embedding_service.generate_embedding_with_retry(combined_query)
+
+        if not embedding:
+            print(f"[SemanticSearch] embedding生成失败")
+            # 降级使用简单的关键词搜索
+            embedding = await embedding_service.generate_embedding_with_retry(request.query)
+            if not embedding:
+                return BaseResponse(
+                    code=0,
+                    message="success",
+                    data={
+                        "items": [],
+                        "expanded_queries": [request.query],
+                        "display_reasons": {},
+                        "total": 0
+                    }
+                )
+
+        # 步骤3：向量检索
+        print(f"[SemanticSearch] 步骤3：执行向量检索...")
+        # 排除当前用户
+        exclude_user_ids = []
+        if current_user:
+            user_id = current_user.get("id")
+            if user_id:
+                exclude_user_ids = [user_id]
+
+        # 执行向量相似度搜索
+        limit = request.page_size
+        offset = (request.page - 1) * request.page_size
+        search_limit = offset + limit + 10  # 多取一些用于分页
+
+        candidates = profile_service.search_by_vector_similarity(
+            embedding=embedding,
+            exclude_user_ids=exclude_user_ids,
+            limit=search_limit
+        )
+
+        print(f"[SemanticSearch] 向量检索找到 {len(candidates)} 个候选用户")
+
+        # 处理分页
+        paginated_candidates = candidates[offset:offset + limit]
+        total = len(candidates)
+
+        # 步骤4：获取用户详细信息并生成展示理由
+        print(f"[SemanticSearch] 步骤4：获取用户详细信息...")
+        data_service = DataService()
+        items = []
+
+        for candidate in paginated_candidates:
+            user_id = candidate['user_id']
+
+            # 获取用户基本信息
+            user_data = data_service.get_user_by_id(user_id)
+            if not user_data:
+                continue
+
+            # 处理头像URL
+            avatar_url = user_data.get('avatar_url') or user_data.get('avatarUrl', '')
+            if avatar_url:
+                avatar_url = ensure_full_url(avatar_url)
+
+            item = SemanticSearchItem(
+                user_id=user_id,
+                name=user_data.get('nick_name') or user_data.get('nickName'),
+                avatar_url=avatar_url,
+                bio=user_data.get('bio'),
+                gender=user_data.get('gender'),
+                age=user_data.get('age'),
+                location=user_data.get('location'),
+                occupation=user_data.get('occupation'),
+                interests=user_data.get('interests') or [],
+                similarity=candidate['similarity']
+            )
+            items.append(item)
+
+        # 步骤5：生成展示理由
+        print(f"[SemanticSearch] 步骤5：生成展示理由...")
+        display_reasons = await generate_display_reasons(
+            request.query,
+            candidates[:10],  # 只对前10个候选人生成理由
+            llm_service
+        )
+
+        # 构建响应
+        response_data = SemanticSearchResponse(
+            items=[item.dict() for item in items],
+            expanded_queries=expanded_queries,
+            display_reasons=display_reasons,
+            total=total
+        )
+
+        print(f"[SemanticSearch] 语义搜索完成，返回 {len(items)} 个结果")
+
+        return BaseResponse(
+            code=0,
+            message="success",
+            data=response_data.dict()
+        )
+
+    except Exception as e:
+        print(f"[SemanticSearch] 语义搜索失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return BaseResponse(
+            code=500,
+            message=f"搜索失败: {str(e)}",
+            data={
+                "items": [],
+                "expanded_queries": [],
+                "display_reasons": {},
+                "total": 0
+            }
+        )
 
 

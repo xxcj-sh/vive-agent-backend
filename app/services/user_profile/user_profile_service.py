@@ -616,3 +616,80 @@ class UserProfileService:
             user_data=user_data,
             existing_profile=existing_raw_profile
         )
+    
+    def search_by_vector_similarity(
+        self,
+        embedding: List[float],
+        exclude_user_ids: List[str] = None,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        基于向量相似度搜索用户画像
+
+        Args:
+            embedding: 查询向量
+            exclude_user_ids: 排除的用户ID列表
+            limit: 返回结果数量限制
+
+        Returns:
+            匹配的用户画像列表，包含用户ID、相似度分数和原始画像信息
+        """
+        import json
+
+        # 将查询向量转换为 JSON 字符串
+        embedding_json = json.dumps(embedding, ensure_ascii=False)
+
+        # 构建查询 SQL，使用 VEC_COSINE 计算余弦相似度
+        sql = """
+            SELECT 
+                user_id,
+                raw_profile,
+                profile_summary,
+                VEC_COSINE(raw_profile_embedding, VEC_FROMTEXT(:embedding)) AS similarity
+            FROM user_profiles
+            WHERE raw_profile_embedding IS NOT NULL
+        """
+
+        params = {"embedding": embedding_json}
+
+        # 添加排除用户条件
+        if exclude_user_ids and len(exclude_user_ids) > 0:
+            placeholders = ", ".join([f":exclude_{i}" for i in range(len(exclude_user_ids))])
+            sql += f" AND user_id NOT IN ({placeholders})"
+            for i, user_id in enumerate(exclude_user_ids):
+                params[f"exclude_{i}"] = user_id
+
+        # 按相似度降序排序并限制数量
+        sql += " ORDER BY similarity DESC LIMIT :limit"
+        params["limit"] = limit
+
+        try:
+            result = self.db.execute(text(sql), params)
+            rows = result.fetchall()
+
+            matches = []
+            for row in rows:
+                raw_profile = row.raw_profile
+                # 如果 raw_profile 是 JSON 字符串，尝试解析
+                profile_data = None
+                try:
+                    if raw_profile and isinstance(raw_profile, str):
+                        profile_data = json.loads(raw_profile)
+                except json.JSONDecodeError:
+                    profile_data = {"raw_profile": raw_profile}
+
+                matches.append({
+                    "user_id": row.user_id,
+                    "similarity": float(row.similarity) if row.similarity else 0.0,
+                    "profile_summary": row.profile_summary,
+                    "raw_profile": profile_data
+                })
+
+            logger.info(f"向量相似度搜索完成，找到 {len(matches)} 个匹配用户")
+            return matches
+
+        except Exception as e:
+            logger.error(f"向量相似度搜索失败: {str(e)}")
+            import traceback
+            logger.error(f"详细堆栈: {traceback.format_exc()}")
+            return []
