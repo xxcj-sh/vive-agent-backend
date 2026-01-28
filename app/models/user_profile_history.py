@@ -17,9 +17,9 @@ class UserProfileHistory(Base):
     """用户画像历史记录表"""
     __tablename__ = "user_profile_history"
     
-    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    profile_id = Column(String(36), ForeignKey("user_profiles.id"), nullable=False, index=True, comment="画像ID")
-    user_id = Column(String(36), nullable=False, index=True, comment="用户ID")
+    id = Column(String(64), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    profile_id = Column(String(64), ForeignKey("user_profiles.id"), nullable=False, index=True, comment="画像ID")
+    user_id = Column(String(64), nullable=False, index=True, comment="用户ID")
     
     # 历史记录版本信息
     version = Column(Integer, nullable=False, comment="版本号")

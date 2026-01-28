@@ -17,6 +17,8 @@ from .user_connections import router as user_connections_router
 from .vote_cards import router as vote_cards_router
 from .feed import router as feed_router
 
+from .tags import router as tags_router
+
 __all__ = [
     "auth_router",
     "chats_router",
@@ -34,5 +36,7 @@ __all__ = [
     "user_connections_router",
     
     "vote_cards_router",
-    "feed_router"
+    "feed_router",
+    
+    "tags_router"
 ]

@@ -38,7 +38,7 @@ class UserProfileFeedback(Base):
     processing_result = Column(JSON)  # 处理结果
     
     # 关联的用户画像更新
-    updated_profile_id = Column(String(36), ForeignKey("user_profiles.id"))  # 更新后的画像ID
+    updated_profile_id = Column(String(64), ForeignKey("user_profiles.id"))  # 更新后的画像ID
     
     # 时间戳
     created_at = Column(DateTime, default=func.now())

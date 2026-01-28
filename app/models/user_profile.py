@@ -36,8 +36,8 @@ class UserProfile(Base):
     """用户画像数据表"""
     __tablename__ = "user_profiles"
 
-    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(36), nullable=False, index=True, comment="用户ID")
+    id = Column(String(64), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(64), nullable=False, index=True, comment="用户ID")
 
     # 原始画像数据 - 存储LLM生成的完整用户画像
     raw_profile = Column(Text, nullable=True, comment="原始用户画像数据（JSON格式）")

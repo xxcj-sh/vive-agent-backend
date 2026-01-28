@@ -37,8 +37,8 @@ class UserProfileScore(Base):
     """
     __tablename__ = "user_profile_scores"
     
-    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(36), nullable=False, index=True, unique=True, comment="用户ID")
+    id = Column(String(64), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(64), nullable=False, index=True, unique=True, comment="用户ID")
     
     # 各维度评分 (0-100)
     completeness_score = Column(Integer, default=0, comment="完整度评分(0-100)")  # 画像完整性
@@ -70,9 +70,9 @@ class UserProfileScoreHistory(Base):
     """
     __tablename__ = "user_profile_score_history"
     
-    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    score_id = Column(String(36), ForeignKey("user_profile_scores.id"), nullable=False, index=True, comment="评分ID")
-    user_id = Column(String(36), nullable=False, index=True, comment="用户ID")
+    id = Column(String(64), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    score_id = Column(String(64), ForeignKey("user_profile_scores.id"), nullable=False, index=True, comment="评分ID")
+    user_id = Column(String(64), nullable=False, index=True, comment="用户ID")
     
     # 评分变化记录
     completeness_score = Column(Integer, nullable=False, comment="完整度评分")
@@ -99,9 +99,9 @@ class UserProfileSkill(Base):
     """
     __tablename__ = "user_profile_skills"
     
-    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    score_id = Column(String(36), ForeignKey("user_profile_scores.id"), nullable=False, index=True, comment="评分ID")
-    user_id = Column(String(36), nullable=False, index=True, comment="用户ID")
+    id = Column(String(64), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    score_id = Column(String(64), ForeignKey("user_profile_scores.id"), nullable=False, index=True, comment="评分ID")
+    user_id = Column(String(64), nullable=False, index=True, comment="用户ID")
     
     # 技能信息
     skill_code = Column(String(50), nullable=False, index=True, comment="技能代码")
