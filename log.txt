@@ -130,3 +130,7 @@
    - 添加分组标题和数量统计
    - 每个分组最多显示5个标签
    - 支持查看更多功能
+
+2. 问题修复
+   - 修复 community-tag.js 中 LoginGuide.getUserProfile 方法不存在的问题
+   - 改用 apiService.getUserInfo() 获取用户信息
