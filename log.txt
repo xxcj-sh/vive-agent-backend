@@ -88,3 +88,28 @@
 1. 微信小程序分享链接集成
 2. 注册自动获得社群标签的回调机制
 3. 前端页面开发
+
+六、前端页面开发（2026-02-01）
+------------------------
+1. 我的页面悬浮按钮扩展
+   - 在标签Tab（currentTab === 'identity'）显示创建悬浮按钮
+   - 点击跳转到社群标签创建页面
+
+2. 社群标签页面创建模式
+   - 支持 mode=create 参数进入创建模式
+   - 添加创建表单（名称、描述、图标、最大成员数、公开/私有）
+   - 调用 TagAPI.createTag 创建社群标签
+   - 创建成功后自动返回上一页
+
+七、修改的文件列表
+------------------------
+前端（vive-agent-frontend）:
+- pages/mine/mine.wxml - 悬浮按钮显示逻辑
+- pages/mine/mine.js - 添加 navigateToCreateCommunityTag 方法
+- package-tag/pages/community-tag/community-tag.js - 支持创建模式
+- package-tag/pages/community-tag/community-tag.wxml - 添加创建表单UI
+- package-tag/pages/community-tag/community-tag.wxss - 添加创建表单样式
+
+后端（vive-agent-backend）:
+- app/models/community_invitation.py - 添加外键约束
+- app/services/tag_service.py - 清理冗余导入
