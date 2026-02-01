@@ -25,11 +25,63 @@ class UserProfileService:
     
     def get_user_profile(self, user_id: str) -> Optional[UserProfile]:
         """获取用户的画像"""
-        return self.db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+        try:
+            result = self.db.execute(
+                text("""
+                    SELECT id, user_id, raw_profile, 
+                           VEC_TOSTRING(raw_profile_embedding) as raw_profile_embedding,
+                           profile_summary, update_reason, updated_at, created_at
+                    FROM user_profiles 
+                    WHERE user_id = :user_id
+                """),
+                {"user_id": user_id}
+            ).fetchone()
+            
+            if result:
+                profile = UserProfile()
+                profile.id = result[0]
+                profile.user_id = result[1]
+                profile.raw_profile = result[2]
+                profile.raw_profile_embedding = result[3]
+                profile.profile_summary = result[4]
+                profile.update_reason = result[5]
+                profile.updated_at = result[6]
+                profile.created_at = result[7]
+                return profile
+            return None
+        except Exception as e:
+            logger.error(f"获取用户画像失败: user_id={user_id}, error={str(e)}")
+            return self.db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
     
     def get_user_profile_by_id(self, profile_id: str) -> Optional[UserProfile]:
         """根据ID获取画像"""
-        return self.db.query(UserProfile).filter(UserProfile.id == profile_id).first()
+        try:
+            result = self.db.execute(
+                text("""
+                    SELECT id, user_id, raw_profile, 
+                           VEC_TOSTRING(raw_profile_embedding) as raw_profile_embedding,
+                           profile_summary, update_reason, updated_at, created_at
+                    FROM user_profiles 
+                    WHERE id = :id
+                """),
+                {"id": profile_id}
+            ).fetchone()
+            
+            if result:
+                profile = UserProfile()
+                profile.id = result[0]
+                profile.user_id = result[1]
+                profile.raw_profile = result[2]
+                profile.raw_profile_embedding = result[3]
+                profile.profile_summary = result[4]
+                profile.update_reason = result[5]
+                profile.updated_at = result[6]
+                profile.created_at = result[7]
+                return profile
+            return None
+        except Exception as e:
+            logger.error(f"根据ID获取用户画像失败: profile_id={profile_id}, error={str(e)}")
+            return self.db.query(UserProfile).filter(UserProfile.id == profile_id).first()
     
     async def create_user_profile(self, profile_data: UserProfileCreate) -> UserProfile:
         """创建用户画像"""
