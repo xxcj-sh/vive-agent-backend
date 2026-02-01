@@ -267,3 +267,324 @@ def get_tag_users(
         raise HTTPException(status_code=result["code"], detail=result["message"])
     
     return BaseResponse(code=0, message=result["message"], data=result["data"])
+
+
+# ==================== 社群邀请功能 ====================
+
+class InvitationCreateRequest(BaseModel):
+    """创建邀请请求"""
+    tag_id: int = Field(..., description="社群标签ID")
+    description: Optional[str] = Field(default="", max_length=255, description="邀请描述")
+    max_uses: Optional[int] = Field(default=None, ge=1, description="最大使用次数")
+    expires_at: Optional[str] = Field(default=None, description="过期时间 ISO格式")
+
+
+@router.post("/community/invitations", response_model=BaseResponse)
+def create_community_invitation(
+    request: InvitationCreateRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """创建社群邀请码"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
+    user_id = str(current_user.get("id"))
+    tag_service = TagService(db)
+    
+    expires_at = None
+    if request.expires_at:
+        from datetime import datetime
+        expires_at = datetime.fromisoformat(request.expires_at)
+    
+    result = tag_service.create_community_invitation(
+        tag_id=request.tag_id,
+        inviter_user_id=user_id,
+        description=request.description,
+        max_uses=request.max_uses,
+        expires_at=expires_at
+    )
+    
+    if result["code"] != 0:
+        raise HTTPException(status_code=result["code"], detail=result["message"])
+    
+    return BaseResponse(code=0, message=result["message"], data=result["data"])
+
+
+@router.get("/community/invitations/my", response_model=BaseResponse)
+def get_my_invitations(
+    page: int = Query(default=1, ge=1, description="页码"),
+    page_size: int = Query(default=20, ge=1, le=100, description="每页数量"),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取我创建的邀请列表"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
+    user_id = str(current_user.get("id"))
+    tag_service = TagService(db)
+    
+    result = tag_service.get_user_invitations(
+        user_id=user_id,
+        page=page,
+        page_size=page_size
+    )
+    
+    return BaseResponse(code=0, message="success", data=result)
+
+
+@router.get("/tags/{tag_id}/invitations", response_model=BaseResponse)
+def get_tag_invitations(
+    tag_id: int,
+    page: int = Query(default=1, ge=1, description="页码"),
+    page_size: int = Query(default=20, ge=1, le=100, description="每页数量"),
+    db: Session = Depends(get_db)
+):
+    """获取标签的邀请列表"""
+    tag_service = TagService(db)
+    
+    result = tag_service.get_tag_invitations(
+        tag_id=tag_id,
+        page=page,
+        page_size=page_size
+    )
+    
+    return BaseResponse(code=0, message="success", data=result)
+
+
+@router.post("/community/invitations/{invitation_id}/cancel", response_model=BaseResponse)
+def cancel_invitation(
+    invitation_id: int,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """取消邀请"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
+    user_id = str(current_user.get("id"))
+    tag_service = TagService(db)
+    
+    result = tag_service.cancel_invitation(
+        invitation_id=invitation_id,
+        user_id=user_id
+    )
+    
+    if result["code"] != 0:
+        raise HTTPException(status_code=result["code"], detail=result["message"])
+    
+    return BaseResponse(code=0, message=result["message"], data=result["data"])
+
+
+@router.post("/community/invitations/redeem", response_model=BaseResponse)
+def redeem_invitation(
+    code: str = Query(..., description="邀请码"),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """使用邀请码加入社群"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
+    user_id = str(current_user.get("id"))
+    tag_service = TagService(db)
+    
+    result = tag_service.redeem_invitation(
+        code=code,
+        user_id=user_id
+    )
+    
+    if result["code"] != 0:
+        raise HTTPException(status_code=result["code"], detail=result["message"])
+    
+    return BaseResponse(code=0, message=result["message"], data=result["data"])
+
+
+# ==================== 标签内容推送功能 ====================
+
+class TagContentCreateRequest(BaseModel):
+    """创建标签内容请求"""
+    title: str = Field(..., min_length=1, max_length=100, description="内容标题")
+    content: str = Field(..., description="内容详情")
+    content_type: str = Field(..., description="内容类型：card/topic/article/link")
+    tag_ids: List[int] = Field(..., description="关联标签ID列表")
+    cover_image: Optional[str] = Field(default="", max_length=500, description="封面图URL")
+    priority: int = Field(default=0, ge=0, description="推送优先级")
+
+
+@router.post("/contents", response_model=BaseResponse)
+def create_tag_content(
+    request: TagContentCreateRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """创建标签推送内容"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
+    user_id = str(current_user.get("id"))
+    tag_service = TagService(db)
+    
+    result = tag_service.create_tag_content(
+        title=request.title,
+        content=request.content,
+        content_type=request.content_type,
+        tag_ids=request.tag_ids,
+        cover_image=request.cover_image,
+        priority=request.priority,
+        created_by=user_id
+    )
+    
+    if result["code"] != 0:
+        raise HTTPException(status_code=result["code"], detail=result["message"])
+    
+    return BaseResponse(code=0, message=result["message"], data=result["data"])
+
+
+@router.post("/contents/{content_id}/publish", response_model=BaseResponse)
+def publish_tag_content(
+    content_id: int,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """发布标签内容"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
+    user_id = str(current_user.get("id"))
+    tag_service = TagService(db)
+    
+    result = tag_service.publish_tag_content(
+        content_id=content_id,
+        user_id=user_id
+    )
+    
+    if result["code"] != 0:
+        raise HTTPException(status_code=result["code"], detail=result["message"])
+    
+    return BaseResponse(code=0, message=result["message"], data=result["data"])
+
+
+@router.get("/tags/{tag_id}/contents", response_model=BaseResponse)
+def get_tag_contents(
+    tag_id: int,
+    page: int = Query(default=1, ge=1, description="页码"),
+    page_size: int = Query(default=20, ge=1, le=100, description="每页数量"),
+    content_type: Optional[str] = Query(default=None, description="内容类型筛选"),
+    db: Session = Depends(get_db)
+):
+    """获取标签的内容列表"""
+    tag_service = TagService(db)
+    
+    result = tag_service.get_tag_contents(
+        tag_id=tag_id,
+        page=page,
+        page_size=page_size,
+        content_type=content_type
+    )
+    
+    return BaseResponse(code=0, message="success", data=result)
+
+
+@router.get("/contents/recommend", response_model=BaseResponse)
+def get_recommended_contents(
+    tag_ids: Optional[str] = Query(default=None, description="标签ID列表，逗号分隔"),
+    page: int = Query(default=1, ge=1, description="页码"),
+    page_size: int = Query(default=20, ge=1, le=100, description="每页数量"),
+    content_type: Optional[str] = Query(default=None, description="内容类型筛选"),
+    db: Session = Depends(get_db)
+):
+    """根据标签获取推荐内容"""
+    tag_service = TagService(db)
+    
+    if tag_ids:
+        ids = [int(tid) for tid in tag_ids.split(",")]
+        result = tag_service.get_contents_by_tags(
+            tag_ids=ids,
+            page=page,
+            page_size=page_size,
+            content_type=content_type
+        )
+    else:
+        result = {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 0
+        }
+    
+    return BaseResponse(code=0, message="success", data=result)
+
+
+@router.get("/contents/re/mycommend", response_model=BaseResponse)
+def get_my_recommended_contents(
+    page: int = Query(default=1, ge=1, description="页码"),
+    page_size: int = Query(default=20, ge=1, le=100, description="每页数量"),
+    content_type: Optional[str] = Query(default=None, description="内容类型筛选"),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取根据我的标签推荐的个性化内容"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
+    user_id = str(current_user.get("id"))
+    tag_service = TagService(db)
+    
+    result = tag_service.get_user_recommended_contents(
+        user_id=user_id,
+        page=page,
+        page_size=page_size,
+        content_type=content_type
+    )
+    
+    return BaseResponse(code=0, message="success", data=result)
+
+
+@router.get("/contents/{content_id}", response_model=BaseResponse)
+def get_content_detail(
+    content_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取内容详情"""
+    tag_service = TagService(db)
+    
+    content = tag_service.get_content_detail(content_id)
+    
+    if not content:
+        raise HTTPException(status_code=404, detail="内容不存在")
+    
+    return BaseResponse(code=0, message="success", data=tag_service._format_tag_content(content))
+
+
+class ContentInteractionRequest(BaseModel):
+    """内容交互请求"""
+    interaction_type: str = Field(..., description="交互类型：view/like/share")
+
+
+@router.post("/contents/{content_id}/interact", response_model=BaseResponse)
+def interact_with_content(
+    content_id: int,
+    request: ContentInteractionRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """内容交互（浏览、点赞、分享）"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
+    user_id = str(current_user.get("id"))
+    tag_service = TagService(db)
+    
+    result = tag_service.interact_with_content(
+        content_id=content_id,
+        user_id=user_id,
+        interaction_type=request.interaction_type
+    )
+    
+    if result["code"] != 0:
+        raise HTTPException(status_code=result["code"], detail=result["message"])
+    
+    return BaseResponse(code=0, message=result["message"], data=result["data"])

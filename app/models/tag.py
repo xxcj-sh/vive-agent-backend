@@ -55,6 +55,11 @@ class Tag(Base):
         primaryjoin="and_(Tag.id == foreign(UserTagRel.tag_id), UserTagRel.status == 'active')"
     )
     
+    invitations = relationship("CommunityInvitation",
+        back_populates="tag",
+        cascade="all, delete-orphan"
+    )
+    
     # 索引
     __table_args__ = (
         Index('idx_tag_type', 'tag_type'),

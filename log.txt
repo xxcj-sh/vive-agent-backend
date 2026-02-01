@@ -1,0 +1,90 @@
+社群标签功能开发日志
+========================
+
+开发时间: 2026-02-01
+功能模块: 社群标签、邀请系统、内容推送
+
+一、实现的功能
+------------------------
+1. 社群标签创建
+   - 支持创建 user_community 类型标签
+   - 支持设置最大成员数、公开/私有属性
+   - 标签创建者管理功能
+
+2. 社群邀请系统
+   - 创建邀请码（支持设置使用次数、过期时间）
+   - 使用邀请码加入社群
+   - 邀请使用记录追踪
+   - 邀请管理和取消功能
+
+3. 标签内容推送
+   - 创建和发布标签关联内容
+   - 支持多种内容类型（card/topic/article/link）
+   - 根据用户标签推荐个性化内容
+   - 内容交互统计（浏览、点赞、分享）
+
+二、遇到的问题及解决方案
+------------------------
+1. f-string 语法错误
+   - 问题: 在 tag_service.py 中使用了复杂的条件表达式在 f-string 中
+   - 位置: 第1251行
+   - 解决: 使用 action_map 字典预先计算操作名称，避免 f-string 中使用条件表达式
+
+2. datetime 模块未导入
+   - 问题: TagService 类中使用了 datetime 但未导入
+   - 解决: 在文件顶部添加 `from datetime import datetime`
+
+3. SQLAlchemy 关系定义错误
+   - 问题: Tag 和 CommunityInvitation 之间没有外键约束
+   - 错误信息: "Could not determine join condition between parent/child tables"
+   - 解决: 
+     - 在 CommunityInvitation.tag_id 添加 ForeignKey('tags.id', ondelete='CASCADE')
+     - 在 InvitationUsage.invitation_id 添加 ForeignKey('community_invitations.id', ondelete='CASCADE')
+     - 更新相关 relationship 定义
+
+4. JSON 字段索引问题
+   - 问题: MySQL JSON 字段不支持直接创建索引
+   - 解决: 移除 tag_contents 表的 idx_content_tag_ids 索引
+
+5. 重复导入问题
+   - 问题: 存在冗余的局部导入语句
+   - 解决: 将所有必要的模型和枚举在文件顶部统一导入，移除方法内部的重复导入
+
+三、数据库变更
+------------------------
+新增表:
+- community_invitations: 社群邀请表
+- invitation_usage: 邀请使用记录表
+- tag_contents: 标签推送内容表
+- content_tag_interactions: 内容交互记录表
+
+四、API 接口列表
+------------------------
+社群标签:
+- POST /api/v1/tags - 创建标签
+- GET /api/v1/tags - 获取标签列表
+- GET /api/v1/tags/{tag_id} - 获取标签详情
+- PUT /api/v1/tags/{tag_id} - 更新标签
+- DELETE /api/v1/tags/{tag_id} - 删除标签
+
+社群邀请:
+- POST /api/v1/community/invitations - 创建邀请码
+- GET /api/v1/community/invitations/my - 获取我创建的邀请
+- GET /api/v1/tags/{tag_id}/invitations - 获取标签的邀请列表
+- POST /api/v1/community/invitations/{id}/cancel - 取消邀请
+- POST /api/v1/community/invitations/redeem - 使用邀请码
+
+标签内容:
+- POST /api/v1/contents - 创建内容
+- POST /api/v1/contents/{id}/publish - 发布内容
+- GET /api/v1/tags/{tag_id}/contents - 获取标签内容
+- GET /api/v1/contents/recommend - 根据标签获取推荐内容
+- GET /api/v1/contents/re/mycommend - 获取个性化推荐内容
+- GET /api/v1/contents/{id} - 获取内容详情
+- POST /api/v1/contents/{id}/interact - 内容交互
+
+五、待完善事项
+------------------------
+1. 微信小程序分享链接集成
+2. 注册自动获得社群标签的回调机制
+3. 前端页面开发
