@@ -97,6 +97,16 @@ class TagService:
             self.db.commit()
             self.db.refresh(tag)
             
+            # 自动将创建者加入标签
+            user_tag_rel = UserTagRel(
+                user_id=user_id,
+                tag_id=tag.id,
+                granted_by_user_id=user_id,
+                status=UserTagRelStatus.ACTIVE
+            )
+            self.db.add(user_tag_rel)
+            self.db.commit()
+            
             return {
                 "code": 0,
                 "message": "标签创建成功",
