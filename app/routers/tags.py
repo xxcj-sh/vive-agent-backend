@@ -245,6 +245,42 @@ def get_user_tags(user_id: str, db: Session = Depends(get_db)):
     return BaseResponse(code=0, message="success", data=tags)
 
 
+@router.get("/users/me/communities", response_model=BaseResponse)
+def get_my_communities(
+    page: int = Query(default=1, ge=1, description="页码"),
+    page_size: int = Query(default=50, ge=1, le=100, description="每页数量"),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取当前用户已加入的社群列表"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="用户未认证")
+    
+    user_id = str(current_user.get("id"))
+    tag_service = TagService(db)
+    
+    all_tags = tag_service.get_user_tags(user_id=user_id)
+    
+    total = len(all_tags)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    paginated_items = all_tags[start_idx:end_idx]
+    
+    total_pages = (total + page_size - 1) // page_size if page_size > 0 else 0
+    
+    return BaseResponse(
+        code=0, 
+        message="success", 
+        data={
+            "items": paginated_items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages
+        }
+    )
+
+
 @router.get("/tags/{tag_id}/users", response_model=BaseResponse)
 def get_tag_users(
     tag_id: int,
