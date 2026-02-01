@@ -96,6 +96,7 @@ class TagService:
             self.db.add(tag)
             self.db.commit()
             self.db.refresh(tag)
+            print(f"[TagService] 标签创建成功: tag.id={tag.id}, create_user_id={user_id}")
             
             # 自动将创建者加入标签
             user_tag_rel = UserTagRel(
@@ -106,6 +107,7 @@ class TagService:
             )
             self.db.add(user_tag_rel)
             self.db.commit()
+            print(f"[TagService] 创建者加入标签成功: user_id={user_id}, tag_id={tag.id}")
             
             return {
                 "code": 0,
@@ -514,22 +516,26 @@ class TagService:
         Returns:
             标签列表
         """
+        print(f"[TagService] get_user_tags: user_id={user_id}")
         user_tag_rels = self.db.query(UserTagRel).filter(
             and_(
                 UserTagRel.user_id == user_id,
                 UserTagRel.status == UserTagRelStatus.ACTIVE
             )
         ).all()
+        print(f"[TagService] get_user_tags: 查询到 {len(user_tag_rels)} 条 UserTagRel 记录")
         
         tags = []
         for rel in user_tag_rels:
             tag = self.get_tag(rel.tag_id)
+            print(f"[TagService] get_user_tags: rel.tag_id={rel.tag_id}, tag={tag}")
             if tag and tag.status == TagStatus.ACTIVE:
                 tag_data = self._format_tag(tag)
                 tag_data['granted_by_user_id'] = rel.granted_by_user_id
                 tag_data['bound_at'] = rel.created_at.isoformat() if rel.created_at else None
                 tags.append(tag_data)
         
+        print(f"[TagService] get_user_tags: 返回 {len(tags)} 个标签")
         return tags
     
     def get_tag_users(
