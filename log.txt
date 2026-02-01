@@ -134,3 +134,8 @@
 2. 问题修复
    - 修复 community-tag.js 中 LoginGuide.getUserProfile 方法不存在的问题
    - 改用 apiService.getUserInfo() 获取用户信息
+
+3. 标签页面优化
+   - 底部社群标签区域支持点击跳转
+   - currentTab === 'tags' 时不重复展示标签卡片
+   - 点击标签跳转到 community-tag 详情页
