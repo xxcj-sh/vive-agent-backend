@@ -7,8 +7,8 @@ from sqlalchemy import Column, String, Text, DateTime, Integer
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Any
 from datetime import datetime
 import uuid
 import json
@@ -66,9 +66,22 @@ class UserProfileBase(BaseModel):
     """用户画像基础模型"""
     user_id: str = Field(..., description="用户ID")
     raw_profile: Optional[str] = Field(None, description="原始用户画像数据（JSON格式）")
-    raw_profile_embedding: Optional[str] = Field(None, description="用户画像语义向量（1024维，豆包模型生成）")
+    raw_profile_embedding: Any = Field(None, description="用户画像语义向量（1024维，豆包模型生成）")
     profile_summary: Optional[str] = Field(None, description="用户画像总结文本（LLM生成的可读文本）")
     update_reason: Optional[str] = Field(None, description="更新原因")
+    
+    @field_validator('raw_profile_embedding')
+    @classmethod
+    def validate_embedding(cls, v):
+        """将任何类型的 embedding 转换为字符串或 None"""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v
+        try:
+            return str(v)
+        except Exception:
+            return None
 
 
 class UserProfileCreate(UserProfileBase):
