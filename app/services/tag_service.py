@@ -627,6 +627,13 @@ class TagService:
     
     def _format_tag(self, tag: Tag) -> Dict[str, Any]:
         """格式化标签数据"""
+        member_count = self.db.query(UserTagRel).filter(
+            and_(
+                UserTagRel.tag_id == tag.id,
+                UserTagRel.status == UserTagRelStatus.ACTIVE
+            )
+        ).count()
+        
         return {
             "id": tag.id,
             "name": tag.name,
@@ -636,6 +643,7 @@ class TagService:
             "create_user_id": tag.create_user_id,
             "max_members": tag.max_members,
             "is_public": tag.is_public,
+            "member_count": member_count,
             "created_at": tag.created_at.isoformat() if tag.created_at else None,
             "updated_at": tag.updated_at.isoformat() if tag.updated_at else None
         }
