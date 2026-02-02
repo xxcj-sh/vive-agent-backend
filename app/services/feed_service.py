@@ -5,6 +5,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
 from app.models.user import User
 from app.models.user_card_db import UserCard
+from app.models.tag import Tag, UserTagRel
 from app.services.topic_card_service import TopicCardService
 from app.services.vote_service import VoteService
 from app.services.user_connection_service import UserConnectionService
@@ -336,13 +337,139 @@ class FeedService:
             mixed_cards = self._mix_feed_cards(fallback_cards, page_size)
             
             print(f"[FeedService] 兜底推荐返回卡片数量: {len(mixed_cards)}")
-            return mixed_cards
+            return mixed
             
         except Exception as e:
             print(f"获取兜底推荐卡片异常: {str(e)}")
             import traceback
             traceback.print_exc()
             return []
+    
+    def _get_community_user_cards(self, community_user_ids: List[str], page: int, page_size: int) -> List[Dict[str, Any]]:
+        """
+        获取社群成员的用户卡片
+        
+        Args:
+            community_user_ids: 社群成员用户ID列表
+            page: 页码
+            page_size: 每页数量
+            
+        Returns:
+            社群成员的用户卡片列表
+        """
+        try:
+            if not community_user_ids:
+                return []
+            
+            # 查询社群成员的活跃卡片
+            card_query = self.db.query(UserCard).filter(
+                and_(
+                    UserCard.is_active == 1,
+                    UserCard.is_deleted == 0,
+                    UserCard.user_id.in_(community_user_ids)
+                )
+            )
+            
+            # 获取总数
+            total_cards = card_query.count()
+            
+            # 按创建时间排序（最新的在前）
+            all_cards = card_query.order_by(UserCard.created_at.desc()).all()
+            
+            # 分页处理
+            offset = (page - 1) * page_size
+            paginated_cards = all_cards[offset:offset + page_size]
+            
+            # 构建卡片数据
+            cards = []
+            for user_card in paginated_cards:
+                # 获取卡片创建者信息
+                card_creator = self.db.query(User).filter(
+                    and_(
+                        User.id == str(user_card.user_id),
+                        User.is_active == 1
+                    )
+                ).first()
+                
+                if not card_creator:
+                    continue
+                
+                card_data = {
+                    "id": str(user_card.id),
+                    "userId": str(card_creator.id),
+                    "avatar": self._process_media_url(getattr(user_card, 'avatar_url', None) or getattr(card_creator, 'avatar_url', None) or ""),
+                    "age": getattr(card_creator, 'age', 25),
+                    "occupation": getattr(card_creator, 'occupation', ''),
+                    "location": getattr(user_card, 'location', ''),
+                    "bio": getattr(user_card, 'bio', '') or '这个人很懒，什么都没有留下...',
+                    "interests": getattr(card_creator, 'interests', []) if isinstance(getattr(card_creator, 'interests', []), list) else [],
+                    "cardType": 'social',
+                    "isTopicCard": False,
+                    "card_size": 'large',
+                    "isRecommendation": True,
+                    "recommendationReason": '社群成员',
+                    "matchScore": 0,
+                    "hasInterestInMe": False,
+                    "mutualMatchAvailable": False,
+                    "lastVisitTime": None,
+                    "hasVisited": False,
+                    "visitCount": 0,
+                    "createdAt": user_card.created_at.isoformat() if user_card.created_at else "",
+                    "displayName": getattr(user_card, 'display_name', None),
+                    "creatorName": getattr(card_creator, 'nick_name', '匿名用户'),
+                    "creatorAvatar": self._process_media_url(getattr(card_creator, 'avatar_url', None) or ""),
+                    "creatorAge": getattr(card_creator, 'age', 25),
+                    "creatorOccupation": getattr(card_creator, 'occupation', ''),
+                    "cardTitle": str(user_card.display_name),
+                    "visibility": 'everyone' if getattr(user_card, 'visibility', 'public') == 'public' else getattr(user_card, 'visibility', 'public')
+                }
+                cards.append(card_data)
+            
+            print(f"[FeedService] 获取社群用户卡片: 请求 {page_size} 张, 返回 {len(cards)} 张")
+            return cards
+            
+        except Exception as e:
+            print(f"获取社群用户卡片异常: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    def _prioritize_creator_content(self, cards: List[Dict[str, Any]], creator_id: str) -> List[Dict[str, Any]]:
+        """
+        优先展示社群创建人的内容
+        
+        策略：
+        1. 将创建人的内容标记为优先
+        2. 最多优先展示 3 条创建人的内容
+        3. 保持原有的混合排序逻辑
+        
+        Args:
+            cards: 原始卡片列表
+            creator_id: 社群创建人ID
+            
+        Returns:
+            调整优先级后的卡片列表
+        """
+        if not cards or not creator_id:
+            return cards
+        
+        # 分离创建人的内容和普通内容
+        creator_cards = [c for c in cards if c.get("user_id") == creator_id or c.get("creator_id") == creator_id]
+        other_cards = [c for c in cards if c.get("user_id") != creator_id and c.get("creator_id") != creator_id]
+        
+        # 对创建人内容按时间排序（最新的在前）
+        creator_cards.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        
+        # 最多保留 3 条创建人的内容作为优先展示
+        priority_creator_cards = creator_cards[:3]
+        remaining_creator_cards = creator_cards[3:]
+        
+        # 合并：优先展示的创建人内容 + 剩余创建人内容 + 普通内容
+        prioritized = priority_creator_cards + remaining_creator_cards + other_cards
+        
+        print(f"[FeedService] 内容优先级调整 - 创建人内容: {len(creator_cards)} 条 (优先展示 {len(priority_creator_cards)} 条), 普通内容: {len(other_cards)} 条")
+        
+        return prioritized
     
     def get_feed_user_cards(self, user_id: str, page: int, page_size: int) -> Dict[str, Any]:
         """
@@ -486,7 +613,7 @@ class FeedService:
             traceback.print_exc()
             raise e
     
-    def get_unified_feed_cards(self, user_id: Optional[str], page: int = 1, page_size: int = 10) -> Dict[str, Any]:
+    def get_unified_feed_cards(self, user_id: Optional[str], page: int = 1, page_size: int = 10, tag_id: Optional[str] = None) -> Dict[str, Any]:
         """
         获取统一的推荐卡片流（混合 user、topic、vote 卡片）
         
@@ -495,19 +622,75 @@ class FeedService:
         2. 穿插推荐话题卡片和投票卡片
         3. 混合比例：每 2 个用户卡片搭配 1 个话题/投票卡片
         
+        社群筛选（当 tag_id 参数提供时）：
+        1. 只返回属于该社群的用户卡片
+        2. 只返回该社群用户发布的话题和投票
+        3. 社群标签创建人发布的内容会被优先展示
+        
         Args:
             user_id: 当前用户ID（可选，未登录用户传 None）
             page: 页码
             page_size: 每页数量
+            tag_id: 社群标签ID，用于筛选特定社群的内容
             
         Returns:
             包含混合推荐卡片和分页信息的字典
         """
         try:
             all_cards = []
+            tag_creator_id = None
+            is_community_filter = tag_id is not None
             
-            if user_id:
-                # 已登录用户：获取推荐用户卡片
+            # 如果指定了社群标签，获取社群信息
+            if is_community_filter:
+                tag_info = self.db.query(Tag).filter(
+                    and_(
+                        Tag.id == int(tag_id),
+                        Tag.status == "active"
+                    )
+                ).first()
+                
+                if tag_info:
+                    tag_creator_id = tag_info.create_user_id
+                    print(f"[FeedService] 社群筛选 - 标签ID: {tag_id}, 标签名称: {tag_info.name}, 创建人ID: {tag_creator_id}")
+                else:
+                    print(f"[FeedService] 未找到社群标签: {tag_id}")
+                    return {
+                        "items": [],
+                        "total": 0,
+                        "page": page,
+                        "page_size": page_size,
+                        "total_pages": 1,
+                        "has_next": False,
+                        "has_prev": False
+                    }
+                
+                # 获取该社群的所有成员用户ID
+                tag_user_rels = self.db.query(UserTagRel).filter(
+                    and_(
+                        UserTagRel.tag_id == int(tag_id),
+                        UserTagRel.status == "active"
+                    )
+                ).all()
+                
+                community_user_ids = [rel.user_id for rel in tag_user_rels]
+                print(f"[FeedService] 社群成员数量: {len(community_user_ids)}")
+                
+                # 如果社群没有成员，返回空结果
+                if not community_user_ids:
+                    print(f"[FeedService] 社群 {tag_id} 没有成员")
+                    return {
+                        "items": [],
+                        "total": 0,
+                        "page": page,
+                        "page_size": page_size,
+                        "total_pages": 1,
+                        "has_next": False,
+                        "has_prev": False
+                    }
+            
+            if user_id and not is_community_filter:
+                # 已登录用户且非社群筛选：获取推荐用户卡片
                 user_cards_result = self.get_feed_user_cards(user_id, page, page_size * 3)
                 user_cards = user_cards_result.get("cards", [])
                 
@@ -517,6 +700,13 @@ class FeedService:
                     card["card_type"] = "user"
                 
                 all_cards.extend(user_cards)
+            elif is_community_filter:
+                # 社群筛选模式：只获取社群成员的用户卡片
+                community_cards = self._get_community_user_cards(community_user_ids, page, page_size * 3)
+                for card in community_cards:
+                    card["scene_type"] = "social"
+                    card["card_type"] = "user"
+                all_cards.extend(community_cards)
             
             # 获取话题卡片
             topic_result = TopicCardService.get_topic_cards(
@@ -529,6 +719,10 @@ class FeedService:
             
             if topic_result and "items" in topic_result:
                 for card in topic_result["items"]:
+                    # 如果是社群筛选，只返回社群成员发布的话题
+                    if is_community_filter and card.user_id not in community_user_ids:
+                        continue
+                    
                     formatted_card = {
                         "id": card.id,
                         "type": "topic",
@@ -540,13 +734,15 @@ class FeedService:
                         "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
                         "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
                         "user_id": card.user_id,
+                        "creator_id": card.user_id,
                         "user_avatar": card.creator_avatar or '',
                         "user_nickname": card.creator_nickname or '匿名用户',
                         "like_count": card.like_count or 0,
                         "comment_count": card.discussion_count or 0,
                         "has_liked": False,
                         "images": [card.cover_image] if card.cover_image else [],
-                        "is_anonymous": card.is_anonymous or 0
+                        "is_anonymous": card.is_anonymous or 0,
+                        "is_from_tag_creator": card.user_id == tag_creator_id if tag_creator_id else False
                     }
                     all_cards.append(formatted_card)
             
@@ -555,6 +751,10 @@ class FeedService:
             recall_votes = vote_service.get_recall_vote_cards(limit=page_size * 2, user_id=user_id)
             
             for card in recall_votes:
+                # 如果是社群筛选，只返回社群成员发布的投票
+                if is_community_filter and card.user_id not in community_user_ids:
+                    continue
+                
                 vote_results = vote_service.get_vote_results(card.id, user_id)
                 user = self.db.query(User).filter(
                     User.id == card.user_id,
@@ -576,6 +776,7 @@ class FeedService:
                     "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
                     "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
                     "user_id": card.user_id,
+                    "creator_id": card.user_id,
                     "user_avatar": user.avatar_url if user else '',
                     "user_nickname": user.nick_name if user else '匿名用户',
                     "vote_options": vote_results["options"],
@@ -585,9 +786,14 @@ class FeedService:
                     "vote_deadline": card.end_time.isoformat() if hasattr(card, 'end_time') and card.end_time else None,
                     "max_selections": 1,
                     "allow_discussion": True,
-                    "images": [card.cover_image] if card.cover_image else []
+                    "images": [card.cover_image] if card.cover_image else [],
+                    "is_from_tag_creator": card.user_id == tag_creator_id if tag_creator_id else False
                 }
                 all_cards.append(formatted_card)
+            
+            # 如果是社群筛选，优先展示创建人的内容
+            if is_community_filter and tag_creator_id:
+                all_cards = self._prioritize_creator_content(all_cards, tag_creator_id)
             
             # 应用混合推荐算法
             mixed_cards = self._mix_feed_cards(all_cards, page_size)
@@ -602,6 +808,8 @@ class FeedService:
             start_idx = (page - 1) * page_size
             end_idx = start_idx + page_size
             items = mixed_cards[start_idx:end_idx]
+            
+            print(f"[FeedService] 返回卡片 - 总数: {total}, 当前页: {len(items)}, 用户卡片: {len([c for c in items if c.get('card_type') == 'user'])}, 话题/投票: {len([c for c in items if c.get('card_type') == 'topic'])}")
             
             return {
                 "items": items,

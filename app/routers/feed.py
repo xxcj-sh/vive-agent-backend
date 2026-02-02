@@ -121,6 +121,7 @@ async def get_feed_user_cards(
 async def get_unified_feed_cards(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(10, ge=1, le=50, description="每页数量"),
+    tag_id: Optional[str] = Query(None, description="社群标签ID，用于筛选特定社群的内容"),
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -131,6 +132,10 @@ async def get_unified_feed_cards(
     1. 优先推荐用户可能感兴趣的用户卡片（基于访问历史）
     2. 穿插推荐话题卡片和投票卡片
     3. 混合比例：每 2 个用户卡片搭配 1 个话题/投票卡片
+    
+    社群筛选：
+    - 当指定 tag_id 时，只返回该社群的用户、话题和投票卡片
+    - 社群创建人发布的内容会被优先展示
     """
     try:
         user_id = str(current_user.get("id")) if current_user else None
@@ -139,7 +144,8 @@ async def get_unified_feed_cards(
         result = feed_service.get_unified_feed_cards(
             user_id=user_id,
             page=page,
-            page_size=page_size
+            page_size=page_size,
+            tag_id=tag_id
         )
         
         return {
