@@ -47,6 +47,7 @@ class Tag(Base):
     status = Column(Enum(TagStatus), default=TagStatus.ACTIVE, comment="状态")
     max_members = Column(Integer, default=None, comment="标签最大成员数，NULL表示无限制")
     is_public = Column(Integer, default=1, comment="是否公开可见：1-是 0-否")
+    member_count = Column(Integer, default=0, comment="当前成员数量")
     
     # 关系
     user_tag_rels = relationship("UserTagRel", 
@@ -120,7 +121,45 @@ def run_migration(db_session):
             print("user_tag_rel 表已存在")
         else:
             print("user_tag_rel 表创建失败")
+        
+        # 迁移 member_count 字段
+        migrate_member_count(db_session)
             
     except Exception as e:
         print(f"数据库迁移失败: {str(e)}")
         raise
+
+
+def migrate_member_count(db_session):
+    """
+    迁移 member_count 字段
+    为所有现有标签计算并更新成员数量
+    """
+    from sqlalchemy import text
+    
+    try:
+        # 检查 member_count 列是否存在
+        result = db_session.execute(text("SHOW COLUMNS FROM tags LIKE 'member_count'"))
+        if not result.fetchone():
+            # 添加 member_count 列
+            db_session.execute(text("ALTER TABLE tags ADD COLUMN member_count INT DEFAULT 0 COMMENT '当前成员数量'"))
+            db_session.commit()
+            print("已添加 member_count 列")
+        
+        # 先更新所有标签的 member_count
+        db_session.execute(text("""
+            UPDATE tags t
+            LEFT JOIN (
+                SELECT tag_id, COUNT(*) as cnt
+                FROM user_tag_rel
+                WHERE status = 'active'
+                GROUP BY tag_id
+            ) utr ON t.id = utr.tag_id
+            SET t.member_count = IFNULL(utr.cnt, 0)
+        """))
+        db_session.commit()
+        print("member_count 迁移完成")
+        
+    except Exception as e:
+        db_session.rollback()
+        print(f"member_count 迁移失败: {str(e)}")

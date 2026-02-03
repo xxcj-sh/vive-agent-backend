@@ -344,6 +344,26 @@ class TagService:
                 "data": None
             }
     
+    def _update_tag_member_count(self, tag_id: int):
+        """更新标签的成员数量"""
+        try:
+            member_count = self.db.query(UserTagRel).filter(
+                and_(
+                    UserTagRel.tag_id == tag_id,
+                    UserTagRel.status == UserTagRelStatus.ACTIVE
+                )
+            ).count()
+            
+            self.db.query(Tag).filter(Tag.id == tag_id).update({
+                Tag.member_count: member_count
+            })
+            
+            self.db.commit()
+            print(f"[TagService] 更新标签 {tag_id} 的成员数量为 {member_count}")
+        except Exception as e:
+            self.db.rollback()
+            print(f"[TagService] 更新成员数量失败: {str(e)}")
+    
     def bind_tag_to_user(
         self,
         user_id: str,
@@ -421,6 +441,8 @@ class TagService:
             self.db.commit()
             self.db.refresh(user_tag_rel)
             
+            self._update_tag_member_count(tag_id)
+            
             return {
                 "code": 0,
                 "message": "标签绑定成功",
@@ -490,6 +512,8 @@ class TagService:
             # 软删除关联
             user_tag_rel.status = UserTagRelStatus.DELETED
             self.db.commit()
+            
+            self._update_tag_member_count(tag_id)
             
             return {
                 "code": 0,
@@ -627,13 +651,6 @@ class TagService:
     
     def _format_tag(self, tag: Tag) -> Dict[str, Any]:
         """格式化标签数据"""
-        member_count = self.db.query(UserTagRel).filter(
-            and_(
-                UserTagRel.tag_id == tag.id,
-                UserTagRel.status == UserTagRelStatus.ACTIVE
-            )
-        ).count()
-        
         return {
             "id": tag.id,
             "name": tag.name,
@@ -643,7 +660,7 @@ class TagService:
             "create_user_id": tag.create_user_id,
             "max_members": tag.max_members,
             "is_public": tag.is_public,
-            "member_count": member_count,
+            "member_count": tag.member_count or 0,
             "created_at": tag.created_at.isoformat() if tag.created_at else None,
             "updated_at": tag.updated_at.isoformat() if tag.updated_at else None
         }
