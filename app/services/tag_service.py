@@ -628,20 +628,14 @@ class TagService:
                 )
             ).first()
             
-            if user:
-                user_info = {
-                    "user_id": user.id,
-                    "nick_name": user.nick_name,
-                    "avatar_url": user.avatar_url,
-                    "bio": user.bio,
-                    "bound_at": rel.created_at.isoformat() if rel.created_at else None
-                }
-                
-                if user_profile:
-                    user_info["profile_summary"] = user_profile.profile_summary
-                    user_info["raw_profile"] = user_profile.raw_profile
-                
-                users.append(user_info)
+            user_info = {
+                "user_id": rel.user_id,
+                "avatar_url": user.avatar_url if user else None,
+                "profile_summary": user_profile.profile_summary if user_profile else None,
+                "bound_at": rel.created_at.isoformat() if rel.created_at else None
+            }
+            
+            users.append(user_info)
         
         return {
             "code": 0,
