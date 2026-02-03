@@ -110,3 +110,89 @@ class UserProfileListResponse(BaseModel):
     """用户画像列表响应模型"""
     profiles: list[UserProfileResponse] = Field(..., description="用户画像列表")
     total_count: int = Field(..., description="总数量")
+
+
+def run_migration(db_session):
+    """
+    执行数据库迁移
+    确保 user_profiles 表存在且字段约束正确
+    """
+    from sqlalchemy import text
+    
+    try:
+        result = db_session.execute(text("SHOW TABLES LIKE 'user_profiles'"))
+        if result.fetchone():
+            print("user_profiles 表已存在")
+        else:
+            print("user_profiles 表不存在，需要创建")
+            
+        migrate_raw_profile_embedding(db_session)
+        
+    except Exception as e:
+        print(f"数据库迁移失败: {str(e)}")
+        raise
+
+
+def migrate_raw_profile_embedding(db_session):
+    """
+    迁移 raw_profile_embedding 字段，允许为 NULL
+    MySQL VECTOR 类型要求 NOT NULL，如果需要支持 NULL 需要改用 TEXT 类型
+    """
+    from sqlalchemy import text
+    
+    try:
+        result = db_session.execute(text("""
+            SELECT IS_NULLABLE, COLUMN_TYPE
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'user_profiles' 
+            AND COLUMN_NAME = 'raw_profile_embedding'
+        """))
+        
+        row = result.fetchone()
+        if row and row[0] == 'NO':
+            column_type = row[1].lower()
+            
+            if 'vector' in column_type:
+                print("检测到 VECTOR 类型列，尝试删除向量索引...")
+                
+                try:
+                    db_session.execute(text("DROP INDEX idx_raw_profile_embedding ON user_profiles"))
+                    print("已删除向量索引 idx_raw_profile_embedding")
+                except Exception as idx_error:
+                    print(f"删除索引失败（可能已不存在）: {str(idx_error)}")
+                
+                print("创建新列...")
+                db_session.execute(text("""
+                    ALTER TABLE user_profiles 
+                    ADD COLUMN raw_profile_embedding_new TEXT NULL
+                """))
+                
+                print("删除旧 VECTOR 列...")
+                db_session.execute(text("""
+                    ALTER TABLE user_profiles 
+                    DROP COLUMN raw_profile_embedding
+                """))
+                
+                print("重命名新列为原始名称...")
+                db_session.execute(text("""
+                    ALTER TABLE user_profiles 
+                    CHANGE COLUMN raw_profile_embedding_new raw_profile_embedding TEXT NULL COMMENT '用户画像语义向量（JSON格式存储）'
+                """))
+                
+                db_session.commit()
+                print("已修改 raw_profile_embedding 字段为 TEXT 类型并允许 NULL")
+                print("注: 向量检索功能已禁用，如需恢复请创建新的向量索引")
+            else:
+                db_session.execute(text("""
+                    ALTER TABLE user_profiles 
+                    MODIFY COLUMN raw_profile_embedding TEXT NULL COMMENT '用户画像语义向量（JSON格式存储）'
+                """))
+                db_session.commit()
+                print("已修改 raw_profile_embedding 字段允许 NULL")
+        else:
+            print("raw_profile_embedding 字段已允许 NULL，无需修改")
+            
+    except Exception as e:
+        db_session.rollback()
+        print(f"raw_profile_embedding 字段迁移失败: {str(e)}")
