@@ -13,6 +13,7 @@ from app.models.tag import Tag, UserTagRel, TagType, TagStatus, UserTagRelStatus
 from app.models.schemas import BaseResponse
 from app.models.community_invitation import CommunityInvitation, InvitationStatus, InvitationUsage
 from app.models.tag_content import TagContent, ContentType, ContentStatus, ContentTagInteraction
+from app.models.user_profile import UserProfile
 import math
 
 
@@ -592,7 +593,6 @@ class TagService:
                 "data": None
             }
         
-        # 查询关联的用户
         query = self.db.query(UserTagRel).filter(
             and_(
                 UserTagRel.tag_id == tag_id,
@@ -600,7 +600,6 @@ class TagService:
             )
         )
         
-        # 如果有关键词，关联用户表搜索
         if keyword:
             query = query.join(User, UserTagRel.user_id == User.id).filter(
                 and_(
@@ -618,6 +617,10 @@ class TagService:
         
         users = []
         for rel in user_rels:
+            user_profile = self.db.query(UserProfile).filter(
+                UserProfile.user_id == rel.user_id
+            ).first()
+            
             user = self.db.query(User).filter(
                 and_(
                     User.id == rel.user_id,
@@ -626,13 +629,19 @@ class TagService:
             ).first()
             
             if user:
-                users.append({
+                user_info = {
                     "user_id": user.id,
                     "nick_name": user.nick_name,
                     "avatar_url": user.avatar_url,
                     "bio": user.bio,
                     "bound_at": rel.created_at.isoformat() if rel.created_at else None
-                })
+                }
+                
+                if user_profile:
+                    user_info["profile_summary"] = user_profile.profile_summary
+                    user_info["raw_profile"] = user_profile.raw_profile
+                
+                users.append(user_info)
         
         return {
             "code": 0,
