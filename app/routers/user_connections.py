@@ -6,14 +6,10 @@ from app.dependencies import get_current_user
 from app.models.user_connection import (
     UserConnectionCreate,
     UserConnectionUpdate,
-    UserConnectionResponse,
-    UserConnectionWithUserInfoResponse,
-    ConnectionType,
-    ConnectionStatus
+    ConnectionType
 )
 from app.services.user_connection_service import UserConnectionService
 from app.models.schemas import BaseResponse
-from datetime import datetime, timedelta
 
 router = APIRouter(tags=["user-connections"])
 
@@ -143,6 +139,7 @@ async def get_user_connections(
             connection_type=connection_type,
             as_addressee=False
         )
+        print('connection_type:', connection_type)
         
         # 构建带有用户信息的响应数据
         result_data = []
