@@ -68,6 +68,7 @@ class TagService:
                 }
             
             # 检查标签名称是否重复（同一类型下）
+            # 先检查 ACTIVE 状态的标签
             existing_tag = self.db.query(Tag).filter(
                 and_(
                     Tag.name == name,
@@ -83,7 +84,44 @@ class TagService:
                     "data": None
                 }
             
-            # 创建标签
+            # 检查是否有已删除的同名标签（同一类型、同一创建者），如果有则恢复
+            deleted_tag = self.db.query(Tag).filter(
+                and_(
+                    Tag.name == name,
+                    Tag.tag_type == TagType(tag_type),
+                    Tag.create_user_id == user_id,
+                    Tag.status == TagStatus.DELETED
+                )
+            ).first()
+            
+            if deleted_tag:
+                # 恢复已删除的标签
+                deleted_tag.status = TagStatus.ACTIVE
+                deleted_tag.desc = desc
+                deleted_tag.icon = icon
+                deleted_tag.max_members = max_members
+                deleted_tag.is_public = is_public
+                self.db.commit()
+                self.db.refresh(deleted_tag)
+                print(f"[TagService] 标签已恢复: tag.id={deleted_tag.id}, create_user_id={user_id}")
+                
+                # 恢复创建者的标签关系
+                self.db.query(UserTagRel).filter(
+                    and_(
+                        UserTagRel.tag_id == deleted_tag.id,
+                        UserTagRel.user_id == user_id,
+                        UserTagRel.status == UserTagRelStatus.DELETED
+                    )
+                ).update({"status": UserTagRelStatus.ACTIVE})
+                self.db.commit()
+                
+                return {
+                    "code": 0,
+                    "message": "标签已恢复",
+                    "data": self._format_tag(deleted_tag)
+                }
+            
+            # 创建新标签
             tag = Tag(
                 name=name,
                 desc=desc,
