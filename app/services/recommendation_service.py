@@ -42,7 +42,7 @@ class RecommendationService:
     def recall_by_community_tags(
         self,
         current_user_id: str,
-        excluded_user_ids: Set[str],
+        excluded_user_ids: Set[str] = None,
         limit: int = 30
     ) -> List[User]:
         """
@@ -75,9 +75,8 @@ class RecommendationService:
             
             tag_ids = [tag_id[0] for tag_id in user_community_tags]
             
-            # 查找拥有相同社群标签的其他用户
-            # 优先推荐新加入社群的用户（按加入时间倒序）
-            users_with_same_tags = self.db.query(User).join(
+            # 构建基础查询
+            query = self.db.query(User).join(
                 UserTagRel, User.id == UserTagRel.user_id
             ).filter(
                 and_(
@@ -87,10 +86,16 @@ class RecommendationService:
                     User.is_active == True,
                     User.status != 'deleted'
                 )
-            ).order_by(UserTagRel.created_at.desc()).limit(limit).all()
+            )
             
-            # 过滤已排除的用户
-            return [user for user in users_with_same_tags if user.id not in excluded_user_ids]
+            # 排除已排除的用户
+            if excluded_user_ids:
+                query = query.filter(~User.id.in_(excluded_user_ids))
+            
+            # 优先推荐新加入社群的用户（按加入时间倒序）
+            users_with_same_tags = query.order_by(UserTagRel.created_at.desc()).limit(limit).all()
+            
+            return users_with_same_tags
             
         except Exception as e:
             print(f"[RecommendationService] 社群召回失败: {str(e)}")
@@ -388,6 +393,88 @@ class RecommendationService:
         scored_users.sort(key=lambda x: x[1], reverse=True)
         
         return scored_users[:limit]
+
+    def rank_user_cards(
+        self,
+        current_user_id: str,
+        user_cards: List['UserCard'],
+        limit: int
+    ) -> List[Tuple['UserCard', float]]:
+        """
+        排序阶段：根据用户偏好对用户名片进行排序
+        
+        排序因子：
+        1. 标签匹配度（共同标签数量）
+        2. 名片活跃度（最近更新时间）
+        3. 资料完整度
+        4. 随机因子（增加多样性）
+        
+        Args:
+            current_user_id: 当前用户ID
+            user_cards: 召回的用户名片列表
+            limit: 返回数量限制
+            
+        Returns:
+            [(user_card, score), ...] 按分数降序排列
+        """
+        if not user_cards:
+            return []
+        
+        from app.models.user_card_db import UserCard
+        
+        # 获取当前用户的标签
+        user_tags = self._get_user_tag_ids(current_user_id)
+        
+        # 获取名片对应的用户信息
+        user_ids = [card.user_id for card in user_cards]
+        users_map = {u.id: u for u in self.db.query(User).filter(User.id.in_(user_ids)).all()}
+        
+        scored_cards = []
+        for card in user_cards:
+            user = users_map.get(card.user_id)
+            if not user:
+                continue
+                
+            score = 0.0
+            
+            # 1. 标签匹配度（最高40分）
+            target_user_tags = self._get_user_tag_ids(user.id)
+            common_tags = user_tags & target_user_tags
+            tag_match_score = min(len(common_tags) * 10, 40)
+            score += tag_match_score
+            
+            # 2. 名片活跃度（最高30分）
+            if card.updated_at:
+                days_since_update = (datetime.now() - card.updated_at).days
+                if days_since_update <= 1:
+                    score += 30
+                elif days_since_update <= 7:
+                    score += 20
+                elif days_since_update <= 30:
+                    score += 10
+            
+            # 3. 资料完整度（最高20分）
+            profile_score = 0
+            if card.avatar_url:
+                profile_score += 5
+            if card.bio and len(card.bio) > 10:
+                profile_score += 5
+            if card.profile_data:
+                if card.profile_data.get('occupation'):
+                    profile_score += 5
+                if card.profile_data.get('location'):
+                    profile_score += 5
+            score += profile_score
+            
+            # 4. 随机因子（0-10分，增加多样性）
+            score += random.uniform(0, 10)
+            
+            scored_cards.append((card, score))
+        
+        # 按分数降序排序
+        scored_cards.sort(key=lambda x: x[1], reverse=True)
+        
+        return scored_cards[:limit]
     
     def _calculate_relevance_score(
         self,

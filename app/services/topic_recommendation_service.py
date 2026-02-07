@@ -760,7 +760,6 @@ class TopicRecommendationService:
         
         基于：
         1. 最近访问过的用户
-        2. 有互动记录的用户
         
         Args:
             current_user_id: 当前用户ID
@@ -781,18 +780,6 @@ class TopicRecommendationService:
                 )
             ).distinct().all()
             interested_ids.update([user_id[0] for user_id in recent_visits])
-            
-            # 2. 有互动记录的用户（如关注、点赞等）
-            interactions = self.db.query(UserConnection.to_user_id).filter(
-                and_(
-                    UserConnection.from_user_id == current_user_id,
-                    UserConnection.connection_type.in_([
-                        ConnectionType.FOLLOW,
-                        ConnectionType.LIKE
-                    ])
-                )
-            ).distinct().all()
-            interested_ids.update([user_id[0] for user_id in interactions])
             
         except Exception as e:
             print(f"[TopicRecommendationService] 获取感兴趣用户失败: {str(e)}")

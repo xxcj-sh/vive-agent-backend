@@ -60,16 +60,6 @@ async def get_unified_feed_cards(
     """
     try:
         feed_service = FeedService(db)
-
-        # 构建过滤条件
-        filters = {}
-        if gender:
-            filters['gender'] = gender
-        if city:
-            filters['city'] = city
-        if min_age is not None and max_age is not None:
-            filters['age_range'] = [min_age, max_age]
-
         # 未登录用户使用冷启动策略
         if not current_user:
             print(f"[FeedRouter] 未登录用户请求统一推荐卡片")
@@ -102,22 +92,15 @@ async def get_unified_feed_cards(
                 topic_items = cold_start_topic_cards["data"].get("topic_cards", [])
                 vote_items = cold_start_topic_cards["data"].get("vote_cards", [])
             
-            # 混洗用户卡片和投票卡片
-            import random
             random.seed()  # 使用当前时间作为随机种子
             
             # 先添加投票卡片
-            items = vote_items.copy()
-            
+            start_card = vote_items[0]
             # 将用户卡片和话题卡片合并后混洗
-            cards_to_shuffle = user_items + topic_items
+            cards_to_shuffle = user_items + topic_items + vote_items[1:]
             random.shuffle(cards_to_shuffle)
             
-            # 将混洗后的卡片添加到结果中
-            items.extend(cards_to_shuffle)
-            
-            # 限制返回数量
-            items = items[:limit]
+            items = [start_card] + cards_to_shuffle
             
             return {
                 "code": 0,
@@ -128,6 +111,17 @@ async def get_unified_feed_cards(
                     "has_more": False
                 }
             }
+
+
+        # 构建过滤条件
+        filters = {}
+        if gender:
+            filters['gender'] = gender
+        if city:
+            filters['city'] = city
+        if min_age is not None and max_age is not None:
+            filters['age_range'] = [min_age, max_age]
+
 
         # 已登录用户获取个性化推荐
         user_id = current_user["id"]
@@ -176,6 +170,7 @@ async def get_unified_feed_cards(
         random.shuffle(cards_to_shuffle)
         # 限制返回数量
         items = cards_to_shuffle[:limit]
+        print(f"[FeedRouter] 推荐卡片总数: {len(items)}")
 
         return {
             "code": result["code"],

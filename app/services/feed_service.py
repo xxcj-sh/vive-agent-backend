@@ -1,13 +1,14 @@
-from typing import Optional, List, Dict, Any, Set
+from typing import Optional, List, Dict, Any, Set, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, not_
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.models.user import User
 from app.models.user_card_db import UserCard
 from app.models.tag import Tag, UserTagRel
+from app.models.user_connection import UserConnection, ConnectionType
 from app.services.topic_card_service import TopicCardService
 from app.services.vote_service import VoteService
 from app.services.user_connection_service import UserConnectionService
@@ -38,6 +39,71 @@ class FeedService:
         self.recommendation_service = RecommendationService(db)
         self.topic_recommendation_service = TopicRecommendationService(db)
     
+    def _get_excluded_ids(self, current_user_id: str, use_subquery: bool = True) -> Tuple[Set[str], Set[str]]:
+        """
+        获取需要排除的user_id和user_card_id集合
+        
+        Args:
+            current_user_id: 当前用户ID
+            use_subquery: 是否使用子查询方式（默认True）
+            
+        Returns:
+            (excluded_user_ids, excluded_card_ids) 需要排除的用户ID和名片ID集合
+        """
+        excluded_user_ids: Set[str] = {current_user_id}
+        
+        # 获取最近浏览过的用户（VIEW类型）- 使用索引优化
+        two_weeks_ago = datetime.now() - timedelta(days=14)
+        recent_viewed = self.db.query(UserConnection.to_user_id).filter(
+            and_(
+                UserConnection.from_user_id == current_user_id,
+                UserConnection.connection_type == ConnectionType.VIEW,
+                UserConnection.updated_at >= two_weeks_ago
+            )
+        ).distinct().yield_per(1000)  # 使用yield_per减少内存占用
+        excluded_user_ids.update([row[0] for row in recent_viewed])
+        
+        # 根据排除的用户ID查询这些用户创建的所有名片ID
+        excluded_card_ids: Set[str] = set()
+        if excluded_user_ids:
+            user_cards = self.db.query(UserCard.id).filter(
+                and_(
+                    UserCard.user_id.in_(list(excluded_user_ids))
+                )
+            ).yield_per(1000)
+            excluded_card_ids.update([row[0] for row in user_cards])
+        
+        return excluded_user_ids, excluded_card_ids
+    
+    def _build_exclusion_subquery(self, current_user_id: str):
+        """
+        构建排除用户的子查询，用于数据库层面的高效过滤
+        
+        Returns:
+            子查询对象，可用于 ~User.id.in_(subquery)
+        """
+        # 最近浏览的用户
+        two_weeks_ago = datetime.now() - timedelta(days=14)
+        viewed_subquery = self.db.query(UserConnection.to_user_id).filter(
+            and_(
+                UserConnection.from_user_id == current_user_id,
+                UserConnection.connection_type == ConnectionType.VIEW,
+                UserConnection.updated_at >= two_weeks_ago
+            )
+        ).subquery()
+        
+        # 已连接的用户（from方向）
+        connected_from_subquery = self.db.query(UserConnection.to_user_id).filter(
+            UserConnection.from_user_id == current_user_id
+        ).subquery()
+        
+        # 已连接的用户（to方向）
+        connected_to_subquery = self.db.query(UserConnection.from_user_id).filter(
+            UserConnection.to_user_id == current_user_id
+        ).subquery()
+        
+        return viewed_subquery, connected_from_subquery, connected_to_subquery
+    
     @staticmethod
     def _process_media_url(url: str) -> str:
         """
@@ -55,7 +121,7 @@ class FeedService:
         return url
     
 
-    def get_recommended_users(
+    def get_recommended_user_cards(
         self,
         current_user_id: str,
         limit: int = 10,
@@ -84,44 +150,33 @@ class FeedService:
             推荐用户名片列表和元数据
         """
         try:
-            # 1. 召回阶段
-            recalled_users = self._recall_users(current_user_id, filters)
-
-            if not recalled_users:
+            # 1. 召回阶段 - 直接返回用户名片
+            recalled_cards = self._recall_user_cards(current_user_id, filters)
+            print(f"[FeedService] 召回的用户名片数量: {len(recalled_cards)}")
+            if not recalled_cards:
                 # 兜底策略：返回热门用户名片
-                return self._get_fallback_recommendations(current_user_id, limit)
+                recalled_cards =self._get_fallback_recommendations(current_user_id, limit)
 
-            # 2. 排序阶段
-            ranked_users = self.recommendation_service.rank_users(
-                current_user_id, recalled_users, limit
+            # 2. 排序阶段 - 直接使用rank_user_cards对名片排序
+            ranked_cards = self.recommendation_service.rank_user_cards(
+                current_user_id, recalled_cards, limit
             )
 
-            # 3. 获取推荐用户的公开名片
+            # 3. 组装结果
             result = []
-            for user, score in ranked_users:
-                # 查询该用户的公开名片
-                user_card = self.db.query(UserCard).filter(
-                    and_(
-                        UserCard.user_id == user.id,
-                        UserCard.visibility == "public",
-                        UserCard.is_active == 1,
-                        UserCard.is_deleted == 0
-                    )
-                ).order_by(UserCard.updated_at.desc()).first()
-
-                if user_card:
-                    card_data = {
-                        "id": user_card.id,
-                        "user_id": user_card.user_id,
-                        "display_name": user_card.display_name,
-                        "avatar_url": user_card.avatar_url,
-                        "bio": user_card.bio,
-                        "role_type": user_card.role_type,
-                        "profile_data": user_card.profile_data or {},
-                        "recommend_score": round(score, 2),
-                        "updated_at": user_card.updated_at.isoformat() if user_card.updated_at else None
-                    }
-                    result.append(card_data)
+            for user_card, score in ranked_cards:
+                card_data = {
+                    "id": user_card.id,
+                    "user_id": user_card.user_id,
+                    "display_name": user_card.display_name,
+                    "avatar_url": user_card.avatar_url,
+                    "bio": user_card.bio,
+                    "role_type": user_card.role_type,
+                    "profile_data": user_card.profile_data or {},
+                    "recommend_score": round(score, 2),
+                    "updated_at": user_card.updated_at.isoformat() if user_card.updated_at else None
+                }
+                result.append(card_data)
 
             return {
                 "code": 0,
@@ -129,7 +184,7 @@ class FeedService:
                 "data": {
                     "users": result,
                     "total": len(result),
-                    "has_more": len(recalled_users) > limit
+                    "has_more": len(recalled_cards) > limit
                 }
             }
             
@@ -137,13 +192,13 @@ class FeedService:
             print(f"[FeedService] 获取推荐用户失败: {str(e)}")
             return self._get_fallback_recommendations(current_user_id, limit)
     
-    def _recall_users(
+    def _recall_user_cards(
         self,
         current_user_id: str,
         filters: Optional[Dict[str, Any]] = None
-    ) -> List[User]:
+    ) -> List[UserCard]:
         """
-        召回阶段：根据多种策略召回候选用户
+        召回阶段：根据多种策略召回候选用户名片
         
         按照设计文档的召回策略顺序：
         1. 社群用户召回 - 基于共同社群标签
@@ -154,69 +209,85 @@ class FeedService:
         
         过滤策略：
         1. 基于用户设置的过滤条件（性别、城市等）
-        2. 去重（基于用户ID）
+        2. 去重（基于UserCard.id）
         3. 基于拉黑或反感标签过滤
-        """
-        recalled_user_ids: Set[str] = set()
-        recalled_users: List[User] = []
         
-        # 获取需要排除的用户ID（已浏览、已拉黑等）
-        excluded_user_ids = self.recommendation_service.get_excluded_user_ids(current_user_id)
+        性能优化：
+        - 使用优化的排除用户卡片 ID 查询方法
+        - 当 excluded_user_card_ids 数量很大时，使用分批处理
+        """
+        recalled_card_ids: Set[str] = set()
+        recalled_user_ids: Set[str] = set()  # 用于确保同一用户只返回一张名片
+        recalled_cards: List[UserCard] = []
+        
+        # 获取需要排除的user_id和card_id
+        excluded_user_ids, excluded_card_ids = self._get_excluded_ids(current_user_id)
+        
+        # 如果排除列表过大，使用分批处理策略
+        if len(excluded_user_ids) > 1000:
+            print(f"[FeedService] 排除用户数量较多({len(excluded_user_ids)})，使用分批处理策略")
+        
+        # 辅助函数：将用户列表转换为用户名片并去重
+        def add_users_as_cards(users: List[User]):
+            for user in users:
+                # 同一用户只返回一张名片
+                if user.id in recalled_user_ids:
+                    continue
+                
+                # 查询该用户的公开名片
+                user_card = self.db.query(UserCard).filter(
+                    and_(
+                        UserCard.user_id == user.id,
+                        UserCard.visibility == "public",
+                        UserCard.is_active == 1,
+                        UserCard.is_deleted == 0
+                    )
+                ).order_by(UserCard.updated_at.desc()).first()
+                
+                if user_card and user_card.id not in recalled_card_ids and user_card.id not in excluded_card_ids:
+                    recalled_cards.append(user_card)
+                    recalled_card_ids.add(user_card.id)
+                    recalled_user_ids.add(user.id)
         
         # 策略1: 社群用户召回（优先级高）
         community_users = self.recommendation_service.recall_by_community_tags(
             current_user_id, excluded_user_ids
         )
-        for user in community_users:
-            if user.id not in recalled_user_ids and len(recalled_users) < self.RECALL_LIMIT:
-                recalled_users.append(user)
-                recalled_user_ids.add(user.id)
+        add_users_as_cards(community_users)
         
         # 策略2: 实用目的召回
-        if len(recalled_users) < self.RECALL_LIMIT:
+        if len(recalled_cards) < self.RECALL_LIMIT:
             practical_users = self.recommendation_service.recall_by_practical_purpose(
                 current_user_id, excluded_user_ids
             )
-            for user in practical_users:
-                if user.id not in recalled_user_ids and len(recalled_users) < self.RECALL_LIMIT:
-                    recalled_users.append(user)
-                    recalled_user_ids.add(user.id)
+            add_users_as_cards(practical_users)
         
         # 策略3: 社交目的召回
-        if len(recalled_users) < self.RECALL_LIMIT:
+        if len(recalled_cards) < self.RECALL_LIMIT:
             social_purpose_users = self.recommendation_service.recall_by_social_purpose(
                 current_user_id, excluded_user_ids
             )
-            for user in social_purpose_users:
-                if user.id not in recalled_user_ids and len(recalled_users) < self.RECALL_LIMIT:
-                    recalled_users.append(user)
-                    recalled_user_ids.add(user.id)
+            add_users_as_cards(social_purpose_users)
         
         # 策略4: 社交关系召回（基于访问历史）
-        if len(recalled_users) < self.RECALL_LIMIT:
+        if len(recalled_cards) < self.RECALL_LIMIT:
             social_relation_users = self.recommendation_service.recall_by_social_relations(
                 current_user_id, excluded_user_ids
             )
-            for user in social_relation_users:
-                if user.id not in recalled_user_ids and len(recalled_users) < self.RECALL_LIMIT:
-                    recalled_users.append(user)
-                    recalled_user_ids.add(user.id)
+            add_users_as_cards(social_relation_users)
         
         # 策略5: 补充活跃用户
-        if len(recalled_users) < self.RECALL_LIMIT:
+        if len(recalled_cards) < self.RECALL_LIMIT:
             active_users = self.recommendation_service.recall_active_users(
                 current_user_id, excluded_user_ids
             )
-            for user in active_users:
-                if user.id not in recalled_user_ids and len(recalled_users) < self.RECALL_LIMIT:
-                    recalled_users.append(user)
-                    recalled_user_ids.add(user.id)
+            add_users_as_cards(active_users)
         
         # 应用过滤条件
         if filters:
-            recalled_users = self.recommendation_service.apply_filters(recalled_users, filters)
+            recalled_cards = self._apply_filters_to_cards(recalled_cards, filters)
         
-        return recalled_users
+        return recalled_cards[:self.RECALL_LIMIT]
     
     # ==================== 冷启动策略 ====================
     
@@ -294,7 +365,7 @@ class FeedService:
         """
         兜底策略
         
-        当无更多可推荐用户时，返回热门用户
+        当无更多可推荐用户时，返回热门用户名片
         以及投票和话题卡片
         
         Args:
@@ -302,24 +373,35 @@ class FeedService:
             limit: 返回数量限制
             
         Returns:
-            兜底推荐结果
+            兜底推荐结果（基于UserCard）
         """
         try:
-            # 获取活跃用户数（按资料完整度和活跃度排序）
-            popular_users = self.db.query(User).filter(
+            # 获取热门用户名片
+            popular_cards = self.db.query(UserCard).filter(
                 and_(
-                    User.id != current_user_id,
-                    User.is_active == True,
-                    User.status != 'deleted'
+                    UserCard.user_id != current_user_id,
+                    UserCard.is_active == 1,
+                    UserCard.is_deleted == 0,
+                    UserCard.visibility == "public",
+                    UserCard.avatar_url.isnot(None)
                 )
-            ).order_by(User.updated_at.desc()).limit(limit).all()
+            ).order_by(UserCard.updated_at.desc()).limit(limit).all()
             
             result = []
-            for user in popular_users:
-                user_data = self.recommendation_service.format_recommended_user(
-                    user, current_user_id, 0.0
-                )
-                result.append(user_data)
+            for card in popular_cards:
+                card_data = {
+                    "id": card.id,
+                    "user_id": card.user_id,
+                    "display_name": card.display_name,
+                    "avatar_url": card.avatar_url,
+                    "bio": card.bio,
+                    "role_type": card.role_type,
+                    "profile_data": card.profile_data or {},
+                    "recommend_score": 0.0,
+                    "updated_at": card.updated_at.isoformat() if card.updated_at else None,
+                    "is_fallback": True
+                }
+                result.append(card_data)
             
             return {
                 "code": 0,
@@ -344,6 +426,58 @@ class FeedService:
                     "is_fallback": True
                 }
             }
+
+    def _apply_filters_to_cards(
+        self,
+        cards: List[UserCard],
+        filters: Dict[str, Any]
+    ) -> List[UserCard]:
+        """
+        应用过滤条件到用户名片列表
+        
+        支持的过滤条件：
+        - gender: 性别筛选
+        - city: 城市筛选
+        - age_range: 年龄范围 [min, max]
+        
+        Args:
+            cards: 用户名片列表
+            filters: 过滤条件字典
+            
+        Returns:
+            过滤后的名片列表
+        """
+        if not filters:
+            return cards
+            
+        filtered_cards = cards
+        
+        # 获取名片对应的用户信息
+        user_ids = [card.user_id for card in filtered_cards]
+        users_map = {u.id: u for u in self.db.query(User).filter(User.id.in_(user_ids)).all()}
+        
+        if 'gender' in filters and filters['gender']:
+            filtered_cards = [
+                c for c in filtered_cards 
+                if users_map.get(c.user_id) and users_map[c.user_id].gender == filters['gender']
+            ]
+        
+        if 'city' in filters and filters['city']:
+            filtered_cards = [
+                c for c in filtered_cards 
+                if users_map.get(c.user_id) and users_map[c.user_id].location 
+                and filters['city'] in users_map[c.user_id].location
+            ]
+        
+        if 'age_range' in filters and len(filters['age_range']) == 2:
+            min_age, max_age = filters['age_range']
+            filtered_cards = [
+                c for c in filtered_cards 
+                if users_map.get(c.user_id) and users_map[c.user_id].age 
+                and min_age <= users_map[c.user_id].age <= max_age
+            ]
+        
+        return filtered_cards
     
     def get_fallback_cards(self, user_id: Optional[str], page_size: int = 10) -> List[Dict[str, Any]]:
         """
@@ -460,121 +594,7 @@ class FeedService:
             traceback.print_exc()
             return []
     
-    # ==================== 原有Feed功能 ====================
-    
-    def get_feed_item_cards(self, user_id: Optional[str], page: int, page_size: int, 
-                      card_type: Optional[str] = None, category: Optional[str] = None) -> Dict[str, Any]:
-        """
-        获取统一的卡片流数据
-        
-        Args:
-            user_id: 当前用户ID
-            page: 页码
-            page_size: 每页数量
-            card_type: 卡片类型: topic, vote, all
-            category: 分类筛选
-            
-        Returns:
-            包含卡片列表和分页信息的字典
-        """
-        all_cards = []
-        
-        # 获取话题卡片
-        if card_type in ["topic", "all", None]:
-            topic_result = TopicCardService.get_topic_cards(
-                db=self.db,
-                user_id=user_id,
-                page=page,
-                page_size=page_size,
-                category=category
-            )
-            
-            # 格式化话题卡片数据
-            if topic_result and "items" in topic_result:
-                for card in topic_result["items"]:
-                    formatted_card = {
-                        "id": card.id,
-                        "type": "topic",
-                        "title": card.title,
-                        "content": card.description or card.title,
-                        "category": card.category,
-                        "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
-                        "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
-                        "user_id": card.user_id,
-                        "user_avatar": card.creator_avatar or '',
-                        "user_nickname": card.creator_nickname or '匿名用户',
-                        "like_count": card.like_count or 0,
-                        "comment_count": card.discussion_count or 0,
-                        "has_liked": False,  # 默认False，因为TopicCardResponse没有has_liked属性
-                        "images": [card.cover_image] if card.cover_image else [],
-                        "is_liked": False,  # 默认False，因为TopicCardResponse没有has_liked属性
-                        "sceneType": "topic",
-                        "is_anonymous": card.is_anonymous or 0
-                    }
-                    all_cards.append(formatted_card)
-        
-        # 获取投票卡片
-        if card_type in ["vote", "all", None]:
-            vote_service = VoteService(self.db)
-            recall_votes = vote_service.get_recall_vote_cards(limit=page_size, user_id=user_id)
-            # 为每个卡片添加投票状态
-            for card in recall_votes:
-                vote_results = vote_service.get_vote_results(card.id, user_id)
-                # 获取用户信息（只获取活跃用户）
-                user = self.db.query(User).filter(
-                    User.id == card.user_id,
-                    User.is_active == True
-                ).first()
-                user_avatar = user.avatar_url if user else ''
-                user_nickname = user.nick_name if user else '匿名用户'  # 使用nick_name字段
-                
-                # 如果用户不存在或已注销，跳过此卡片
-                if not user:
-                    continue
-                
-                formatted_card = {
-                    "id": card.id,
-                    "type": "vote",
-                    "vote_type": card.vote_type,
-                    "title": card.title,
-                    "content": card.description or card.title,
-                    "category": card.category,
-                    "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
-                    "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
-                    "user_id": card.user_id,
-                    "user_avatar": user_avatar,
-                    "user_nickname": user_nickname,
-                    "vote_options": vote_results["options"],
-                    "total_votes": card.total_votes or 0,
-                    "has_voted": vote_results["has_voted"],
-                    "user_votes": vote_results["user_votes"],
-                    "vote_deadline": card.end_time.isoformat() if hasattr(card, 'end_time') and card.end_time else None,
-                    "max_selections": 1,
-                    "allow_discussion": True,
-                    "images": [card.cover_image] if card.cover_image else [],
-                    "sceneType": "vote"
-                }
-                all_cards.append(formatted_card)
-        
-        # 按创建时间排序（最旧的在前），确保 category='basic' 置顶，再按创建时间倒序
-        all_cards.sort(key=lambda x: (x.get("category") != "basic", x["created_at"] or ""), reverse=False)
-        
-        # 分页处理
-        total = len(all_cards)
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        items = all_cards[start_idx:end_idx]
-        
-        return {
-            "items": items,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": (total + page_size - 1) // page_size,
-            "has_next": end_idx < total,
-            "has_prev": page > 1
-        }
-    
+ 
     def get_random_public_user_cards(self, limit: int = 5) -> List[Dict[str, Any]]:
         """
         获取随机的公开用户卡片（用于未登录用户）
