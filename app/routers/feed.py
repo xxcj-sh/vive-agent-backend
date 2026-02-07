@@ -1,161 +1,315 @@
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.services.feed_service import FeedService
+from app.services.recommendation_service import RecommendationService
+from app.services.topic_recommendation_service import TopicRecommendationService
 
 router = APIRouter()
 
-@router.get("/item-cards")
-@router.get("/cards")
-async def get_feed_item_cards(
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(10, ge=1, le=50, description="每页数量"),
-    card_type: Optional[str] = Query(None, description="卡片类型: topic, vote, all"),
-    category: Optional[str] = Query(None, description="分类筛选"),
+@router.get("/unified")
+async def get_unified_feed_cards(
+    limit: int = Query(default=20, ge=1, le=50, description="返回卡片数量限制"),
+    gender: Optional[str] = Query(default=None, description="性别筛选"),
+    city: Optional[str] = Query(default=None, description="城市筛选"),
+    min_age: Optional[int] = Query(default=None, ge=0, le=150, description="最小年龄"),
+    max_age: Optional[int] = Query(default=None, ge=0, le=150, description="最大年龄"),
+    include_topics: bool = Query(default=True, description="是否包含话题/投票卡片推荐"),
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    获取统一的卡片流数据
-    
-    支持获取话题卡片和投票卡片，可以按类型筛选或获取混合内容
-    """
-    try:
-        user_id = str(current_user.get("id")) if current_user else None
-        feed_service = FeedService(db)
-        
-        return feed_service.get_feed_item_cards(
-            user_id=user_id,
-            page=page,
-            page_size=page_size,
-            card_type=card_type,
-            category=category
-        )
-        
-    except Exception as e:
-        print(f"获取卡片流失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"获取卡片流失败: {str(e)}")
+    获取统一的推荐卡片流（用户推荐 + 话题/投票卡片推荐）
 
+    推荐流程：
+    1. 召回阶段：根据多种策略召回候选用户（社群标签、社交关系、用户标签等）
+       以及话题/投票卡片（基于社群标签、社交兴趣等）
+    2. 过滤阶段：应用用户设置的过滤条件（性别、城市、年龄）
+    3. 排序阶段：根据用户偏好和相关性排序
+    4. 整合输出：将话题推荐结果插入到用户推荐结果中
 
+    召回策略：
+    - 社群用户召回：召回拥有共同社群标签的用户
+    - 社交关系召回：召回长期未联络的朋友
+    - 用户标签召回：基于用户画像标签召回相似用户
+    - 活跃用户召回：补充活跃用户
+    - 社群话题/投票召回：召回社群群主发布的话题和投票卡片
+    - 社交兴趣话题/投票召回：召回用户感兴趣的人发布的内容
 
-@router.get("/user-cards")
-@router.get("/recommendation-user-cards")
-async def get_feed_user_cards(
-    page: int = Query(1, ge=1, description="页码"),
-    pageSize: int = Query(10, ge=1, description="每页数量"),
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """    
-    推荐逻辑：
-    1. 根据用户上次访问(VISIT)时间顺序排列，选取最久未访问的若干用户
-    2. 剔除最近两周曾经浏览(VIEW)过的用户
-    3. 按顺序展示给用户
-    
-    对于未登录用户，返回随机的5张公开用户卡片
+    排序因子：
+    - 标签匹配度（共同标签数量）
+    - 活跃度（最近更新时间）
+    - 资料完整度
+
+    Args:
+        limit: 返回卡片数量限制（1-50，默认20）
+        gender: 性别筛选（male/female/other）
+        city: 城市筛选
+        min_age: 最小年龄
+        max_age: 最大年龄
+        include_topics: 是否包含话题/投票卡片推荐（默认True）
+        current_user: 当前用户信息（可选，未登录时使用冷启动策略）
+        db: 数据库会话
+
+    Returns:
+        推荐卡片列表（包含用户卡片和话题/投票卡片）
     """
     try:
         feed_service = FeedService(db)
-        feed_card_list = []
-        if current_user: 
-            # 获取用户ID
-            if isinstance(current_user, dict):
-                user_id = str(current_user.get('id', ''))
-            else:
-                user_id = str(current_user.id)
+
+        # 构建过滤条件
+        filters = {}
+        if gender:
+            filters['gender'] = gender
+        if city:
+            filters['city'] = city
+        if min_age is not None and max_age is not None:
+            filters['age_range'] = [min_age, max_age]
+
+        # 未登录用户使用冷启动策略
+        if not current_user:
+            print(f"[FeedRouter] 未登录用户请求统一推荐卡片")
+            cold_start_user_cards = feed_service.get_cold_start_user_cards(limit)
             
-            # 使用FeedService获取推荐卡片
-            result = feed_service.get_feed_user_cards(
-                user_id=user_id,
-                page=page,
-                page_size=pageSize
-            )
-            feed_card_list = result["cards"]
-            # 能返回超过 5 张卡片时，直接使用基于用户关系的 feed 算法
-            if len(result["cards"]) >= pageSize :
-                return {
+            # 收集用户卡片
+            user_items = []
+            for user in cold_start_user_cards["data"].get("users", []):
+                user_items.append({
+                    "id": user.get("id"),
+                    "user_id": user.get("user_id"),
+                    "avatar": user.get("avatar_url"),
+                    "user_avatar": user.get("avatar_url"),
+                    "name": user.get("display_name"),
+                    "display_name": user.get("display_name"),
+                    "bio": user.get("bio"),
+                    "role_type": user.get("role_type"),
+                    "profile_data": user.get("profile_data"),
+                    "card_type": "user",
+                    "tags": [],
+                    "created_at": None,
+                    "user_nickname": user.get("display_name"),
+                    "view_count": 0,
+                    "discussion_count": 0
+                })
+            
+            # 收集话题/投票卡片（优先展示投票卡片）
+            topic_items = []
+            vote_items = []
+            if include_topics:
+                cold_start_topic_cards = feed_service.get_cold_start_topic_cards(limit=limit)
+                topic_items = cold_start_topic_cards["data"].get("topic_cards", [])
+                vote_items = cold_start_topic_cards["data"].get("vote_cards", [])
+            
+            # 混洗用户卡片和投票卡片
+            import random
+            random.seed()  # 使用当前时间作为随机种子
+            
+            # 先添加投票卡片
+            items = vote_items.copy()
+            
+            # 将用户卡片和话题卡片合并后混洗
+            cards_to_shuffle = user_items + topic_items
+            random.shuffle(cards_to_shuffle)
+            
+            # 将混洗后的卡片添加到结果中
+            items.extend(cards_to_shuffle)
+            
+            # 限制返回数量
+            items = items[:limit]
+            
+            return {
                 "code": 0,
                 "message": "success",
                 "data": {
-                    "cards": result["cards"],
-                    "pagination": {
-                        "page": page,
-                        "pageSize": pageSize,
-                        "total": result["pagination"]["total"],
-                        "totalPages": result["pagination"]["totalPages"]
-                    },
-                    "source": result["source"]
+                    "items": items,
+                    "total": len(items),
+                    "has_more": False
                 }
             }
-        # 未登录或者无法获得有效推荐的情况，获取 5 张随机的公开用户卡片
-        random_cards = feed_service.get_random_public_user_cards(limit=pageSize)  
-        random_cards.extend(feed_card_list)
+
+        # 已登录用户获取个性化推荐
+        user_id = current_user["id"]
+        
+        # 获取用户推荐
+        result = feed_service.get_recommended_users(
+            current_user_id=user_id,
+            limit=limit,
+            filters=filters if filters else None
+        )
+
+        # 转换用户卡片数据格式
+        items = []
+        for card in result["data"].get("users", []):
+            items.append({
+                "id": card.get("id"),
+                "user_id": card.get("user_id"),
+                "avatar": card.get("avatar_url"),
+                "user_avatar": card.get("avatar_url"),
+                "name": card.get("display_name"),
+                "display_name": card.get("display_name"),
+                "bio": card.get("bio"),
+                "role_type": card.get("role_type"),
+                "profile_data": card.get("profile_data", {}),
+                "recommend_score": card.get("recommend_score"),
+                "created_at": card.get("updated_at"),
+                "user_nickname": card.get("display_name"),
+                "view_count": 0,
+                "discussion_count": 0,
+                "card_type": "user",
+                "tags": []
+            })
+
+        # 获取话题/投票卡片推荐
+        if include_topics:
+            topic_cards_result = feed_service.get_recommended_topic_cards(
+                user_id=user_id,
+                topic_limit=8,
+                vote_limit=5
+            )
+            items.extend(topic_cards_result["data"].get("topic_cards", []))
+            items.extend(topic_cards_result["data"].get("vote_cards", []))
+
         return {
-            "code": 0,
-            "message": "success",
+            "code": result["code"],
+            "message": result["message"],
             "data": {
-                "cards": random_cards,
-                "pagination": {
-                    "page": 1,
-                    "pageSize": 5,
-                    "total": len(random_cards),
-                    "totalPages": 1
-                },
-                "source": "random_public_cards_for_unauthenticated"
+                "items": items,
+                "total": len(items),
+                "has_more": result["data"].get("has_more", False)
             }
         }
-            
+
     except Exception as e:
-        print(f"获取推荐卡片异常: {str(e)}")
+        print(f"[FeedRouter] 获取统一推荐卡片失败: {str(e)}")
         import traceback
         traceback.print_exc()
         return {
             "code": 500,
             "message": f"获取推荐卡片失败: {str(e)}",
-            "data": None
+            "data": {
+                "items": [],
+                "total": 0,
+                "has_more": False
+            }
         }
 
-@router.get("/unified")
-async def get_unified_feed_cards(
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(10, ge=1, le=50, description="每页数量"),
-    tag_id: Optional[str] = Query(None, description="社群标签ID，用于筛选特定社群的内容"),
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
+
+@router.get("/debug/recall")
+async def debug_recall_strategies(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    获取统一的推荐卡片流（混合 user、topic、vote 卡片）
+    调试接口：查看各召回策略的结果
     
-    推荐策略：
-    1. 优先推荐用户可能感兴趣的用户卡片（基于访问历史）
-    2. 穿插推荐话题卡片和投票卡片
-    3. 混合比例：每 2 个用户卡片搭配 1 个话题/投票卡片
+    用于测试和调试推荐系统的召回策略
     
-    社群筛选：
-    - 当指定 tag_id 时，只返回该社群的用户、话题和投票卡片
-    - 社群创建人发布的内容会被优先展示
+    Args:
+        request: 请求对象
+        current_user: 当前用户信息
+        db: 数据库会话
+        
+    Returns:
+        各召回策略的结果统计
     """
     try:
-        user_id = str(current_user.get("id")) if current_user else None
-        feed_service = FeedService(db)
+        service = RecommendationService(db)
+        topic_service = TopicRecommendationService(db)
+        user_id = current_user["id"]
         
-        result = feed_service.get_unified_feed_cards(
-            user_id=user_id,
-            page=page,
-            page_size=page_size,
-            tag_id=tag_id
-        )
+        # 获取排除列表
+        excluded_ids = service.get_excluded_user_ids(user_id)
+        excluded_topic_ids = topic_service.get_excluded_topic_card_ids(user_id)
+        excluded_vote_ids = topic_service.get_excluded_vote_card_ids(user_id)
+        
+        # 测试用户召回策略
+        community_users = service.recall_by_community_tags(user_id, excluded_ids)
+        social_users = service.recall_by_social_relations(user_id, excluded_ids)
+        tag_users = service.recall_by_user_tags(user_id, excluded_ids)
+        active_users = service.recall_active_users(user_id, excluded_ids)
+        
+        # 测试话题/投票卡片召回策略
+        community_topics = topic_service.recall_topic_cards_by_community_tags(user_id, excluded_topic_ids)
+        social_topics = topic_service.recall_topic_cards_by_social_interest(user_id, excluded_topic_ids)
+        active_topics = topic_service.recall_active_topic_cards(user_id, excluded_topic_ids)
+        
+        community_votes = topic_service.recall_vote_cards_by_community_tags(user_id, excluded_vote_ids)
+        social_votes = topic_service.recall_vote_cards_by_social_interest(user_id, excluded_vote_ids)
+        active_votes = topic_service.recall_active_vote_cards(user_id, excluded_vote_ids)
         
         return {
             "code": 0,
             "message": "success",
-            "data": result
+            "data": {
+                "excluded_counts": {
+                    "users": len(excluded_ids),
+                    "topic_cards": len(excluded_topic_ids),
+                    "vote_cards": len(excluded_vote_ids)
+                },
+                "user_recall_strategies": {
+                    "community_tags": {
+                        "count": len(community_users),
+                        "users": [{"id": u.id, "name": u.nick_name} for u in community_users[:5]]
+                    },
+                    "social_relations": {
+                        "count": len(social_users),
+                        "users": [{"id": u.id, "name": u.nick_name} for u in social_users[:5]]
+                    },
+                    "user_tags": {
+                        "count": len(tag_users),
+                        "users": [{"id": u.id, "name": u.nick_name} for u in tag_users[:5]]
+                    },
+                    "active_users": {
+                        "count": len(active_users),
+                        "users": [{"id": u.id, "name": u.nick_name} for u in active_users[:5]]
+                    }
+                },
+                "topic_card_recall_strategies": {
+                    "community_tags": {
+                        "count": len(community_topics),
+                        "cards": [{"id": t.id, "title": t.title} for t in community_topics[:5]]
+                    },
+                    "social_interest": {
+                        "count": len(social_topics),
+                        "cards": [{"id": t.id, "title": t.title} for t in social_topics[:5]]
+                    },
+                    "active": {
+                        "count": len(active_topics),
+                        "cards": [{"id": t.id, "title": t.title} for t in active_topics[:5]]
+                    }
+                },
+                "vote_card_recall_strategies": {
+                    "community_tags": {
+                        "count": len(community_votes),
+                        "cards": [{"id": v.id, "title": v.title} for v in community_votes[:5]]
+                    },
+                    "social_interest": {
+                        "count": len(social_votes),
+                        "cards": [{"id": v.id, "title": v.title} for v in social_votes[:5]]
+                    },
+                    "active": {
+                        "count": len(active_votes),
+                        "cards": [{"id": v.id, "title": v.title} for v in active_votes[:5]]
+                    }
+                },
+                "total_recalled": {
+                    "users": len(community_users) + len(social_users) + len(tag_users) + len(active_users),
+                    "topic_cards": len(community_topics) + len(social_topics) + len(active_topics),
+                    "vote_cards": len(community_votes) + len(social_votes) + len(active_votes)
+                }
+            }
         }
         
     except Exception as e:
-        print(f"获取统一推荐卡片失败: {str(e)}")
+        print(f"[FeedRouter] 调试召回策略失败: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"获取统一推荐卡片失败: {str(e)}")
+        return {
+            "code": 500,
+            "message": f"调试失败: {str(e)}",
+            "data": {}
+        }

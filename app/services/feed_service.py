@@ -1,21 +1,42 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Set
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
+from datetime import datetime
+
 from app.models.user import User
 from app.models.user_card_db import UserCard
 from app.models.tag import Tag, UserTagRel
 from app.services.topic_card_service import TopicCardService
 from app.services.vote_service import VoteService
 from app.services.user_connection_service import UserConnectionService
+from app.services.recommendation_service import RecommendationService
+from app.services.topic_recommendation_service import TopicRecommendationService
 
 
 class FeedService:
-    """Feed流服务类，负责处理卡片流相关的业务逻辑"""
+    """
+    Feed流服务类 - 推荐主逻辑（编排层）
+    
+    职责：
+    1. 负责召回流程的编排
+    2. 负责排序流程的调用
+    3. 负责兜底策略
+    4. 负责冷启动策略
+    5. 负责结果格式化
+    
+    调用 RecommendationService 提供的策略服务
+    """
+    
+    # 推荐配置参数
+    RECALL_LIMIT = 100  # 召回阶段最大数量
+    RANK_LIMIT = 50     # 排序阶段输出数量
     
     def __init__(self, db: Session):
         self.db = db
+        self.recommendation_service = RecommendationService(db)
+        self.topic_recommendation_service = TopicRecommendationService(db)
     
     @staticmethod
     def _process_media_url(url: str) -> str:
@@ -32,6 +53,414 @@ class FeedService:
             return f"{base_url}{url}"
         
         return url
+    
+
+    def get_recommended_users(
+        self,
+        current_user_id: str,
+        limit: int = 10,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        获取推荐用户名片列表（主入口）
+
+        推荐流程（基于设计文档）：
+        1. 召回阶段：根据多种策略召回候选用户
+           - 社群用户召回（基于共同社群标签）
+           - 实用目的召回（基于用户需求匹配）
+           - 社交目的召回（基于用户偏好匹配）
+           - 社交关系召回（基于访问历史）
+           - 补充召回（活跃用户）
+        2. 过滤阶段：应用过滤条件
+        3. 排序阶段：根据用户偏好排序（混合打分）
+        4. 返回用户名片
+
+        Args:
+            current_user_id: 当前用户ID
+            limit: 返回数量限制
+            filters: 过滤条件（gender, city, age_range等）
+
+        Returns:
+            推荐用户名片列表和元数据
+        """
+        try:
+            # 1. 召回阶段
+            recalled_users = self._recall_users(current_user_id, filters)
+
+            if not recalled_users:
+                # 兜底策略：返回热门用户名片
+                return self._get_fallback_recommendations(current_user_id, limit)
+
+            # 2. 排序阶段
+            ranked_users = self.recommendation_service.rank_users(
+                current_user_id, recalled_users, limit
+            )
+
+            # 3. 获取推荐用户的公开名片
+            result = []
+            for user, score in ranked_users:
+                # 查询该用户的公开名片
+                user_card = self.db.query(UserCard).filter(
+                    and_(
+                        UserCard.user_id == user.id,
+                        UserCard.visibility == "public",
+                        UserCard.is_active == 1,
+                        UserCard.is_deleted == 0
+                    )
+                ).order_by(UserCard.updated_at.desc()).first()
+
+                if user_card:
+                    card_data = {
+                        "id": user_card.id,
+                        "user_id": user_card.user_id,
+                        "display_name": user_card.display_name,
+                        "avatar_url": user_card.avatar_url,
+                        "bio": user_card.bio,
+                        "role_type": user_card.role_type,
+                        "profile_data": user_card.profile_data or {},
+                        "recommend_score": round(score, 2),
+                        "updated_at": user_card.updated_at.isoformat() if user_card.updated_at else None
+                    }
+                    result.append(card_data)
+
+            return {
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "users": result,
+                    "total": len(result),
+                    "has_more": len(recalled_users) > limit
+                }
+            }
+            
+        except Exception as e:
+            print(f"[FeedService] 获取推荐用户失败: {str(e)}")
+            return self._get_fallback_recommendations(current_user_id, limit)
+    
+    def _recall_users(
+        self,
+        current_user_id: str,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> List[User]:
+        """
+        召回阶段：根据多种策略召回候选用户
+        
+        按照设计文档的召回策略顺序：
+        1. 社群用户召回 - 基于共同社群标签
+        2. 实用目的召回 - 基于用户需求匹配
+        3. 社交目的召回 - 基于用户偏好匹配
+        4. 社交关系召回 - 基于访问历史
+        5. 补充召回 - 活跃用户
+        
+        过滤策略：
+        1. 基于用户设置的过滤条件（性别、城市等）
+        2. 去重（基于用户ID）
+        3. 基于拉黑或反感标签过滤
+        """
+        recalled_user_ids: Set[str] = set()
+        recalled_users: List[User] = []
+        
+        # 获取需要排除的用户ID（已浏览、已拉黑等）
+        excluded_user_ids = self.recommendation_service.get_excluded_user_ids(current_user_id)
+        
+        # 策略1: 社群用户召回（优先级高）
+        community_users = self.recommendation_service.recall_by_community_tags(
+            current_user_id, excluded_user_ids
+        )
+        for user in community_users:
+            if user.id not in recalled_user_ids and len(recalled_users) < self.RECALL_LIMIT:
+                recalled_users.append(user)
+                recalled_user_ids.add(user.id)
+        
+        # 策略2: 实用目的召回
+        if len(recalled_users) < self.RECALL_LIMIT:
+            practical_users = self.recommendation_service.recall_by_practical_purpose(
+                current_user_id, excluded_user_ids
+            )
+            for user in practical_users:
+                if user.id not in recalled_user_ids and len(recalled_users) < self.RECALL_LIMIT:
+                    recalled_users.append(user)
+                    recalled_user_ids.add(user.id)
+        
+        # 策略3: 社交目的召回
+        if len(recalled_users) < self.RECALL_LIMIT:
+            social_purpose_users = self.recommendation_service.recall_by_social_purpose(
+                current_user_id, excluded_user_ids
+            )
+            for user in social_purpose_users:
+                if user.id not in recalled_user_ids and len(recalled_users) < self.RECALL_LIMIT:
+                    recalled_users.append(user)
+                    recalled_user_ids.add(user.id)
+        
+        # 策略4: 社交关系召回（基于访问历史）
+        if len(recalled_users) < self.RECALL_LIMIT:
+            social_relation_users = self.recommendation_service.recall_by_social_relations(
+                current_user_id, excluded_user_ids
+            )
+            for user in social_relation_users:
+                if user.id not in recalled_user_ids and len(recalled_users) < self.RECALL_LIMIT:
+                    recalled_users.append(user)
+                    recalled_user_ids.add(user.id)
+        
+        # 策略5: 补充活跃用户
+        if len(recalled_users) < self.RECALL_LIMIT:
+            active_users = self.recommendation_service.recall_active_users(
+                current_user_id, excluded_user_ids
+            )
+            for user in active_users:
+                if user.id not in recalled_user_ids and len(recalled_users) < self.RECALL_LIMIT:
+                    recalled_users.append(user)
+                    recalled_user_ids.add(user.id)
+        
+        # 应用过滤条件
+        if filters:
+            recalled_users = self.recommendation_service.apply_filters(recalled_users, filters)
+        
+        return recalled_users
+    
+    # ==================== 冷启动策略 ====================
+    
+    def get_cold_start_user_cards(
+        self,
+        limit: int = 10
+    ) -> Dict[str, Any]:
+        """
+        冷启动策略
+
+        对于未登录用户或新用户，展示受关注较多的用户名片
+        以及产品引导类话题卡片
+
+        Args:
+            limit: 返回数量限制
+
+        Returns:
+            冷启动推荐结果
+        """
+        try:
+            # 获取热门用户卡片（资料完整、活跃度高、公开可见）
+            popular_cards = self.db.query(UserCard).filter(
+                and_(
+                    UserCard.is_active == 1,
+                    UserCard.is_deleted == 0,
+                    UserCard.visibility == "public",
+                    UserCard.avatar_url.isnot(None),
+                    UserCard.bio.isnot(None)
+                )
+            ).order_by(UserCard.updated_at.desc()).limit(limit).all()
+
+            result = []
+            for card in popular_cards:
+                card_data = {
+                    "id": card.id,
+                    "user_id": card.user_id,
+                    "display_name": card.display_name,
+                    "avatar_url": card.avatar_url,
+                    "bio": card.bio,
+                    "role_type": card.role_type,
+                    "profile_data": card.profile_data or {},
+                    "is_popular": True
+                }
+                result.append(card_data)
+
+            return {
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "users": result,
+                    "total": len(result),
+                    "is_cold_start": True
+                }
+            }
+
+        except Exception as e:
+            print(f"[FeedService] 冷启动推荐失败: {str(e)}")
+            return {
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "users": [],
+                    "total": 0,
+                    "is_cold_start": True
+                }
+            }
+    
+    # ==================== 兜底策略 ====================
+    
+    def _get_fallback_recommendations(
+        self,
+        current_user_id: str,
+        limit: int
+    ) -> Dict[str, Any]:
+        """
+        兜底策略
+        
+        当无更多可推荐用户时，返回热门用户
+        以及投票和话题卡片
+        
+        Args:
+            current_user_id: 当前用户ID
+            limit: 返回数量限制
+            
+        Returns:
+            兜底推荐结果
+        """
+        try:
+            # 获取活跃用户数（按资料完整度和活跃度排序）
+            popular_users = self.db.query(User).filter(
+                and_(
+                    User.id != current_user_id,
+                    User.is_active == True,
+                    User.status != 'deleted'
+                )
+            ).order_by(User.updated_at.desc()).limit(limit).all()
+            
+            result = []
+            for user in popular_users:
+                user_data = self.recommendation_service.format_recommended_user(
+                    user, current_user_id, 0.0
+                )
+                result.append(user_data)
+            
+            return {
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "users": result,
+                    "total": len(result),
+                    "has_more": False,
+                    "is_fallback": True
+                }
+            }
+            
+        except Exception as e:
+            print(f"[FeedService] 兜底策略失败: {str(e)}")
+            return {
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "users": [],
+                    "total": 0,
+                    "has_more": False,
+                    "is_fallback": True
+                }
+            }
+    
+    def get_fallback_cards(self, user_id: Optional[str], page_size: int = 10) -> List[Dict[str, Any]]:
+        """
+        获取兜底推荐卡片（当主推荐策略无结果时使用）
+        
+        兜底策略：
+        1. 获取随机公开用户卡片（优先）
+        2. 获取活跃的话题卡片（按最新排序）
+        3. 获取活跃的投票卡片（按最新排序）
+        4. 按 2:1 比例混合
+        
+        Args:
+            user_id: 当前用户ID（可选）
+            page_size: 每页数量
+            
+        Returns:
+            格式化的兜底卡片列表
+        """
+        try:
+            fallback_cards = []
+            
+            # 1. 获取随机公开用户卡片
+            public_user_cards = self.get_random_public_user_cards(limit=page_size * 2)
+            for card in public_user_cards:
+                card["scene_type"] = "social"
+                card["card_type"] = "user"
+                card["isRecommendation"] = True
+                card["recommendationReason"] = "热门推荐"
+            fallback_cards.extend(public_user_cards)
+            
+            # 2. 获取活跃的话题卡片（按最新排序）
+            topic_result = TopicCardService.get_topic_cards(
+                db=self.db,
+                user_id=user_id,
+                page=1,
+                page_size=page_size,
+                category=None
+            )
+            if topic_result and "items" in topic_result:
+                for card in topic_result["items"]:
+                    formatted_card = {
+                        "id": card.id,
+                        "type": "topic",
+                        "scene_type": "topic",
+                        "card_type": "topic",
+                        "title": card.title,
+                        "content": card.description or card.title,
+                        "category": card.category,
+                        "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
+                        "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
+                        "user_id": card.user_id,
+                        "user_avatar": card.creator_avatar or '',
+                        "user_nickname": card.creator_nickname or '匿名用户',
+                        "like_count": card.like_count or 0,
+                        "comment_count": card.discussion_count or 0,
+                        "has_liked": False,
+                        "images": [card.cover_image] if card.cover_image else [],
+                        "is_anonymous": card.is_anonymous or 0,
+                        "isRecommendation": True,
+                        "recommendationReason": "热门话题"
+                    }
+                    fallback_cards.append(formatted_card)
+            
+            # 3. 获取活跃的投票卡片
+            vote_service = VoteService(self.db)
+            recall_votes = vote_service.get_recall_vote_cards(limit=page_size, user_id=user_id)
+            
+            for card in recall_votes:
+                vote_results = vote_service.get_vote_results(card.id, user_id)
+                user = self.db.query(User).filter(
+                    User.id == card.user_id,
+                    User.is_active == True
+                ).first()
+                
+                if not user:
+                    continue
+                
+                formatted_card = {
+                    "id": card.id,
+                    "type": "vote",
+                    "scene_type": "vote",
+                    "card_type": "topic",
+                    "vote_type": card.vote_type,
+                    "title": card.title,
+                    "content": card.description or card.title,
+                    "category": card.category,
+                    "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
+                    "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
+                    "user_id": card.user_id,
+                    "user_avatar": user.avatar_url if user else '',
+                    "user_nickname": user.nick_name if user else '匿名用户',
+                    "vote_options": vote_results["options"],
+                    "total_votes": card.total_votes or 0,
+                    "has_voted": vote_results["has_voted"],
+                    "user_votes": vote_results["user_votes"],
+                    "vote_deadline": card.end_time.isoformat() if hasattr(card, 'end_time') and card.end_time else None,
+                    "max_selections": 1,
+                    "allow_discussion": True,
+                    "images": [card.cover_image] if card.cover_image else [],
+                    "isRecommendation": True,
+                    "recommendationReason": "热门投票"
+                }
+                fallback_cards.append(formatted_card)
+            
+            # 4. 混合排序（用户卡片优先，按 2:1 比例）
+            mixed_cards = self._mix_feed_cards(fallback_cards, page_size)
+            
+            print(f"[FeedService] 兜底推荐返回卡片数量: {len(mixed_cards)}")
+            return mixed_cards
+            
+        except Exception as e:
+            print(f"获取兜底推荐卡片异常: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    # ==================== 原有Feed功能 ====================
     
     def get_feed_item_cards(self, user_id: Optional[str], page: int, page_size: int, 
                       card_type: Optional[str] = None, category: Optional[str] = None) -> Dict[str, Any]:
@@ -230,121 +659,6 @@ class FeedService:
             traceback.print_exc()
             return []
     
-    def get_fallback_cards(self, user_id: Optional[str], page_size: int = 10) -> List[Dict[str, Any]]:
-        """
-        获取兜底推荐卡片（当主推荐策略无结果时使用）
-        
-        兜底策略：
-        1. 获取随机公开用户卡片（优先）
-        2. 获取活跃的话题卡片（按最新排序）
-        3. 获取活跃的投票卡片（按最新排序）
-        4. 按 2:1 比例混合
-        
-        Args:
-            user_id: 当前用户ID（可选）
-            page_size: 每页数量
-            
-        Returns:
-            格式化的兜底卡片列表
-        """
-        try:
-            fallback_cards = []
-            
-            # 1. 获取随机公开用户卡片
-            public_user_cards = self.get_random_public_user_cards(limit=page_size * 2)
-            for card in public_user_cards:
-                card["scene_type"] = "social"
-                card["card_type"] = "user"
-                card["isRecommendation"] = True
-                card["recommendationReason"] = "热门推荐"
-            fallback_cards.extend(public_user_cards)
-            
-            # 2. 获取活跃的话题卡片（按最新排序）
-            topic_result = TopicCardService.get_topic_cards(
-                db=self.db,
-                user_id=user_id,
-                page=1,
-                page_size=page_size,
-                category=None
-            )
-            if topic_result and "items" in topic_result:
-                for card in topic_result["items"]:
-                    formatted_card = {
-                        "id": card.id,
-                        "type": "topic",
-                        "scene_type": "topic",
-                        "card_type": "topic",
-                        "title": card.title,
-                        "content": card.description or card.title,
-                        "category": card.category,
-                        "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
-                        "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
-                        "user_id": card.user_id,
-                        "user_avatar": card.creator_avatar or '',
-                        "user_nickname": card.creator_nickname or '匿名用户',
-                        "like_count": card.like_count or 0,
-                        "comment_count": card.discussion_count or 0,
-                        "has_liked": False,
-                        "images": [card.cover_image] if card.cover_image else [],
-                        "is_anonymous": card.is_anonymous or 0,
-                        "isRecommendation": True,
-                        "recommendationReason": "热门话题"
-                    }
-                    fallback_cards.append(formatted_card)
-            
-            # 3. 获取活跃的投票卡片
-            vote_service = VoteService(self.db)
-            recall_votes = vote_service.get_recall_vote_cards(limit=page_size, user_id=user_id)
-            
-            for card in recall_votes:
-                vote_results = vote_service.get_vote_results(card.id, user_id)
-                user = self.db.query(User).filter(
-                    User.id == card.user_id,
-                    User.is_active == True
-                ).first()
-                
-                if not user:
-                    continue
-                
-                formatted_card = {
-                    "id": card.id,
-                    "type": "vote",
-                    "scene_type": "vote",
-                    "card_type": "topic",
-                    "vote_type": card.vote_type,
-                    "title": card.title,
-                    "content": card.description or card.title,
-                    "category": card.category,
-                    "created_at": card.created_at.isoformat() if hasattr(card, 'created_at') and card.created_at else None,
-                    "updated_at": card.updated_at.isoformat() if hasattr(card, 'updated_at') and card.updated_at else None,
-                    "user_id": card.user_id,
-                    "user_avatar": user.avatar_url if user else '',
-                    "user_nickname": user.nick_name if user else '匿名用户',
-                    "vote_options": vote_results["options"],
-                    "total_votes": card.total_votes or 0,
-                    "has_voted": vote_results["has_voted"],
-                    "user_votes": vote_results["user_votes"],
-                    "vote_deadline": card.end_time.isoformat() if hasattr(card, 'end_time') and card.end_time else None,
-                    "max_selections": 1,
-                    "allow_discussion": True,
-                    "images": [card.cover_image] if card.cover_image else [],
-                    "isRecommendation": True,
-                    "recommendationReason": "热门投票"
-                }
-                fallback_cards.append(formatted_card)
-            
-            # 4. 混合排序（用户卡片优先，按 2:1 比例）
-            mixed_cards = self._mix_feed_cards(fallback_cards, page_size)
-            
-            print(f"[FeedService] 兜底推荐返回卡片数量: {len(mixed_cards)}")
-            return mixed
-            
-        except Exception as e:
-            print(f"获取兜底推荐卡片异常: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return []
-    
     def _get_community_user_cards(self, community_user_ids: List[str], page: int, page_size: int) -> List[Dict[str, Any]]:
         """
         获取社群成员的用户卡片
@@ -473,7 +787,7 @@ class FeedService:
     
     def get_feed_user_cards(self, user_id: str, page: int, page_size: int) -> Dict[str, Any]:
         """
-        获取推荐用户卡片
+        获取推荐用户卡片（旧版，保留兼容）
         
         推荐逻辑：
         1. 根据用户上次访问(VISIT)时间顺序排列，选取最久未访问的若干用户
@@ -835,6 +1149,202 @@ class FeedService:
                 "has_prev": False
             }
     
+    def get_recommended_topic_cards(
+        self,
+        user_id: str,
+        topic_limit: int = 8,
+        vote_limit: int = 5
+    ) -> Dict[str, Any]:
+        """
+        获取推荐的话题和投票卡片
+        
+        召回策略：
+        1. 基于社群标签召回：召回社群群主发布的话题/投票卡片
+        2. 基于社交兴趣召回：召回用户感兴趣的人发布的内容
+        3. 补充召回：召回活跃的话题/投票卡片
+        
+        排序策略：
+        - 创作者匹配度
+        - 互动热度/参与度
+        - 新鲜度
+        
+        Args:
+            user_id: 当前用户ID
+            topic_limit: 话题卡片返回数量限制
+            vote_limit: 投票卡片返回数量限制
+            
+        Returns:
+            包含话题卡片和投票卡片的字典
+        """
+        try:
+            # 获取排除列表
+            excluded_topic_ids = self.topic_recommendation_service.get_excluded_topic_card_ids(user_id)
+            excluded_vote_ids = self.topic_recommendation_service.get_excluded_vote_card_ids(user_id)
+            
+            # ========== 召回话题卡片 ==========
+            recalled_topics = []
+            
+            # 策略1: 基于社群标签召回
+            community_topics = self.topic_recommendation_service.recall_topic_cards_by_community_tags(
+                user_id, excluded_topic_ids, limit=15
+            )
+            recalled_topics.extend(community_topics)
+            
+            # 策略2: 基于社交兴趣召回
+            social_topics = self.topic_recommendation_service.recall_topic_cards_by_social_interest(
+                user_id, excluded_topic_ids, limit=10
+            )
+            # 去重后添加
+            existing_ids = {t.id for t in recalled_topics}
+            recalled_topics.extend([t for t in social_topics if t.id not in existing_ids])
+            
+            # 策略3: 补充活跃话题
+            if len(recalled_topics) < 10:
+                active_topics = self.topic_recommendation_service.recall_active_topic_cards(
+                    user_id, excluded_topic_ids, limit=10 - len(recalled_topics)
+                )
+                existing_ids = {t.id for t in recalled_topics}
+                recalled_topics.extend([t for t in active_topics if t.id not in existing_ids])
+            
+            # ========== 召回投票卡片 ==========
+            recalled_votes = []
+            
+            # 策略1: 基于社群标签召回
+            community_votes = self.topic_recommendation_service.recall_vote_cards_by_community_tags(
+                user_id, excluded_vote_ids, limit=10
+            )
+            recalled_votes.extend(community_votes)
+            
+            # 策略2: 基于社交兴趣召回
+            social_votes = self.topic_recommendation_service.recall_vote_cards_by_social_interest(
+                user_id, excluded_vote_ids, limit=10
+            )
+            # 去重后添加
+            existing_ids = {v.id for v in recalled_votes}
+            recalled_votes.extend([v for v in social_votes if v.id not in existing_ids])
+            
+            # 策略3: 补充活跃投票
+            if len(recalled_votes) < 5:
+                active_votes = self.topic_recommendation_service.recall_active_vote_cards(
+                    user_id, excluded_vote_ids, limit=5 - len(recalled_votes)
+                )
+                existing_ids = {v.id for v in recalled_votes}
+                recalled_votes.extend([v for v in active_votes if v.id not in existing_ids])
+            
+            # ========== 排序 ==========
+            ranked_topics = self.topic_recommendation_service.rank_topic_cards(
+                user_id, recalled_topics, limit=topic_limit
+            )
+            ranked_votes = self.topic_recommendation_service.rank_vote_cards(
+                user_id, recalled_votes, limit=vote_limit
+            )
+            
+            # ========== 格式化输出 ==========
+            topic_cards = []
+            for card, score in ranked_topics:
+                topic_cards.append(
+                    self.topic_recommendation_service.format_topic_card(
+                        card, score, is_recommendation=True
+                    )
+                )
+            
+            vote_cards = []
+            for card, score in ranked_votes:
+                vote_cards.append(
+                    self.topic_recommendation_service.format_vote_card(
+                        card, score, is_recommendation=True, user_id=user_id
+                    )
+                )
+            
+            return {
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "topic_cards": topic_cards,
+                    "vote_cards": vote_cards,
+                    "total": len(topic_cards) + len(vote_cards)
+                }
+            }
+            
+        except Exception as e:
+            print(f"[FeedService] 获取推荐话题/投票卡片失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "code": 500,
+                "message": f"获取推荐卡片失败: {str(e)}",
+                "data": {
+                    "topic_cards": [],
+                    "vote_cards": [],
+                    "total": 0
+                }
+            }
+    
+    def get_cold_start_topic_cards(
+        self,
+        limit: int = 10
+    ) -> Dict[str, Any]:
+        """
+        获取冷启动话题和投票卡片
+        
+        用于未登录用户或新用户的冷启动推荐
+        
+        Args:
+            limit: 返回卡片数量限制
+            
+        Returns:
+            包含话题卡片和投票卡片的字典
+        """
+        try:
+            # 召回冷启动话题卡片
+            topic_cards = self.topic_recommendation_service.recall_cold_start_topic_cards(
+                set(), limit=limit // 2
+            )
+            
+            # 召回冷启动投票卡片
+            vote_cards = self.topic_recommendation_service.recall_cold_start_vote_cards(
+                set(), limit=limit // 2
+            )
+            
+            # 格式化输出
+            formatted_topics = []
+            for card in topic_cards:
+                formatted_topics.append(
+                    self.topic_recommendation_service.format_topic_card(
+                        card, is_recommendation=True
+                    )
+                )
+            
+            formatted_votes = []
+            for card in vote_cards:
+                formatted_votes.append(
+                    self.topic_recommendation_service.format_vote_card(
+                        card, is_recommendation=True
+                    )
+                )
+            
+            return {
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "topic_cards": formatted_topics,
+                    "vote_cards": formatted_votes,
+                    "total": len(formatted_topics) + len(formatted_votes)
+                }
+            }
+            
+        except Exception as e:
+            print(f"[FeedService] 获取冷启动话题/投票卡片失败: {str(e)}")
+            return {
+                "code": 500,
+                "message": f"获取冷启动卡片失败: {str(e)}",
+                "data": {
+                    "topic_cards": [],
+                    "vote_cards": [],
+                    "total": 0
+                }
+            }
+
     def _mix_feed_cards(self, cards: List[Dict[str, Any]], page_size: int) -> List[Dict[str, Any]]:
         """
         混合推荐卡片
