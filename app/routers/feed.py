@@ -1,3 +1,4 @@
+import random
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
@@ -82,7 +83,6 @@ async def get_unified_feed_cards(
                     "user_id": user.get("user_id"),
                     "avatar": user.get("avatar_url"),
                     "user_avatar": user.get("avatar_url"),
-                    "name": user.get("display_name"),
                     "display_name": user.get("display_name"),
                     "bio": user.get("bio"),
                     "role_type": user.get("role_type"),
@@ -90,7 +90,6 @@ async def get_unified_feed_cards(
                     "card_type": "user",
                     "tags": [],
                     "created_at": None,
-                    "user_nickname": user.get("display_name"),
                     "view_count": 0,
                     "discussion_count": 0
                 })
@@ -134,34 +133,34 @@ async def get_unified_feed_cards(
         user_id = current_user["id"]
         
         # 获取用户推荐
-        result = feed_service.get_recommended_users(
+        result = feed_service.get_recommended_user_cards(
             current_user_id=user_id,
             limit=limit,
             filters=filters if filters else None
         )
 
         # 转换用户卡片数据格式
-        items = []
+        user_items = []
         for card in result["data"].get("users", []):
-            items.append({
+            user_items.append({
                 "id": card.get("id"),
                 "user_id": card.get("user_id"),
                 "avatar": card.get("avatar_url"),
                 "user_avatar": card.get("avatar_url"),
-                "name": card.get("display_name"),
                 "display_name": card.get("display_name"),
                 "bio": card.get("bio"),
                 "role_type": card.get("role_type"),
                 "profile_data": card.get("profile_data", {}),
                 "recommend_score": card.get("recommend_score"),
                 "created_at": card.get("updated_at"),
-                "user_nickname": card.get("display_name"),
                 "view_count": 0,
                 "discussion_count": 0,
                 "card_type": "user",
                 "tags": []
             })
-
+        # 收集话题/投票卡片
+        topic_items = []
+        vote_items = []
         # 获取话题/投票卡片推荐
         if include_topics:
             topic_cards_result = feed_service.get_recommended_topic_cards(
@@ -169,8 +168,14 @@ async def get_unified_feed_cards(
                 topic_limit=8,
                 vote_limit=5
             )
-            items.extend(topic_cards_result["data"].get("topic_cards", []))
-            items.extend(topic_cards_result["data"].get("vote_cards", []))
+            topic_items = topic_cards_result["data"].get("topic_cards", [])
+            vote_items = topic_cards_result["data"].get("vote_cards", [])
+       
+        # 将用户卡片和话题卡片合并后混洗
+        cards_to_shuffle = user_items + vote_items + topic_items
+        random.shuffle(cards_to_shuffle)
+        # 限制返回数量
+        items = cards_to_shuffle[:limit]
 
         return {
             "code": result["code"],
