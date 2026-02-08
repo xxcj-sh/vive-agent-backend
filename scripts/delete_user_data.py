@@ -36,8 +36,6 @@ TABLES_TO_DELETE = [
     # 用户连接和社交关系
     ("user_connections", "from_user_id"),
     ("user_connections", "to_user_id"),
-    ("person_connections", "from_user_id"),
-    ("person_connections", "to_user_id"),
     
     # 标签相关
     ("user_tag_rel", "user_id"),
