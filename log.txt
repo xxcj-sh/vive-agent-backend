@@ -1,126 +1,102 @@
-社群标签功能开发日志
+数据库表结构初始化日志
 ========================
 
-开发时间: 2026-02-01
-功能模块: 社群标签、邀请系统、内容推送
+执行时间: 2026-02-08
+操作人: 自动化脚本
+数据库: vive_agent (rm-cn-w7k4hvvlx0003bbo.rwlb.rds.aliyuncs.com:3306)
 
-一、实现的功能
+一、初始化前状态
 ------------------------
-1. 社群标签创建
-   - 支持创建 user_community 类型标签
-   - 支持设置最大成员数、公开/私有属性
-   - 标签创建者管理功能
+原有表数: 10
+需要创建的表: 17
 
-2. 社群邀请系统
-   - 创建邀请码（支持设置使用次数、过期时间）
-   - 使用邀请码加入社群
-   - 邀请使用记录追踪
-   - 邀请管理和取消功能
-
-3. 标签内容推送
-   - 创建和发布标签关联内容
-   - 支持多种内容类型（card/topic/article/link）
-   - 根据用户标签推荐个性化内容
-   - 内容交互统计（浏览、点赞、分享）
-
-二、遇到的问题及解决方案
+二、创建的表列表
 ------------------------
-1. f-string 语法错误
-   - 问题: 在 tag_service.py 中使用了复杂的条件表达式在 f-string 中
-   - 位置: 第1251行
-   - 解决: 使用 action_map 字典预先计算操作名称，避免 f-string 中使用条件表达式
+1. user_profiles - 用户画像表
+2. user_profile_history - 用户画像历史记录表
+3. user_profile_scores - 用户画像评分表
+4. user_profile_score_history - 用户画像评分历史记录表
+5. user_profile_skills - 用户画像技能解锁表
+6. user_profile_feedback - 用户画像反馈评价表
+7. user_connections - 用户关系连接表
+8. user_tag_rel - 用户标签关联表
+9. vote_cards - 投票卡片表
+10. vote_options - 投票选项表
+11. vote_records - 投票记录表
+12. vote_discussions - 投票讨论记录表
+13. user_card_vote_relations - 用户卡片与投票卡片关联表
+14. chat_messages - 聊天消息记录表
+15. chat_summaries - 聊天总结记录表
+16. content_tag_interactions - 内容和标签交互记录表
+17. content_moderations - 内容审核状态表
 
-2. datetime 模块未导入
-   - 问题: TagService 类中使用了 datetime 但未导入
-   - 解决: 在文件顶部添加 `from datetime import datetime`
-
-3. SQLAlchemy 关系定义错误
-   - 问题: Tag 和 CommunityInvitation 之间没有外键约束
-   - 错误信息: "Could not determine join condition between parent/child tables"
-   - 解决: 
-     - 在 CommunityInvitation.tag_id 添加 ForeignKey('tags.id', ondelete='CASCADE')
-     - 在 InvitationUsage.invitation_id 添加 ForeignKey('community_invitations.id', ondelete='CASCADE')
-     - 更新相关 relationship 定义
-
-4. JSON 字段索引问题
-   - 问题: MySQL JSON 字段不支持直接创建索引
-   - 解决: 移除 tag_contents 表的 idx_content_tag_ids 索引
-
-5. 重复导入问题
-   - 问题: 存在冗余的局部导入语句
-   - 解决: 将所有必要的模型和枚举在文件顶部统一导入，移除方法内部的重复导入
-
-三、数据库变更
+三、已存在的表（未变动）
 ------------------------
-新增表:
-- community_invitations: 社群邀请表
-- invitation_usage: 邀请使用记录表
-- tag_contents: 标签推送内容表
-- content_tag_interactions: 内容交互记录表
+1. users - 用户表
+2. user_cards - 用户身份卡片表
+3. membership_orders - 会员订单表
+4. topic_cards - 话题卡片表
+5. topic_discussions - 话题讨论记录表
+6. topic_opinion_summaries - 话题观点总结表
+7. user_card_topic_relations - 用户卡片与话题卡片关联表
+8. tags - 标签表
+9. tag_contents - 标签内容表
+10. llm_usage_logs - LLM调用日志表
 
-四、API 接口列表
+四、执行过程
 ------------------------
-社群标签:
-- POST /api/v1/tags - 创建标签
-- GET /api/v1/tags - 获取标签列表
-- GET /api/v1/tags/{tag_id} - 获取标签详情
-- PUT /api/v1/tags/{tag_id} - 更新标签
-- DELETE /api/v1/tags/{tag_id} - 删除标签
+1. 使用 init_tables_with_charset.py 脚本创建表
+2. 确保所有表使用 utf8mb4_unicode_ci 字符集
+3. 处理外键约束兼容性问题
+4. 验证所有表创建成功
 
-社群邀请:
-- POST /api/v1/community/invitations - 创建邀请码
-- GET /api/v1/community/invitations/my - 获取我创建的邀请
-- GET /api/v1/tags/{tag_id}/invitations - 获取标签的邀请列表
-- POST /api/v1/community/invitations/{id}/cancel - 取消邀请
-- POST /api/v1/community/invitations/redeem - 使用邀请码
-
-标签内容:
-- POST /api/v1/contents - 创建内容
-- POST /api/v1/contents/{id}/publish - 发布内容
-- GET /api/v1/tags/{tag_id}/contents - 获取标签内容
-- GET /api/v1/contents/recommend - 根据标签获取推荐内容
-- GET /api/v1/contents/re/mycommend - 获取个性化推荐内容
-- GET /api/v1/contents/{id} - 获取内容详情
-- POST /api/v1/contents/{id}/interact - 内容交互
-
-五、待完善事项
+五、执行结果
 ------------------------
-1. 微信小程序分享链接集成
-2. 注册自动获得社群标签的回调机制
-3. 前端页面开发
+✅ 成功创建 17 个新表
+✅ 数据库当前表数: 27（与模型定义一致）
+✅ 所有表字符集: utf8mb4_unicode_ci
+✅ 所有表引擎: InnoDB
 
-六、前端页面开发（2026-02-01）
+六、数据库当前所有表
 ------------------------
-1. 我的页面悬浮按钮扩展
+1. chat_messages
+2. chat_summaries
+3. content_moderations
+4. content_tag_interactions
+5. llm_usage_logs
+6. membership_orders
+7. tag_contents
+8. tags
+9. topic_cards
+10. topic_discussions
+11. topic_opinion_summaries
+12. user_card_topic_relations
+13. user_card_vote_relations
+14. user_cards
+15. user_connections
+16. user_profile_feedback
+17. user_profile_history
+18. user_profile_score_history
+19. user_profile_scores
+20. user_profile_skills
+21. user_profiles
+22. user_tag_rel
+23. users
+24. vote_cards
+25. vote_discussions
+26. vote_options
+27. vote_records
 
-================================================================================
+七、相关文件
+------------------------
+- init_tables_with_charset.py: 表创建脚本
+- init_tables_log_20260208_194834.txt: 创建操作日志
+- check_existing_tables.py: 表结构检查脚本
 
-Feed API Random Module Import Fix - Log
-========================================
+八、注意事项
+------------------------
+1. 所有新表已正确设置字符集为 utf8mb4_unicode_ci
+2. 所有表结构与 vive-agent-backend 模型定义一致
+3. 数据库已准备好接收业务数据
 
-Date: 2026-02-07
-Issue: UnboundLocalError: local variable 'random' referenced before assignment
-
-## Problem:
-- File: `app/routers/feed.py`, line 174
-- Error: `random.shuffle(cards_to_shuffle)` 
-- Root Cause: `random` module was used but not imported
-
-## Solution:
-Added `import random` at the top of the file:
-```python
-import random
-from typing import Optional, List, Dict, Any
-...
-```
-
-## Technical Details:
-- **File Modified**: `app/routers/feed.py`
-- **Change**: Added import statement at line 1
-
-## Testing Recommendations:
-1. Test GET /api/v1/feed/unified endpoint
-2. Verify cards are properly shuffled in response
-3. Check no UnboundLocalError occurs
-
-Status: ✅ Fixed and committed (874a51b)
+========================
