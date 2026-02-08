@@ -50,15 +50,10 @@ class Tag(Base):
     member_count = Column(Integer, default=0, comment="当前成员数量")
     
     # 关系
-    user_tag_rels = relationship("UserTagRel", 
-        back_populates="tag", 
+    user_tag_rels = relationship("UserTagRel",
+        back_populates="tag",
         cascade="all, delete-orphan",
         primaryjoin="and_(Tag.id == foreign(UserTagRel.tag_id), UserTagRel.status == 'active')"
-    )
-    
-    invitations = relationship("CommunityInvitation",
-        back_populates="tag",
-        cascade="all, delete-orphan"
     )
     
     # 索引

@@ -71,7 +71,6 @@ def init_all_tables():
         from app.models.order import MembershipOrder
         from app.models.content_moderation_db import ContentModeration
         from app.models.tag import Tag, UserTagRel
-        from app.models.community_invitation import CommunityInvitation, InvitationUsage
         from app.models.tag_content import TagContent, ContentTagInteraction
         
         logger.info(f"📊 已注册的表: {list(Base.metadata.tables.keys())}")

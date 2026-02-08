@@ -43,11 +43,7 @@ TABLES_TO_DELETE = [
     ("user_tag_rel", "user_id"),
     ("user_tag_rel", "granted_by_user_id"),
     ("content_tag_interactions", "user_id"),
-    
-    # 社群邀请
-    ("community_invitations", "inviter_user_id"),
-    ("community_invitations", "invited_user_id"),
-    
+
     # 用户资料相关
     ("user_profile_feedback", "user_id"),
     ("user_profile_scores", "user_id"),

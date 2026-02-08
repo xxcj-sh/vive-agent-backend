@@ -15,5 +15,4 @@ from .user_connection import UserConnection, ConnectionType, ConnectionStatus
 from .vote_card_db import VoteCard, VoteOption, VoteRecord, VoteDiscussion, UserCardVoteRelation
 
 from .tag import Tag, UserTagRel, TagType, TagStatus, UserTagRelStatus
-from .community_invitation import CommunityInvitation, InvitationStatus, InvitationUsage, create_invitation_code
 from .tag_content import TagContent, ContentType, ContentStatus, ContentTagInteraction
