@@ -19,6 +19,7 @@ async def get_unified_feed_cards(
     min_age: Optional[int] = Query(default=None, ge=0, le=150, description="最小年龄"),
     max_age: Optional[int] = Query(default=None, ge=0, le=150, description="最大年龄"),
     include_topics: bool = Query(default=True, description="是否包含话题/投票卡片推荐"),
+    tag_id: Optional[str] = Query(default=None, description="社群标签ID，用于筛选特定社群的内容"),
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -40,6 +41,11 @@ async def get_unified_feed_cards(
     - 社群话题/投票召回：召回社群群主发布的话题和投票卡片
     - 社交兴趣话题/投票召回：召回用户感兴趣的人发布的内容
 
+    社群筛选模式（当传入 tag_id 时）：
+    - 只返回该社群成员的用户卡片
+    - 只返回该社群成员发布的话题和投票卡片
+    - 其他召回策略将被禁用，避免干扰社群筛选结果
+
     排序因子：
     - 标签匹配度（共同标签数量）
     - 活跃度（最近更新时间）
@@ -52,6 +58,7 @@ async def get_unified_feed_cards(
         min_age: 最小年龄
         max_age: 最大年龄
         include_topics: 是否包含话题/投票卡片推荐（默认True）
+        tag_id: 社群标签ID，用于筛选特定社群的内容
         current_user: 当前用户信息（可选，未登录时使用冷启动策略）
         db: 数据库会话
 
@@ -60,6 +67,31 @@ async def get_unified_feed_cards(
     """
     try:
         feed_service = FeedService(db)
+        
+        # 如果指定了社群标签筛选，使用独立的社群筛选策略
+        if tag_id:
+            print(f"[FeedRouter] 社群筛选模式 - tag_id: {tag_id}")
+            user_id = current_user["id"] if current_user else None
+            
+            # 调用支持社群筛选的 feed 服务方法
+            community_result = feed_service.get_unified_feed_cards(
+                user_id=user_id,
+                page=1,
+                page_size=limit,
+                tag_id=tag_id
+            )
+            
+            # 转换返回格式
+            return {
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "items": community_result.get("items", []),
+                    "total": community_result.get("total", 0),
+                    "has_more": community_result.get("has_next", False)
+                }
+            }
+        
         # 未登录用户使用冷启动策略
         if not current_user:
             print(f"[FeedRouter] 未登录用户请求统一推荐卡片")
@@ -123,7 +155,7 @@ async def get_unified_feed_cards(
             filters['age_range'] = [min_age, max_age]
 
 
-        # 已登录用户获取个性化推荐
+        # 已登录用户获取个性化推荐（非社群筛选模式）
         user_id = current_user["id"]
         
         # 获取用户推荐
