@@ -578,7 +578,6 @@ class TagService:
         Returns:
             标签列表
         """
-        print(f"[TagService] get_user_tags: user_id={user_id}")
         
         # 使用原始SQL查询避免枚举转换问题
         from sqlalchemy import text
@@ -595,14 +594,12 @@ class TagService:
         for rel in user_tag_rels:
             tag_id, granted_by_user_id, created_at = rel
             tag = self.get_tag(tag_id)
-            print(f"[TagService] get_user_tags: rel.tag_id={tag_id}, tag={tag}")
             if tag and tag.status == TagStatus.ACTIVE:
                 tag_data = self._format_tag(tag)
                 tag_data['granted_by_user_id'] = granted_by_user_id
                 tag_data['bound_at'] = created_at.isoformat() if created_at else None
                 tags.append(tag_data)
         
-        print(f"[TagService] get_user_tags: 返回 {len(tags)} 个标签")
         return tags
     
     def get_tag_users(
