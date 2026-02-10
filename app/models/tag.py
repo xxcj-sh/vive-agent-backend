@@ -22,14 +22,14 @@ class TagType(str, enum.Enum):
 
 class TagStatus(str, enum.Enum):
     """标签状态枚举"""
-    ACTIVE = "active"      # 正常
-    DELETED = "deleted"    # 已删除
+    ACTIVE = "ACTIVE"      # 正常
+    DELETED = "DELETED"    # 已删除
 
 
 class UserTagRelStatus(str, enum.Enum):
     """用户标签关联状态枚举"""
-    ACTIVE = "active"      # 正常
-    DELETED = "deleted"    # 已删除
+    ACTIVE = "ACTIVE"      # 正常
+    DELETED = "DELETED"    # 已删除
 
 
 class Tag(Base):
@@ -147,7 +147,7 @@ def migrate_member_count(db_session):
             LEFT JOIN (
                 SELECT tag_id, COUNT(*) as cnt
                 FROM user_tag_rel
-                WHERE status = 'active'
+                WHERE status = 'ACTIVE'
                 GROUP BY tag_id
             ) utr ON t.id = utr.tag_id
             SET t.member_count = IFNULL(utr.cnt, 0)

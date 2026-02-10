@@ -584,7 +584,7 @@ class TagService:
         result = self.db.execute(text("""
             SELECT tag_id, granted_by_user_id, created_at 
             FROM user_tag_rel 
-            WHERE user_id = :user_id AND status = 'active'
+            WHERE user_id = :user_id AND status = 'ACTIVE'
         """), {"user_id": user_id})
         user_tag_rels = result.fetchall()
         

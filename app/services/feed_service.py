@@ -977,10 +977,11 @@ class FeedService:
             
             # 如果指定了社群标签，获取社群信息
             if is_community_filter:
+                from app.models.tag import TagStatus
                 tag_info = self.db.query(Tag).filter(
                     and_(
                         Tag.id == int(tag_id),
-                        Tag.status == "active"
+                        Tag.status == TagStatus.ACTIVE
                     )
                 ).first()
                 
@@ -1000,10 +1001,11 @@ class FeedService:
                     }
                 
                 # 获取该社群的所有成员用户ID
+                from app.models.tag import UserTagRelStatus
                 tag_user_rels = self.db.query(UserTagRel).filter(
                     and_(
                         UserTagRel.tag_id == int(tag_id),
-                        UserTagRel.status == "active"
+                        UserTagRel.status == UserTagRelStatus.ACTIVE
                     )
                 ).all()
                 
