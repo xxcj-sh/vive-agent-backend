@@ -579,22 +579,27 @@ class TagService:
             标签列表
         """
         print(f"[TagService] get_user_tags: user_id={user_id}")
-        user_tag_rels = self.db.query(UserTagRel).filter(
-            and_(
-                UserTagRel.user_id == user_id,
-                UserTagRel.status == UserTagRelStatus.ACTIVE
-            )
-        ).all()
+        
+        # 使用原始SQL查询避免枚举转换问题
+        from sqlalchemy import text
+        result = self.db.execute(text("""
+            SELECT tag_id, granted_by_user_id, created_at 
+            FROM user_tag_rel 
+            WHERE user_id = :user_id AND status = 'active'
+        """), {"user_id": user_id})
+        user_tag_rels = result.fetchall()
+        
         print(f"[TagService] get_user_tags: 查询到 {len(user_tag_rels)} 条 UserTagRel 记录")
         
         tags = []
         for rel in user_tag_rels:
-            tag = self.get_tag(rel.tag_id)
-            print(f"[TagService] get_user_tags: rel.tag_id={rel.tag_id}, tag={tag}")
+            tag_id, granted_by_user_id, created_at = rel
+            tag = self.get_tag(tag_id)
+            print(f"[TagService] get_user_tags: rel.tag_id={tag_id}, tag={tag}")
             if tag and tag.status == TagStatus.ACTIVE:
                 tag_data = self._format_tag(tag)
-                tag_data['granted_by_user_id'] = rel.granted_by_user_id
-                tag_data['bound_at'] = rel.created_at.isoformat() if rel.created_at else None
+                tag_data['granted_by_user_id'] = granted_by_user_id
+                tag_data['bound_at'] = created_at.isoformat() if created_at else None
                 tags.append(tag_data)
         
         print(f"[TagService] get_user_tags: 返回 {len(tags)} 个标签")
