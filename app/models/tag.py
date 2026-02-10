@@ -11,7 +11,7 @@ from app.database import Base
 import enum
 
 
-class TagType(enum.Enum):
+class TagType(str, enum.Enum):
     """标签类型枚举"""
     USER_PROFILE = "user_profile"      # 用户画像标签
     USER_SAFETY = "user_safety"        # 安全相关标签
@@ -20,13 +20,13 @@ class TagType(enum.Enum):
     USER_FEEDBACK = "user_feedback"    # 反馈相关标签
 
 
-class TagStatus(enum.Enum):
+class TagStatus(str, enum.Enum):
     """标签状态枚举"""
     ACTIVE = "active"      # 正常
     DELETED = "deleted"    # 已删除
 
 
-class UserTagRelStatus(enum.Enum):
+class UserTagRelStatus(str, enum.Enum):
     """用户标签关联状态枚举"""
     ACTIVE = "active"      # 正常
     DELETED = "deleted"    # 已删除
@@ -53,7 +53,7 @@ class Tag(Base):
     user_tag_rels = relationship("UserTagRel",
         back_populates="tag",
         cascade="all, delete-orphan",
-        primaryjoin="and_(Tag.id == foreign(UserTagRel.tag_id), UserTagRel.status == 'active')"
+        primaryjoin=lambda: (Tag.id == foreign(UserTagRel.tag_id)) & (UserTagRel.status == UserTagRelStatus.ACTIVE)
     )
     
     # 索引
@@ -79,7 +79,7 @@ class UserTagRel(Base):
     # 关系
     tag = relationship("Tag", 
         back_populates="user_tag_rels",
-        primaryjoin="and_(foreign(UserTagRel.tag_id) == Tag.id, Tag.status == 'active')"
+        primaryjoin=lambda: (foreign(UserTagRel.tag_id) == Tag.id) & (Tag.status == TagStatus.ACTIVE)
     )
     
     # 索引
