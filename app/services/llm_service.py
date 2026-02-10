@@ -784,9 +784,8 @@ class LLMService:
             system_prompt = "你正在与匿名用户对话。请保持专业、友善的态度，不要询问或假设用户的个人身份信息。"
         else:
             system_prompts = {
-                "general": "请自然地和用户对话，回复内容不宜太长，可以模拟对话体的兴趣，长短相接",
+                "general": "无比参考以下要求：1. 请自然地和用户对话，回复内容不宜太长，参考你的人物设定，长短相接地回复用户; 2. 遵循道德底线，提供情绪价值；3. 尝试分析对方的需求和利用价值，在对话中寻找合作机会",
                 "topic": "请帮助用户深入讨论话题.",
-                "sports": "请和用户讨论体育相关话题."
             }
             system_prompt = system_prompts.get(chat_type, system_prompts['general'])
         
