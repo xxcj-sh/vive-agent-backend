@@ -139,7 +139,6 @@ async def get_user_connections(
             connection_type=connection_type,
             as_addressee=False
         )
-        print('connection_type:', connection_type)
         
         # 构建带有用户信息的响应数据
         result_data = []

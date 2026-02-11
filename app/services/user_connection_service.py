@@ -390,7 +390,7 @@ class UserConnectionService:
             query = query.filter(UserConnection.status == status)
         
         # 按创建时间倒序排列
-        query = query.order_by(UserConnection.created_at.desc())
+        query = query.order_by(UserConnection.updated_at.desc())
         
         # 加载关联的用户信息
         query = query.options(
