@@ -739,7 +739,6 @@ class FeedService:
                     "interests": getattr(card_creator, 'interests', []) if isinstance(getattr(card_creator, 'interests', []), list) else [],
                     "cardType": 'social',
                     "isTopicCard": False,
-                    "card_size": 'large',
                     "isRecommendation": True,
                     "recommendationReason": '社群成员',
                     "matchScore": 0,
