@@ -127,7 +127,7 @@ async def get_unified_feed_cards(
             random.seed()  # 使用当前时间作为随机种子
             
             # 先添加投票卡片
-            start_card = vote_items[0]
+            start_card = vote_items[0] if vote_items else []
             # 将用户卡片和话题卡片合并后混洗
             cards_to_shuffle = user_items + topic_items + vote_items[1:]
             random.shuffle(cards_to_shuffle)
