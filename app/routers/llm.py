@@ -13,7 +13,7 @@ from app.database import get_db
 from app.services.auth import auth_service
 from app.services.llm_service import LLMService
 from app.services.user_card_service import UserCardService
-from app.models.llm_schemas import ConversationSuggestionRequest, SimpleChatStreamRequest, ActivityInfoExtractionRequest, ActivityInfoExtractionResponse
+from app.models.llm_schemas import ConversationSuggestionRequest, SimpleChatStreamRequest
 
 logger = logging.getLogger(__name__)
 
@@ -316,53 +316,6 @@ async def generate_conversation_suggestions(
             "duration": response.duration,
             "is_meet_preference": response.is_meet_preference,
             "preference_judgement": response.preference_judgement
-        }
-    }
-
-
-@router.post("/extract-activity-info")
-async def extract_activity_info(
-    request: ActivityInfoExtractionRequest,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(auth_service.get_current_user_optional)
-):
-    """
-    提取活动信息
-    
-    从对话历史中提取活动相关信息，包括时间、地点和用户偏好等
-    用于咖啡聊天等场景的信息自动提取，优化用户体验
-    """
-    service = LLMService(db)
-    
-    # 如果request中没有user_id，使用当前登录用户或匿名用户
-    if not request.user_id:
-        if current_user:
-            request.user_id = current_user["id"]
-        else:
-            # 使用匿名用户
-            anonymous_user = auth_service.get_anonymous_user()
-            request.user_id = anonymous_user["id"]
-            current_user = anonymous_user
-    
-    response = await service.extract_activity_info(
-        user_id=request.user_id,
-        conversation_history=request.conversation_history,
-        provider=settings.LLM_PROVIDER,
-        model_name=settings.LLM_MODEL
-    )
-    
-    if not response.success:
-        raise HTTPException(status_code=500, detail="提取活动信息失败")
-    
-    return {
-        "code": 0,
-        "message": "success",
-        "data": {
-            "time": response.time_info,
-            "location": response.location_info,
-            "preference": response.preference_info,
-            "usage": response.usage,
-            "duration": response.duration
         }
     }
 

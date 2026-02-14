@@ -30,7 +30,6 @@ class LLMTaskType(str, enum.Enum):
     SENTIMENT_ANALYSIS = "sentiment_analysis"
     COMPREHENSIVE_ANALYSIS = "comprehensive_analysis"
     CONVERSATION_SUGGESTION = "conversation_suggestion"
-    ACTIVITY_INFO_EXTRACTION = "activity_info_extraction"
     OPINION_SUMMARIZATION = "opinion_summarization"
     CHAT_SUMMARIZATION = "chat_summarization"
     SEMANTIC_SEARCH_EXPANSION = "semantic_search_expansion"

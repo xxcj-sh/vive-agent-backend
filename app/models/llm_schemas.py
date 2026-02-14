@@ -124,21 +124,6 @@ class SimpleChatStreamRequest(BaseModel):
     context: Optional[Dict[str, Any]] = Field(default={}, description="上下文信息")
     personality: Optional[str] = Field(None, description="卡片主人性格描述")
 
-class ActivityInfoExtractionRequest(LLMRequest):
-    task_type: LLMTaskType = Field(default=LLMTaskType.ACTIVITY_INFO_EXTRACTION, description="任务类型")
-    user_id: Optional[str] = Field(None, alias="userId", description="用户ID")
-    conversation_history: List[Dict[str, Any]] = Field(..., alias="conversationHistory", description="对话历史记录")
-    
-    class Config:
-        populate_by_name = True
-
-class ActivityInfoExtractionResponse(LLMResponse):
-    time_info: Optional[str] = Field(None, alias="time", description="活动时间")
-    location_info: Optional[str] = Field(None, alias="location", description="活动地点")
-    preference_info: Dict[str, Any] = Field(default_factory=dict, alias="preferences", description="用户偏好")
-    
-    class Config:
-        populate_by_name = True
 
 class OpinionSummarizationRequest(LLMRequest):
     """观点总结请求"""
