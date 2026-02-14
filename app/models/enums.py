@@ -198,15 +198,13 @@ class ManagementService(str, enum.Enum):
 class NearbyAmenity(str, enum.Enum):
     """周边配套枚举"""
     SUBWAY = "地铁"
-    BUS_STOP = "公交站"
-    SUPERMARKET = "超市"
-    MALL = "商场"
-    HOSPITAL = "医院"
-    SCHOOL = "学校"
-    PARK = "公园"
-    GYM = "健身房"
-    RESTAURANT = "餐厅"
-    BANK = "银行"
+
+class UserStatus(str, enum.Enum):
+    """用户状态枚举"""
+    PENDING = "pending"      # 待激活
+    ACTIVE = "active"        # 正常
+    SUSPENDED = "suspended"  # 暂停
+    DELETED = "deleted"      # 已删除
 
 class HouseRule(str, enum.Enum):
     """房屋规则枚举"""
@@ -389,34 +387,140 @@ class WorkIndustry(str, enum.Enum):
     STUDENT = "学生"
     OTHER = "其他"
 
+# 7. 社交场景专用枚举
+
+class SocialPurpose(str, enum.Enum):
+    """社交目的枚举"""
+    BUSINESS_NETWORKING = "商务拓展"
+    CAREER_DEVELOPMENT = "职业发展"
+    SKILL_EXCHANGE = "技能交换"
+    HOBBY_SHARING = "兴趣分享"
+    FRIENDSHIP = "结交朋友"
+    MENTORSHIP = "导师指导"
+    COLLABORATION = "项目合作"
+    KNOWLEDGE_SHARING = "知识分享"
+
+class SocialActivity(str, enum.Enum):
+    """社交活动类型枚举"""
+    COFFEE_CHAT = "咖啡聊天"
+    BUSINESS_MEETUP = "商务聚会"
+    WORKSHOP = "工作坊"
+    SEMINAR = "研讨会"
+    NETWORKING_EVENT = "社交活动"
+    ONLINE_DISCUSSION = "线上讨论"
+    STUDY_GROUP = "学习小组"
+    PROJECT_COLLABORATION = "项目合作"
+
+class SocialInterest(str, enum.Enum):
+    """社交兴趣枚举"""
+    TECHNOLOGY = "科技"
+    FINANCE = "金融"
+    STARTUP = "创业"
+    MARKETING = "市场营销"
+    DESIGN = "设计"
+    PRODUCT = "产品"
+    DATA_SCIENCE = "数据科学"
+    AI_ML = "人工智能"
+    BLOCKCHAIN = "区块链"
+    E_COMMERCE = "电商"
+    CONSULTING = "咨询"
+    INVESTMENT = "投资"
+
+class ProfessionalLevel(str, enum.Enum):
+    """职业水平枚举"""
+    STUDENT = "学生"
+    ENTRY_LEVEL = "初级"
+    MID_LEVEL = "中级"
+    SENIOR_LEVEL = "高级"
+    EXECUTIVE = "高管"
+    ENTREPRENEUR = "创业者"
+    EXPERT = "专家"
+
+class CompanySize(str, enum.Enum):
+    """公司规模枚举"""
+    STARTUP = "初创公司"
+    SMALL = "小型公司(1-50人)"
+    MEDIUM = "中型公司(50-200人)"
+    LARGE = "大型公司(200-1000人)"
+    ENTERPRISE = "大型企业(1000人以上)"
+    FREELANCE = "自由职业"
+
+class ConnectionType(str, enum.Enum):
+    """连接类型枚举"""
+    MENTOR = "导师"
+    PEER = "同行"
+    MENTEE = "学生"
+    PARTNER = "合作伙伴"
+    INVESTOR = "投资人"
+    ADVISOR = "顾问"
+
 # 5. 系统枚举
 
-class MatchType(str, enum.Enum):
-    """匹配类型枚举"""
-    DATING = "dating"           # 交友
-    HOUSING = "housing"         # 房源
-    ACTIVITY = "activity"       # 活动
-    BUSINESS = "business"       # 商务
-
-class MatchStatus(str, enum.Enum):
-    """匹配状态枚举"""
-    PENDING = "pending"         # 待处理
-    ACCEPTED = "accepted"       # 已接受
-    REJECTED = "rejected"       # 已拒绝
-    EXPIRED = "expired"         # 已过期
-    CANCELLED = "cancelled"     # 已取消
-
-class UserRole(str, enum.Enum):
-    """用户角色枚举"""
-    SEEKER = "seeker"          # 寻找者
-    PROVIDER = "provider"      # 提供者
-    BOTH = "both"              # 双重角色
+# 8. 匹配系统枚举
 
 class Gender(int, enum.Enum):
     """性别枚举"""
     UNKNOWN = 0                # 未知
     MALE = 1                   # 男性
     FEMALE = 2                 # 女性
+
+# 6. 统一场景和角色管理枚举
+
+class SceneType(str, enum.Enum):
+    """场景类型枚举 - 统一所有场景定义"""
+    SOCIAL = "social"
+
+class UserRoleType(str, enum.Enum):
+    """用户角色类型枚举 - 完整格式"""
+    # 社交场景
+    SOCIAL_BASIC = "social_basic"
+    SOCIAL_ASSISTANT = "social_assistant"
+    
+
+class SimplifiedRole(str, enum.Enum):
+    """简化角色枚举 - 用于前端交互"""
+    SEEKER = "seeker"
+    PROVIDER = "provider"
+    ORGANIZER = "organizer"
+    PARTICIPANT = "participant"
+
+class RoleMapping:
+    """角色映射工具类"""
+    
+    # 场景到角色的映射
+    SCENE_ROLES = {
+        SceneType.SOCIAL: [UserRoleType.SOCIAL_BASIC]
+    }
+    
+    # 简化角色到完整角色的映射
+    SIMPLIFIED_TO_FULL = {}
+    
+    # 反向映射
+    FULL_TO_SIMPLIFIED = {}
+    
+    @classmethod
+    def get_full_role(cls, simplified_role: str) -> str:
+        """根据简化角色获取完整角色"""
+        return cls.SIMPLIFIED_TO_FULL.get(("default", simplified_role), simplified_role)
+    
+    @classmethod
+    def get_simplified_role(cls, full_role: str) -> str:
+        """根据完整角色获取简化角色"""
+        return cls.FULL_TO_SIMPLIFIED.get(full_role, full_role)
+    
+    @classmethod
+    def get_available_roles(cls) -> list[str]:
+        """获取可用的完整角色列表"""
+        all_roles = []
+        for roles in cls.SCENE_ROLES.values():
+            all_roles.extend([role.value for role in roles])
+        return list(set(all_roles))
+    
+    @classmethod
+    def get_target_role(cls, current_role: str) -> str:
+        """根据当前角色获取匹配目标角色"""
+        role_mapping = {}
+        return role_mapping.get(current_role, current_role)
 
 # 枚举值获取工具函数
 

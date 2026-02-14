@@ -1,0 +1,47 @@
+{
+  "profile_analysis": {
+    "description": "用户画像分析专用提示词",
+    "prompt_template": "请分析以下用户资料:\n\n卡片类型: {card_type}\n\n用户数据: {profile_data}\n\n请提供深入的分析，包括个性特征、兴趣爱好、价值观等方面的洞察。",
+    "output_format": {
+      "type": "json",
+      "fields": ["personality", "interests", "values", "key_insights", "recommendations"],
+      "description": "分析结果应包含个性特征、兴趣爱好、价值观、关键洞察和建议"
+    }
+  },
+  "interest_analysis": {
+    "description": "兴趣分析专用提示词", 
+    "prompt_template": "请分析用户的兴趣爱好，识别兴趣类别，并提供相关的匹配建议。\n\n用户兴趣数据: {interest_data}\n\n请提供详细的兴趣分析和匹配建议。",
+    "output_format": {
+      "type": "json", 
+      "fields": ["interests", "categories", "match_suggestions"],
+      "description": "分析结果应包含兴趣列表、分类和匹配建议"
+    }
+  },
+  "question_answering": {
+    "description": "问答专用提示词",
+    "prompt_template": "请基于提供的上下文信息，回答用户的问题。\n\n上下文信息: {context}\n\n用户问题: {question}\n\n请提供准确、有用的回答。",
+    "output_format": {
+      "type": "json",
+      "fields": ["answer", "confidence", "sources"],
+      "description": "回答应包含答案内容、置信度和信息来源"
+    }
+  },
+  "activity_extraction": {
+    "description": "活动信息提取专用提示词",
+    "prompt_template": "请从以下对话历史中提取关于活动的关键信息:\n\n对话历史: {conversation_history}\n\n请提取时间、地点、偏好等关键信息。",
+    "output_format": {
+      "type": "json",
+      "fields": ["activity_time", "location", "preferences", "participants", "activity_type"],
+      "description": "提取结果应包含活动时间、地点、偏好、参与者和活动类型"
+    }
+  },
+  "opinion_summarization": {
+    "description": "观点总结专用提示词",
+    "prompt_template": "请分析以下用户在话题讨论中表达的观点:\n\n讨论内容: {discussion_content}\n\n请提取关键信息并生成简洁准确的总结。",
+    "output_format": {
+      "type": "json",
+      "fields": ["summary", "key_points", "sentiment"],
+      "description": "总结应包含主要观点、关键点和情感倾向"
+    }
+  }
+}

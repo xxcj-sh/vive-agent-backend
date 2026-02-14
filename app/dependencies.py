@@ -5,31 +5,25 @@ from app.services.auth import auth_service
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-async def get_current_user(request: Request) -> Dict[str, Any]:
-    """获取当前用户信息"""
+async def get_current_user(request: Request) -> Optional[Dict[str, Any]]:
+    """获取当前用户信息（可选认证）"""
     # 测试模式：允许无令牌直接使用默认测试用户
     if request.headers.get("X-Test-Mode", "").lower() == "true":
-        user = auth_service.get_user_from_token("test_token_001")
+        user = auth_service.get_user_from_token("022a82d4-8f66-4d03-833d-35b75477cb30")  # 使用活跃用户ID
         if user:
             return user
 
-    # 正常模式：需要 Bearer token
+    # 正常模式：检查 Bearer token（可选）
     auth_header = request.headers.get("authorization", "")
+    if not auth_header:
+        return None  # 无认证头时返回None，允许匿名访问
+    
     if not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        return None  # 格式不正确也返回None，允许匿名访问
+    
     token = auth_header.split(" ", 1)[1]
     user = auth_service.get_user_from_token(token)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user
+    return user  # 返回用户或None
 
 def get_auth_service():
     """获取认证服务"""

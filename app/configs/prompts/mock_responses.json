@@ -1,0 +1,54 @@
+{
+  "mock_responses": {
+    "PROFILE_ANALYSIS": {
+      "analysis": {
+        "personality": "外向开朗，善于沟通",
+        "interests": ["阅读", "旅行", "摄影"],
+        "values": ["家庭", "事业", "健康"]
+      },
+      "key_insights": [
+        "用户表现出较强的社交需求",
+        "对生活质量有较高要求"
+      ],
+      "recommendations": [
+        "建议多参与社交活动",
+        "推荐关注生活品质相关内容"
+      ]
+    },
+    "INTEREST_ANALYSIS": {
+      "interests": ["音乐", "电影", "美食"],
+      "categories": {
+        "entertainment": ["音乐", "电影"],
+        "lifestyle": ["美食", "旅行"]
+      },
+      "match_suggestions": [
+        "推荐同样喜欢音乐的用户",
+        "可以匹配美食爱好者"
+      ]
+    },
+    "QUESTION_ANSWERING": {
+      "answer": "根据您的需求，我推荐您关注以下方面...",
+      "confidence": 0.9,
+      "sources": ["用户资料", "常见问题库"]
+    },
+    "ACTIVITY_INFO_EXTRACTION": {
+      "activity_time": "2024年12月30日 下午2点",
+      "location": "北京市朝阳区",
+      "preferences": ["室内活动", "安静环境"],
+      "participants": ["朋友", "同事"]
+    },
+    "OPINION_SUMMARIZATION": {
+      "summary": "用户表达了对环保问题的关注，支持可持续发展理念",
+      "key_points": [
+        "关注环保问题",
+        "支持可持续发展",
+        "提倡绿色生活方式"
+      ],
+      "sentiment": "positive"
+    },
+    "DEFAULT": {
+      "response": "这是模拟的默认响应内容",
+      "confidence": 0.8
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "scene_prompts": {
+    "conversation_suggestions": {
+      "base": {
+        "description": "生成对话建议的基础提示词",
+        "variables": ["userPersonality", "chatHistory", "cardOwnerPreferences", "cardBio", "roleType", "maxSuggestions"],
+        "templates": {
+          "stream": {
+            "description": "流式响应的对话建议模板",
+            "template": "请根据以下信息生成对话建议:\n{base_info}\n{card_info}\n\n请生成{max_suggestions}条适合当前对话情境的回复建议，要求:\n1. 符合卡片主人性格设定，自然流畅\n2. 内容积极友好，每条建议独立完整\n3. 如卡片主人偏好信息不为空，适当引导用户回答问题\n4. 根据触发条件判断用户是否满足偏好要求\n\n直接返回建议回复内容文本"
+          },
+          "non_stream": {
+            "description": "非流式响应的对话建议模板",
+            "template": "请根据以下信息生成对话建议:\n{base_info}\n{card_info}\n\n请生成{max_suggestions}条适合当前对话情境的回复建议，要求:\n1. 符合卡片主人性格设定，以用户的身份对话，避免出现身份混淆和不符合逻辑事实的情况\n2. 自然流畅，符合对话上下文\n3. 内容积极友好\n4. 每条建议是独立完整的回复\n5. 如果卡片主人偏好信息不为空，建议内容应适当引导用户回答问题，\n   以帮助判断用户是否满足卡片主人的偏好要求\n6. 根据用户配置的触发条件，引导用户回答问题，判断用户是否满足卡片主人的偏好要求，在满足触发条件时也视为满足卡片主人的偏好要求，根据用户配置的输出信息，生成建议回复消息\n\n请以JSON格式回复，包含suggestions(建议列表)和confidence(置信度)字段，is_meet_preference(是否满足卡片主人偏好的布尔类型)字段，\npreference_judgement(满足偏好的判断论述)字段，trigger_output(触发条件后的输出信息)字段\n\n参考如下格式\n{\"confidence\": 0.92,\n\"suggestions\": [\"欢迎参加活动\", \"您可以参加活动\"],\n\"is_meet_preference\": true,\n\"preference_judgement\": \"用户的兴趣爱好与卡片主人的偏好相符，用户的生活方式与卡片主人的偏好相符\",\n\"trigger_output\": \"欢迎加我微信联系，记得备注来源哦\"}"
+          }
+        }
+      },
+      "components": {
+        "base_info": {
+          "description": "基础信息部分",
+          "template": "用户性格特征: {user_personality}\n聊天记录: {chat_history}"
+        },
+        "card_info": {
+          "description": "卡片信息部分",
+          "template": "卡片主人偏好信息: {preferences}\n卡片简介信息(仅作为回答问题时的参考): {bio}\n聊天隐藏触发条件和输出信息: {trigger_and_output}"
+        },
+        "specialized_templates": {
+          "house_renting": {
+            "description": "房屋出租场景专用模板",
+            "template": "请根据以下信息生成对话建议:\n{base_info}\n{house_info}\n\n请生成{max_suggestions}条适合当前对话情境的回复建议，要求:\n1. 符合房东身份设定，自然流畅，以房东的身份与用户对话\n2. 内容积极友好，每条建议独立完整\n3. 如房东偏好信息不为空，适当引导用户回答问题，以帮助判断用户是否满足房东的偏好要求\n4. 根据触发条件判断用户是否满足房东的偏好要求\n\n请以JSON格式回复，包含suggestions(建议列表)和confidence(置信度)字段，is_meet_preference(是否满足房东偏好的布尔类型)字段，\npreference_judgement(满足偏好的判断论述)字段，trigger_output(触发条件后的输出信息)字段\n\n参考如下格式\n{\"summary\": \"租客工作稳定，在互联网公司上班，希望起租时间为11月1日，租金预算5000每月，租期1年\",\n\"confidence\": 0.95,\n\"is_meet_preference\": true,\n\"preference_judgement\": \"用户的租房需求与房东的偏好相符，用户对房子的基本情况表示满意，初步达成租房意向\",\n\"trigger_output\": \"房东收到通知后会通过微信与您联系，商定签约事宜\"}"
+          }
+        }
+      }
+    },
+    "simple_chat": {
+      "description": "简单聊天场景的提示词模板",
+      "template": "你是一个友好、智能的聊天助手。请根据用户的输入给出自然、有趣的回复。"
+    },
+    "topic_discussion": {
+      "description": "话题讨论场景的提示词模板",
+      "template": "你是一个知识渊博的讨论伙伴。请就用户提出的话题展开有意义的讨论，提供有价值的观点和信息。"
+    },
+    "generate_opinion_summary": {
+      "description": "生成观点总结场景的提示词模板",
+      "template": "请分析以下对话内容，提取用户表达的主要观点，并生成简洁准确的总结。"
+    },
+    "connection_suggestion": {
+      "description": "探索页面AI推荐语生成",
+      "template": "{prompt}"
+    }
+  }
+}

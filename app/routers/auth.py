@@ -11,10 +11,15 @@ from app.utils.auth import get_current_user
 from app.dependencies import get_auth_service
 from app.utils.db_config import get_db
 from sqlalchemy.orm import Session
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel
 from typing import Dict, Any
+from app.config import settings
 
 router = APIRouter()
+
+# 开发者快速登录请求模型
+class DevQuickLoginRequest(BaseModel):
+    phone: str
 
 @router.post("/sessions", response_model=BaseResponse, status_code=201)
 async def login(
@@ -71,6 +76,57 @@ async def login(
     except Exception as e:
         return BaseResponse(code=1001, message=str(e), data={})
 
+@router.post("/sessions/wechat-phone", response_model=BaseResponse, status_code=201)
+async def login_by_wechat_phone(
+    request: Request,
+    db: Session = Depends(get_db),
+    auth_service = Depends(get_auth_service)
+):
+    """微信一键登录（获取手机号）"""
+    try:
+        body = await request.json()
+        code = body.get("code")
+        phone_code = body.get("phoneCode")
+        user_info = body.get("userInfo")
+        
+        if not code or not phone_code:
+            return BaseResponse(code=422, message="缺少必要参数", data={})
+        
+        # Create user_info if provided
+        user_info_obj = None
+        if user_info and isinstance(user_info, dict):
+            try:
+                user_info_obj = UserInfo(
+                    nick_name=user_info.get("nickName"),
+                    avatar_url=user_info.get("avatarUrl"),
+                    gender=user_info.get("gender")
+                )
+            except:
+                pass
+        
+        # 调用微信一键登录服务
+        login_result = auth_service.login_by_wechat_phone(
+            code=code,
+            phone_code=phone_code,
+            user_info=user_info_obj,
+            db=db
+        )
+        
+        return BaseResponse(
+            code=0,
+            message="success",
+            data={
+                "token": login_result["token"],
+                "expiresIn": login_result["expiresIn"],
+                "isNewUser": login_result.get("isNewUser", False),
+                "userInfo": login_result["userInfo"]
+            }
+        )
+    except ValueError as e:
+        return BaseResponse(code=422, message=str(e), data={})
+    except Exception as e:
+        return BaseResponse(code=1006, message=f"微信一键登录失败: {str(e)}", data={})
+
 @router.post("/sessions/phone", response_model=BaseResponse, status_code=201)
 async def login_by_phone(
     request: Request,
@@ -85,6 +141,7 @@ async def login_by_phone(
         if not phone or not code:
             return BaseResponse(code=422, message="缺少必要参数", data={})
         
+        # 打印验证码信息到控制台        
         login_result = AuthService.login_by_phone(phone, code, db)
         
         return BaseResponse(
@@ -98,6 +155,7 @@ async def login_by_phone(
             }
         )
     except Exception as e:
+        raise e
         return BaseResponse(code=1002, message=str(e), data={})
 
 @router.post("/sms-codes", response_model=BaseResponse, status_code=201)
@@ -153,12 +211,12 @@ async def validate_token(request: Request):
         
         # 简化的Token验证：直接从数据库查找用户
         from app.utils.db_config import SessionLocal
-        from app.services.db_service import get_user
+        from app.models.user import User
         
         db = SessionLocal()
         try:
             # token就是用户ID，直接查找
-            db_user = get_user(db, token)
+            db_user = db.query(User).filter(User.id == token).first()
             if db_user:
                 return BaseResponse(
                     code=0,
@@ -240,3 +298,40 @@ async def register(
 async def logout():
     # 登出操作 - 204状态码不能有响应体
     pass
+
+@router.post("/sessions/dev-quick-login", response_model=BaseResponse, status_code=201)
+async def dev_quick_login(
+    request: DevQuickLoginRequest,
+    db: Session = Depends(get_db),
+    auth_service = Depends(get_auth_service)
+):
+    """开发者快速登录（仅开发环境）"""
+    try:
+        # 检查是否为开发环境
+        if not settings.DEBUG:
+            return BaseResponse(code=403, message="该接口仅在开发环境可用", data={})
+        
+        phone = request.phone
+        if not phone:
+            return BaseResponse(code=422, message="手机号不能为空", data={})
+        
+        # 验证手机号格式 - 限定为测试手机号，首位数字为0
+        if not phone.startswith('100') or len(phone) != 11:
+            return BaseResponse(code=422, message="仅限测试手机号（首位为100）", data={})
+        
+        # 调用服务层的开发者快速登录方法
+        login_result = AuthService.dev_quick_login(phone, db)
+        
+        return BaseResponse(
+            code=0,
+            message="开发者登录成功",
+            data={
+                "token": login_result["token"],
+                "expiresIn": login_result["expiresIn"],
+                "userInfo": login_result["userInfo"]
+            }
+        )
+    except ValueError as e:
+        return BaseResponse(code=422, message=str(e), data={})
+    except Exception as e:
+        return BaseResponse(code=1006, message=f"开发者登录失败: {str(e)}", data={})

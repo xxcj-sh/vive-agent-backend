@@ -1,0 +1,29 @@
+{
+  "stream_responses": {
+    "mock_stream": {
+      "description": "模拟流式响应配置",
+      "content": "这是来自{provider}的{model_name}模型的模拟流式响应。我会为您提供一些有用的建议和信息。",
+      "chunk_size": 3,
+      "delay_ms": 50,
+      "metadata": {
+        "confidence": 0.85,
+        "is_meet_preference": true,
+        "preference_judgement": "用户的兴趣爱好与卡片主人的偏好相符",
+        "usage": {
+          "prompt_tokens": 50,
+          "completion_tokens": 100,
+          "total_tokens": 150
+        },
+        "duration": 2.5
+      }
+    }
+  },
+  "api_simulation": {
+    "delay_seconds": 1,
+    "default_tokens": {
+      "prompt_tokens": 50,
+      "completion_tokens": 100,
+      "total_tokens": 150
+    }
+  }
+}

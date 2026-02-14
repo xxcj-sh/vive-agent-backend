@@ -1,16 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import users, match, auth, membership, membership_orders, scenes, file, properties, chat
-from app.routers.profile_by_id import router as profile_by_id_router
+from app.routers import user_card, users, auth, membership, membership_orders, scenes, file, llm, chats, topic_cards, user_connections, vote_cards, feed, content_moderation, points, tags
+from app.routers.user_profile import router as user_profile_router
+from app.routers import wxacode
+
 from app.utils.db_init import init_db
 from app.config import settings
 import os
 
 # 初始化应用
 app = FastAPI(
-    title="VMatch API",
-    description="VMatch Backend API for WeChat Mini Program",
+    title="Vive Agent API",
+    description="Vive Agent Backend API for WeChat Mini Program",
     version="0.1.0",
 )
 
@@ -35,18 +37,47 @@ app.mount("/uploads", StaticFiles(directory=upload_path), name="uploads")
 app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(scenes.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
-app.include_router(match.router, prefix="/api/v1")
-app.include_router(chat.router, prefix="/api/v1")
-
 app.include_router(membership.router, prefix="/api/v1")
 app.include_router(membership_orders.router, prefix="/api/v1")
-app.include_router(file.router, prefix="/api/v1/files")
-app.include_router(properties.router, prefix="/api/v1")
-app.include_router(profile_by_id_router, prefix="/api/v1")
+app.include_router(file.router, prefix="/files")
+# 话题卡片路由（需要在通配符路由之前注册，避免被拦截）
+app.include_router(topic_cards.router, prefix="/api/v1/topic-cards")
+# 用户连接路由（需要在通配符路由之前注册，避免被拦截）
+app.include_router(user_connections.router, prefix="/api/v1/user-connections")
+app.include_router(user_card.router, prefix="/api/v1")
+app.include_router(llm.router, prefix="/api/v1")
+
+
+# 用户画像系统路由（包含所有画像相关功能）
+app.include_router(user_profile_router, prefix="/api/v1")
+
+
+app.include_router(chats.router, prefix="/api/v1")
+
+
+
+# 投票卡片路由
+app.include_router(vote_cards.router, prefix="/api/v1/vote-cards")
+
+# 统一卡片流路由
+app.include_router(feed.router, prefix="/api/v1/feed")
+
+# 内容审核路由
+app.include_router(content_moderation.router, prefix="/api/v1/content-moderation")
+
+# 积分管理路由
+app.include_router(points.router, prefix="/api/v1")
+
+# 标签管理路由
+app.include_router(tags.router, prefix="/api/v1")
+
+# 微信小程序码路由
+app.include_router(wxacode.router, prefix="/api/v1")
+
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to VMatch API"}
+    return {"message": "Welcome to Vive Agent API"}
 
 @app.get("/api/v1")
 def api_info():
@@ -56,12 +87,31 @@ def api_info():
         "endpoints": {
             "auth": "/api/v1/auth",
             "users": "/api/v1/users",
-            "matches": "/api/v1/matches",
-            "messages": "/api/v1/messages",
             "files": "/api/v1/files"
         }
     }
 
+@app.get("/health")
+def health_check():
+    """健康检查端点"""
+    return {
+        "status": "healthy",
+        "service": "vive-agent-backend",
+        "timestamp": "2024-01-01T00:00:00Z"
+    }
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import sys
+    import argparse
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description="Vive Agent Backend Server")
+    parser.add_argument("--port", type=int, default=8000, help="服务器端口 (默认: 8000)")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="服务器主机 (默认: 0.0.0.0)")
+    
+    # 解析参数
+    args = parser.parse_args()
+    
+    print(f"🚀 启动服务器: {args.host}:{args.port}")
+    uvicorn.run(app, host=args.host, port=args.port)

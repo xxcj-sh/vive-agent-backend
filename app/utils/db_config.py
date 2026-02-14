@@ -1,26 +1,13 @@
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from app.config import settings
 
-# 环境变量配置
-ENV = os.getenv("ENVIRONMENT", "development")
-
-# 数据库URL配置 - 优先使用环境变量
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    DATABASE_URLS = {
-        "development": "sqlite:///./vmatch_dev.db",
-        "testing": "sqlite:///./vmatch_test.db", 
-        "production": "sqlite:///./vmatch_prod.db"
-    }
-    DATABASE_URL = DATABASE_URLS.get(ENV, "sqlite:///./vmatch_dev.db")
+# 使用 config.py 中的配置获取数据库URL
+DATABASE_URL = settings.computed_database_url
 
 # 创建数据库引擎
-engine = create_engine(
-    DATABASE_URL, 
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-)
+engine = create_engine(DATABASE_URL)
 
 # 创建会话
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
