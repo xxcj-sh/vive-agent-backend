@@ -14,13 +14,13 @@ class UserCard(Base):
 
     # 微信小程序码支持的参数最大为 32 个可见字符，如果想要为每一张卡片创建一个二维码，需要将卡片的 ID 长度控制在 32 个字符以内。
     id = Column(String(32), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(32), ForeignKey("users.id"), index=True, nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
     role_type = Column(String(50), nullable=False)
     display_name = Column(String(100), nullable=False)
     avatar_url = Column(String(500), nullable=True)
     bio = Column(Text, nullable=True)
     profile_data = Column(JSON, nullable=True)
-    preferences = Column(String, nullable=True)
+    preferences = Column(JSON, nullable=True)
     visibility = Column(String(20), default="public")  # public, private
     is_active = Column(Integer, default=1)
     is_deleted = Column(Integer, default=0)

@@ -24,9 +24,9 @@ def check_database_tables():
     print("正在检查数据库表结构...")
     
     # 创建数据库引擎
-    engine = create_engine(settings.DATABASE_URL, echo=False)
+    engine = create_engine(settings.computed_database_url, echo=False)
     
-    print(f"连接到数据库: {settings.DATABASE_URL.split('@')[-1]}")
+    print(f"连接到数据库: {settings.computed_database_url.split('@')[-1]}")
     
     # 获取inspector
     inspector = inspect(engine)
@@ -134,7 +134,7 @@ def check_table_row_counts():
     print("表数据量统计:")
     print(f"{'='*60}")
     
-    engine = create_engine(settings.DATABASE_URL, echo=False)
+    engine = create_engine(settings.computed_database_url, echo=False)
     inspector = inspect(engine)
     tables = inspector.get_table_names()
     

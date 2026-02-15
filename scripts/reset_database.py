@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 def get_database_engine():
     """获取数据库引擎"""
-    return create_engine(settings.DATABASE_URL, echo=False)
+    return create_engine(settings.computed_database_url, echo=False)
 
 def drop_all_tables(engine):
     """删除所有数据库表"""
@@ -40,7 +40,7 @@ def drop_all_tables(engine):
         print(f"发现 {len(tables)} 个表: {tables}")
         
         # 禁用外键检查（MySQL）
-        if 'mysql' in settings.DATABASE_URL:
+        if 'mysql' in settings.computed_database_url:
             conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
         
         # 按依赖关系排序删除表
@@ -77,7 +77,7 @@ def drop_all_tables(engine):
                 print(f"✗ 删除表 {table} 失败: {e}")
         
         # 重新启用外键检查
-        if 'mysql' in settings.DATABASE_URL:
+        if 'mysql' in settings.computed_database_url:
             conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
         
         # 提交更改

@@ -97,6 +97,7 @@ async def get_wxacode_unlimited(request: Request, params: WxacodeParams = None):
         "auto_color": params.auto_color_bool,
         "is_hyaline": params.is_hyaline_bool
     }
+    print(f"[WxacodeAPI] 请求参数: {payload}")
     
     if params.line_color:
         payload["line_color"] = params.line_color
