@@ -1,8 +1,9 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text, JSON, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
 import uuid
+import json
 
 # 可见性常量
 VISIBILITY_PUBLIC = "public"
@@ -19,8 +20,8 @@ class UserCard(Base):
     display_name = Column(String(100), nullable=False)
     avatar_url = Column(String(500), nullable=True)
     bio = Column(Text, nullable=True)
-    profile_data = Column(JSON, nullable=True)
-    preferences = Column(JSON, nullable=True)
+    profile_data = Column(Text, nullable=True)
+    preferences = Column(String, nullable=True)
     visibility = Column(String(20), default="public")  # public, private
     is_active = Column(Integer, default=1)
     is_deleted = Column(Integer, default=0)
@@ -45,6 +46,17 @@ class UserCard(Base):
             "search_code": self.search_code
         }
 
+        # 解析 JSON 字符串
+        def parse_json_field(value):
+            if not value:
+                return {}
+            if isinstance(value, dict):
+                return value
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                return {}
+
         # 私有模式处理
         if self.visibility == VISIBILITY_PRIVATE and not include_private:
             # 私有模式下不暴露详细信息
@@ -57,7 +69,7 @@ class UserCard(Base):
             data["display_name"] = self.display_name
             data["avatar_url"] = self.avatar_url
             data["bio"] = self.bio
-            data["profile_data"] = self.profile_data or {}
-            data["preferences"] = self.preferences or {}
+            data["profile_data"] = parse_json_field(self.profile_data)
+            data["preferences"] = parse_json_field(self.preferences)
 
         return data

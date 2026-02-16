@@ -222,7 +222,7 @@ class UserCardService:
                     "avatar_url": card.avatar_url,
                     "bio": card.bio,
                     "profile_data": {},
-                    "preferences": card.preferences,
+                    "preferences": "",
                     "visibility": card.visibility,
                     "is_active": card.is_active,
                     "is_deleted": card.is_deleted,
@@ -240,6 +240,15 @@ class UserCardService:
                             card_dict["profile_data"] = {}
                     elif isinstance(card.profile_data, dict):
                         card_dict["profile_data"] = card.profile_data
+                
+                # 确保 preferences 是字符串类型
+                if card.preferences:
+                    if isinstance(card.preferences, dict):
+                        card_dict["preferences"] = json.dumps(card.preferences, ensure_ascii=False)
+                    elif isinstance(card.preferences, str):
+                        card_dict["preferences"] = card.preferences
+                    else:
+                        card_dict["preferences"] = str(card.preferences)
                 
                 processed_card_dicts.append(card_dict)
             

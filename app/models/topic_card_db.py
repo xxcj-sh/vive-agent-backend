@@ -1,7 +1,8 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text, JSON, ForeignKey, Boolean
+from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.utils.custom_json_type import SafeJSON
 from app.models.user import User
 import uuid
 
@@ -15,7 +16,7 @@ class TopicCard(Base):
     description = Column(Text, nullable=True, comment="话题描述")
     discussion_goal = Column(Text, nullable=True, comment="讨论目标/期待")
     category = Column(String(50), nullable=True, comment="话题分类")
-    tags = Column(JSON, nullable=True, comment="话题标签")
+    tags = Column(SafeJSON(default=[]), nullable=True, comment="话题标签")
     cover_image = Column(String(500), nullable=True, comment="封面图片URL")
     is_active = Column(Integer, default=1, comment="是否激活")
     is_deleted = Column(Integer, default=0, comment="是否删除")
@@ -78,7 +79,7 @@ class TopicOpinionSummary(Base):
     topic_card_id = Column(String(36), ForeignKey("topic_cards.id"), index=True, nullable=False)
     user_id = Column(String(36), ForeignKey("users.id"), index=True, nullable=False)
     opinion_summary = Column(Text, nullable=False, comment="该用户关于这个话题的观点的总结")
-    key_points = Column(JSON, nullable=True, comment="关键要点，JSON格式存储")
+    key_points = Column(SafeJSON(default=[]), nullable=True, comment="关键要点，JSON格式存储")
     sentiment = Column(String(20), nullable=True, comment="情感倾向: positive, negative, neutral")
     confidence_score = Column(Integer, default=0, comment="置信度评分，0-100")
     is_anonymous = Column(Integer, default=0, comment="是否匿名")
