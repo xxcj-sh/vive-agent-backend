@@ -126,13 +126,19 @@ async def get_unified_feed_cards(
             
             random.seed()  # 使用当前时间作为随机种子
             
-            # 先添加投票卡片
-            start_card = vote_items[0] if vote_items else []
-            # 将用户卡片和话题卡片合并后混洗
-            cards_to_shuffle = user_items + topic_items + vote_items[1:]
-            random.shuffle(cards_to_shuffle)
+            items = []
             
-            items = [start_card] + cards_to_shuffle
+            # 先添加投票卡片（如果有）
+            if vote_items:
+                items.append(vote_items[0])
+                # 将用户卡片、话题卡片和剩余投票卡片合并后混洗
+                cards_to_shuffle = user_items + topic_items + vote_items[1:]
+            else:
+                # 没有投票卡片时，直接混洗用户卡片和话题卡片
+                cards_to_shuffle = user_items + topic_items
+            
+            random.shuffle(cards_to_shuffle)
+            items.extend(cards_to_shuffle)
             
             return {
                 "code": 0,
