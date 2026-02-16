@@ -1,7 +1,8 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text, JSON, ForeignKey, Boolean
+from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.utils.custom_json_type import SafeJSON
 import uuid
 
 class VoteCard(Base):
@@ -13,7 +14,7 @@ class VoteCard(Base):
     title = Column(String(200), nullable=False, comment="投票标题")
     description = Column(Text, nullable=True, comment="投票描述")
     category = Column(String(50), nullable=True, comment="投票分类")
-    tags = Column(JSON, nullable=True, comment="投票标签")
+    tags = Column(SafeJSON(default=[]), nullable=True, comment="投票标签")
     cover_image = Column(String(500), nullable=True, comment="封面图片URL")
     vote_type = Column(String(20), default="single", comment="投票类型: single(单选), multiple(多选)")
     is_anonymous = Column(Integer, default=0, comment="是否匿名投票")

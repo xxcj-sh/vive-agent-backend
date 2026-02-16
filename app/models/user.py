@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
 import os
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.utils.custom_json_type import SafeJSON
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -24,10 +25,10 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     occupation = Column(String(100), nullable=True)
-    location = Column(JSON, nullable=True)
+    location = Column(SafeJSON(default={}), nullable=True)
     education = Column(String(100), nullable=True)
     
-    interests = Column(JSON, nullable=True)
+    interests = Column(SafeJSON(default=[]), nullable=True)
     wechat = Column(String(100), nullable=True)
     wechat_open_id = Column(String(100), nullable=True)
     email = Column(String(255), nullable=True)
