@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any
 from app.models.user_card_db import UserCard
 from app.models.user import User
 from app.models.user_card import (
-    CardCreate, CardUpdate, Card as CardSchema,
+    CardCreate, CardUpdate, Card,
     CardsResponse, AllCardsResponse, CardsByScene
 )
 from app.services.points_service import PointsService
@@ -207,49 +207,77 @@ class UserCardService:
     @staticmethod
     def get_user_all_cards_response(db: Session, user_id: str) -> AllCardsResponse:
         """获取用户所有角色卡片的完整响应"""
-        all_cards = UserCardService.get_user_cards(db, user_id)
-        active_cards = [c for c in all_cards if c.is_deleted == 0]
-        
-        # 按场景分组
-        scenes_dict = {}
-        for card in active_cards:
-            scene = "default"  # 使用默认值，因为scene_type字段已移除
-            if scene not in scenes_dict:
-                scenes_dict[scene] = []
-            scenes_dict[scene].append(card)
-        
-        # 处理卡片数据，确保字段类型正确
-        processed_cards = []
-        for card in active_cards:
-            # 确保 JSON 字段正确解析
-            if isinstance(card.profile_data, str):
-                try:
-                    card.profile_data = json.loads(card.profile_data)
-                except (json.JSONDecodeError, TypeError):
-                    card.profile_data = {}
+        try:
+            all_cards = UserCardService.get_user_cards(db, user_id)
+            active_cards = [c for c in all_cards if c.is_deleted == 0]
             
-            processed_cards.append(card)
-        
-        # 重新按场景分组处理后的卡片
-        scenes_dict_processed = {}
-        for card in processed_cards:
-            scene = "default"  # 使用默认值，因为scene_type字段已移除
-            if scene not in scenes_dict_processed:
-                scenes_dict_processed[scene] = []
-            scenes_dict_processed[scene].append(card)
-        
-        by_scene = [
-            CardsByScene(profiles=cards)
-            for scene, cards in scenes_dict_processed.items()
-        ]
-        
-        return AllCardsResponse(
-            user_id=user_id,
-            total_count=len(processed_cards),
-            active_count=len([c for c in processed_cards if c.is_deleted == 0]),
-            by_scene=by_scene,
-            all_cards=processed_cards
-        )
+            # 处理卡片数据，确保字段类型正确 - 不直接修改 ORM 对象，而是创建字典副本
+            processed_card_dicts = []
+            for card in active_cards:
+                card_dict = {
+                    "id": card.id,
+                    "user_id": card.user_id,
+                    "role_type": card.role_type,
+                    "display_name": card.display_name,
+                    "avatar_url": card.avatar_url,
+                    "bio": card.bio,
+                    "profile_data": {},
+                    "preferences": card.preferences,
+                    "visibility": card.visibility,
+                    "is_active": card.is_active,
+                    "is_deleted": card.is_deleted,
+                    "search_code": card.search_code,
+                    "created_at": card.created_at,
+                    "updated_at": card.updated_at
+                }
+                
+                # 确保 JSON 字段正确解析
+                if card.profile_data:
+                    if isinstance(card.profile_data, str):
+                        try:
+                            card_dict["profile_data"] = json.loads(card.profile_data)
+                        except (json.JSONDecodeError, TypeError):
+                            card_dict["profile_data"] = {}
+                    elif isinstance(card.profile_data, dict):
+                        card_dict["profile_data"] = card.profile_data
+                
+                processed_card_dicts.append(card_dict)
+            
+            # 按场景分组处理后的卡片
+            scenes_dict_processed = {}
+            for card_dict in processed_card_dicts:
+                scene = "default"
+                if scene not in scenes_dict_processed:
+                    scenes_dict_processed[scene] = []
+                scenes_dict_processed[scene].append(card_dict)
+            
+            # 转换为 Card 模型实例
+            processed_cards = [Card(**card_dict) for card_dict in processed_card_dicts]
+            
+            by_scene = []
+            for scene, cards in scenes_dict_processed.items():
+                profiles = [Card(**card_dict) for card_dict in cards]
+                by_scene.append(CardsByScene(profiles=profiles))
+            
+            return AllCardsResponse(
+                user_id=user_id,
+                total_count=len(processed_cards),
+                active_count=len(processed_cards),
+                by_scene=by_scene,
+                all_cards=processed_cards
+            )
+        except Exception as e:
+            print(f"获取用户卡片响应时出错: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            # 返回空的响应
+            return AllCardsResponse(
+                user_id=user_id,
+                total_count=0,
+                active_count=0,
+                by_scene=[],
+                all_cards=[]
+            )
     
     @staticmethod
     def get_available_roles_for_scene() -> List[str]:

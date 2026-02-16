@@ -13,7 +13,7 @@ class ChatMessage(Base):
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), ForeignKey('users.id'), index=True)
-    card_id = Column(String(36), ForeignKey('user_cards.id'), index=True)
+    card_id = Column(String(32), ForeignKey('user_cards.id'), index=True)
     session_id = Column(String(36), nullable=True, index=True)  # 会话ID（可选）
     content = Column(Text, nullable=False)  # 消息内容
     message_type = Column(String(20), default='text')  # 消息类型: text, image, audio, video
@@ -47,7 +47,7 @@ class ChatSummary(Base):
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), ForeignKey('users.id'), index=True)
-    card_id = Column(String(36), ForeignKey('user_cards.id'), index=True)
+    card_id = Column(String(32), ForeignKey('user_cards.id'), index=True)
     session_id = Column(String(36), nullable=True, index=True)  # 会话ID（可选）
     summary_type = Column(String(20), default='chat')  # 总结类型: chat, opinion, analysis
     summary_content = Column(Text, nullable=False)  # 总结内容
