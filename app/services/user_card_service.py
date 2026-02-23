@@ -124,7 +124,6 @@ class UserCardService:
                 "username": user.nick_name or user.phone,  # 使用昵称或手机号作为用户名
                 "email": None,  # 用户模型中没有邮箱字段
                 "nick_name": user.nick_name,
-                "age": user.age,
                 "gender": user.gender,
                 "occupation": getattr(user, 'occupation', None),  # 使用getattr处理可能不存在的字段
                 "location": getattr(user, 'location', None),
@@ -327,7 +326,6 @@ class UserCardService:
             if user:
                 user_info = {
                     "nick_name": user.nick_name if user else None,
-                    "age": user.age if user else None,
                     "gender": user.gender if user else None,
                     "occupation": getattr(user, 'occupation', None) if user else None,
                     "location": getattr(user, 'location', None) if user else None,

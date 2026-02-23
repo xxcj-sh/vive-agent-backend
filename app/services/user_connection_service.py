@@ -178,7 +178,6 @@ class UserConnectionService:
                 "nick_name": user.nick_name,
                 "avatar_url": user.avatar_url,
                 "gender": user.gender,
-                "age": user.age,
                 "occupation": user.occupation,
                 "location": user.location,
                 "bio": user.bio,
@@ -434,7 +433,6 @@ class UserConnectionService:
                 "nick_name": target_user.nick_name,
                 "avatar_url": target_user.avatar_url,
                 "gender": target_user.gender,
-                "age": target_user.age,
                 "occupation": target_user.occupation,
                 "location": target_user.location,
                 "bio": target_user.bio

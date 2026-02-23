@@ -398,9 +398,6 @@ class UserProfileService:
                 else:
                     parts.append(f"性别: {gender}")
 
-            if "age" in profile_data:
-                parts.append(f"年龄: {profile_data['age']}")
-
             if "location" in profile_data:
                 parts.append(f"位置: {profile_data['location']}")
 
@@ -466,32 +463,11 @@ class UserProfileService:
         }
         gender_text = gender_map.get(gender_value, "未知") if gender_value is not None else "未知"
         
-        # 年龄处理：转换为年龄段描述
-        age_value = user_data.get("age")
-        if age_value is not None:
-            if age_value < 18:
-                age_text = "18岁以下"
-            elif age_value < 25:
-                age_text = "18-24岁"
-            elif age_value < 35:
-                age_text = "25-34岁"
-            elif age_value < 45:
-                age_text = "35-44岁"
-            elif age_value < 55:
-                age_text = "45-54岁"
-            elif age_value < 65:
-                age_text = "55-64岁"
-            else:
-                age_text = "65岁及以上"
-        else:
-            age_text = "未知"
-        
         # 1. 准备画像数据
         profile_data = {
             "user_id": user_id,
             "nickname": user_data.get("nick_name") or user_data.get("nickName"),
             "gender": gender_text,
-            "age": age_text,
             "bio": user_data.get("bio"),
             "occupation": user_data.get("occupation"),
             "location": user_data.get("location"),

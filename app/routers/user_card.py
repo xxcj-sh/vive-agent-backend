@@ -89,7 +89,6 @@ def get_card_details(
         # 用户基础信息
         "user_info": {
             "nick_name": user.nick_name if user else None,
-            "age": user.age if user else None,
             "gender": user.gender if user else None,
             "occupation": getattr(user, 'occupation', None) if user else None,
             "location": getattr(user, 'location', None) if user else None,
