@@ -19,7 +19,6 @@ class User(Base):
     nick_name = Column(String(100), nullable=True)
     avatar_url = Column(String(500), nullable=True)
     gender = Column(Integer, nullable=True)
-    age = Column(Integer, nullable=True)
     bio = Column(Text, nullable=True)
     birthday = Column(String(20), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -37,6 +36,7 @@ class User(Base):
     douyin_id = Column(String(100), nullable=True)
     wechat_official_account = Column(String(100), nullable=True)
     xiaoyuzhou_id = Column(String(100), nullable=True)
+    mbti = Column(String(10), nullable=True)
     
     status = Column(String(20), default='pending')
     last_login = Column(DateTime(timezone=True), nullable=True)
@@ -63,7 +63,6 @@ class UserBase(BaseModel):
     wechat_open_id: Optional[str] = None
     avatar_url: Optional[str] = None
     gender: Optional[int] = None
-    age: Optional[int] = None
     bio: Optional[str] = None
     birthday: Optional[str] = None
     occupation: Optional[str] = None
@@ -78,6 +77,7 @@ class UserBase(BaseModel):
     douyin_id: Optional[str] = None
     wechat_official_account: Optional[str] = None
     xiaoyuzhou_id: Optional[str] = None
+    mbti: Optional[str] = None
 
 class UserCreate(UserBase):
     phone: str
@@ -89,7 +89,6 @@ class UserResponse(BaseModel):
     nick_name: Optional[str] = None
     avatar_url: Optional[str] = None
     gender: Optional[int] = None
-    age: Optional[int] = None
     bio: Optional[str] = None
     birthday: Optional[str] = None
     occupation: Optional[str] = None
@@ -109,6 +108,7 @@ class UserResponse(BaseModel):
     douyin_id: Optional[str] = None
     wechat_official_account: Optional[str] = None
     xiaoyuzhou_id: Optional[str] = None
+    mbti: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -126,7 +126,6 @@ class UserProfileUpdate(BaseModel):
     nick_name: Optional[str] = None
     avatar_url: Optional[str] = None
     gender: Optional[int] = None
-    age: Optional[int] = None
     bio: Optional[str] = None
     birthday: Optional[str] = None
     occupation: Optional[str] = None
@@ -141,3 +140,4 @@ class UserProfileUpdate(BaseModel):
     douyin_id: Optional[str] = None
     wechat_official_account: Optional[str] = None
     xiaoyuzhou_id: Optional[str] = None
+    mbti: Optional[str] = None

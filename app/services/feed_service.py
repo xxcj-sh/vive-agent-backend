@@ -469,14 +469,6 @@ class FeedService:
                 and filters['city'] in users_map[c.user_id].location
             ]
         
-        if 'age_range' in filters and len(filters['age_range']) == 2:
-            min_age, max_age = filters['age_range']
-            filtered_cards = [
-                c for c in filtered_cards 
-                if users_map.get(c.user_id) and users_map[c.user_id].age 
-                and min_age <= users_map[c.user_id].age <= max_age
-            ]
-        
         return filtered_cards
     
     def get_fallback_cards(self, user_id: Optional[str], page_size: int = 10) -> List[Dict[str, Any]]:
@@ -636,7 +628,6 @@ class FeedService:
                     "userId": str(card.user_id),
                     "name": getattr(card, 'display_name', None),
                     "avatar": self._process_media_url(getattr(card, 'avatar_url', None) or getattr(user, 'avatar_url', None) or ""),
-                    "age": getattr(user, 'age', 25),
                     "occupation": getattr(user, 'occupation', ''),
                     "location": getattr(card, 'location', ''),
                     "bio": getattr(card, 'bio', '') or '这个人很懒，什么都没有留下...',
@@ -664,7 +655,6 @@ class FeedService:
                     "displayName": getattr(card, 'display_name', None),
                     "creatorName": getattr(user, 'nick_name', '匿名用户'),
                     "creatorAvatar": self._process_media_url(getattr(user, 'avatar_url', None) or ""),
-                    "creatorAge": getattr(user, 'age', 25),
                     "creatorOccupation": getattr(user, 'occupation', ''),
                     "cardTitle": str(card.display_name),
                     "visibility": 'everyone' if getattr(card, 'visibility', 'public') == 'public' else getattr(card, 'visibility', 'public')
@@ -732,7 +722,6 @@ class FeedService:
                     "id": str(user_card.id),
                     "userId": str(card_creator.id),
                     "avatar": self._process_media_url(getattr(user_card, 'avatar_url', None) or getattr(card_creator, 'avatar_url', None) or ""),
-                    "age": getattr(card_creator, 'age', 25),
                     "occupation": getattr(card_creator, 'occupation', ''),
                     "location": getattr(user_card, 'location', ''),
                     "bio": getattr(user_card, 'bio', '') or '这个人很懒，什么都没有留下...',
@@ -751,7 +740,6 @@ class FeedService:
                     "displayName": getattr(user_card, 'display_name', None),
                     "creatorName": getattr(card_creator, 'nick_name', '匿名用户'),
                     "creatorAvatar": self._process_media_url(getattr(card_creator, 'avatar_url', None) or ""),
-                    "creatorAge": getattr(card_creator, 'age', 25),
                     "creatorOccupation": getattr(card_creator, 'occupation', ''),
                     "cardTitle": str(user_card.display_name),
                     "visibility": 'everyone' if getattr(user_card, 'visibility', 'public') == 'public' else getattr(user_card, 'visibility', 'public')
@@ -891,7 +879,6 @@ class FeedService:
                     "id": str(user_card.id),
                     "userId": str(card_creator.id),
                     "avatar": self._process_media_url(getattr(user_card, 'avatar_url', None) or getattr(card_creator, 'avatar_url', None) or ""),
-                    "age": getattr(card_creator, 'age', 25),
                     "occupation": getattr(card_creator, 'occupation', ''),
                     "location": getattr(user_card, 'location', ''),
                     "bio": getattr(user_card, 'bio', '') or '这个人很懒，什么都没有留下...',
@@ -919,7 +906,6 @@ class FeedService:
                     "displayName": getattr(user_card, 'display_name', None),
                     "creatorName": getattr(card_creator, 'nick_name', '匿名用户'),
                     "creatorAvatar": self._process_media_url(getattr(card_creator, 'avatar_url', None) or ""),
-                    "creatorAge": getattr(card_creator, 'age', 25),
                     "creatorOccupation": getattr(card_creator, 'occupation', ''),
                     "cardTitle": str(user_card.display_name),
                     "visibility": 'everyone' if getattr(user_card, 'visibility', 'public') == 'public' else getattr(user_card, 'visibility', 'public')

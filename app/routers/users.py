@@ -96,7 +96,6 @@ class ProfileUpdate(BaseModel):
     
     # 其他字段
     gender: Optional[int] = None
-    age: Optional[int] = None
     occupation: Optional[str] = None
     location: Optional[Any] = None
     bio: Optional[str] = None
@@ -124,6 +123,9 @@ class ProfileUpdate(BaseModel):
     wechat_official_account: Optional[str] = None
     xiaoyuzhou_id: Optional[str] = None
     
+    # MBTI 人格类型
+    mbti: Optional[str] = None
+    
     class Config:
         # 允许额外字段，提高兼容性
         extra = "ignore"
@@ -138,7 +140,6 @@ class UserResponse(BaseModel):
     nick_name: Optional[str] = None
     avatar_url: Optional[str] = None
     gender: Optional[int] = None
-    age: Optional[int] = None
     bio: Optional[str] = None
     occupation: Optional[str] = None
     location: Optional[Any] = None
@@ -151,6 +152,7 @@ class UserResponse(BaseModel):
     last_login: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    mbti: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -217,7 +219,6 @@ def generate_profile_on_user_creation(db: Session, user_id: str):
             user_data = {
                 'nick_name': user.nick_name,
                 'gender': user.gender,
-                'age': user.age,
                 'bio': user.bio,
                 'occupation': user.occupation,
                 'location': user.location,
@@ -412,8 +413,8 @@ def update_current_user(profile_data: ProfileUpdate, background_tasks: Backgroun
             raise HTTPException(status_code=404, detail="User not found")
         
         # 检查是否需要触发用户画像生成
-        # 当用户更新了关键信息（bio, gender, age, occupation, location）时重新生成画像
-        profile_trigger_fields = ['bio', 'gender', 'age', 'occupation', 'location', 'nick_name', 'education', 'interests']
+        # 当用户更新了关键信息（bio, gender, occupation, location）时重新生成画像
+        profile_trigger_fields = ['bio', 'gender', 'occupation', 'location', 'nick_name', 'education', 'interests']
         should_regenerate_profile = any(
             field in update_dict for field in profile_trigger_fields
         )
@@ -423,7 +424,6 @@ def update_current_user(profile_data: ProfileUpdate, background_tasks: Backgroun
             user_data_for_profile = {
                 'nick_name': updated_user.nick_name,
                 'gender': updated_user.gender,
-                'age': updated_user.age,
                 'bio': updated_user.bio,
                 'occupation': updated_user.occupation,
                 'location': updated_user.location,
@@ -616,7 +616,6 @@ def get_current_user_info(
             "nickName": db_user.nick_name,
             "avatarUrl": db_user.avatar_url,
             "gender": db_user.gender or 0,
-            "age": db_user.age,
             "occupation": db_user.occupation,
             "location": db_user.location,
             "education": db_user.education,
@@ -831,7 +830,6 @@ def read_user(user_id: str, db: Session = Depends(get_db)):
             "nickname": db_user.nick_name,
             "avatarUrl": db_user.avatar_url,
             "gender": db_user.gender or 0,
-            "age": db_user.age,
             "occupation": db_user.occupation,
             "location": db_user.location,
             "education": db_user.education,
@@ -1035,7 +1033,6 @@ class SemanticSearchItem(BaseModel):
     avatar_url: Optional[str] = Field(None, description="头像URL")
     bio: Optional[str] = Field(None, description="个人简介")
     gender: Optional[int] = Field(None, description="性别：1-男，2-女")
-    age: Optional[int] = Field(None, description="年龄")
     location: Optional[Any] = Field(None, description="位置信息")
     occupation: Optional[str] = Field(None, description="职业")
     interests: Optional[List[str]] = Field(None, description="兴趣爱好")
@@ -1302,7 +1299,6 @@ async def semantic_search(
                 avatar_url=avatar_url,
                 bio=user_data.get('bio'),
                 gender=user_data.get('gender'),
-                age=user_data.get('age'),
                 location=user_data.get('location'),
                 occupation=user_data.get('occupation'),
                 interests=user_data.get('interests') or [],

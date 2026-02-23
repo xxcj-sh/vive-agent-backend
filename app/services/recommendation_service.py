@@ -612,13 +612,6 @@ class RecommendationService:
                 if u.location and filters['city'] in u.location
             ]
         
-        if 'age_range' in filters and len(filters['age_range']) == 2:
-            min_age, max_age = filters['age_range']
-            filtered_users = [
-                u for u in filtered_users 
-                if u.age and min_age <= u.age <= max_age
-            ]
-        
         return filtered_users
     
     # ==================== 辅助方法 ====================
@@ -704,7 +697,6 @@ class RecommendationService:
             "nick_name": user.nick_name,
             "avatar_url": user.avatar_url,
             "gender": user.gender,
-            "age": user.age,
             "occupation": user.occupation,
             "location": user.location,
             "bio": user.bio,

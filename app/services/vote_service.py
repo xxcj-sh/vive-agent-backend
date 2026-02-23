@@ -341,7 +341,6 @@ class VoteService:
                 "nick_name": user.nick_name or "匿名用户",
                 "avatar_url": user.avatar_url or "",
                 "gender": user.gender,
-                "age": user.age,
                 "occupation": user.occupation,
                 "education": user.education,
                 "location": user.location,
