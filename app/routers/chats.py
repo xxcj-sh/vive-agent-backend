@@ -366,22 +366,22 @@ async def mark_chat_summary_as_read(
     db: Session = Depends(get_db)
 ):
     """标记聊天总结为已读
-    
+
     更新聊天总结的已读状态
     """
     try:
         summary = db.query(ChatSummary).filter(ChatSummary.id == summary_id).first()
-        
+
         if not summary:
             raise HTTPException(status_code=404, detail="聊天总结不存在")
-        
+
         # 只有在未读状态下才更新
         if not summary.is_read:
             summary.is_read = True
             summary.read_at = datetime.now()
             db.commit()
             db.refresh(summary)
-        
+
         return summary.to_dict()
     except HTTPException:
         raise

@@ -459,11 +459,6 @@ class RecommendationService:
                 profile_score += 5
             if card.bio and len(card.bio) > 10:
                 profile_score += 5
-            if card.profile_data:
-                if card.profile_data.get('occupation'):
-                    profile_score += 5
-                if card.profile_data.get('location'):
-                    profile_score += 5
             score += profile_score
             
             # 4. 随机因子（0-10分，增加多样性）

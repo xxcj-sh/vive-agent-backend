@@ -20,7 +20,6 @@ class UserCard(Base):
     display_name = Column(String(100), nullable=False)
     avatar_url = Column(String(500), nullable=True)
     bio = Column(Text, nullable=True)
-    profile_data = Column(Text, nullable=True)
     preferences = Column(String, nullable=True)
     visibility = Column(String(20), default="public")  # public, private
     is_active = Column(Integer, default=1)
@@ -46,30 +45,17 @@ class UserCard(Base):
             "search_code": self.search_code
         }
 
-        # 解析 JSON 字符串
-        def parse_json_field(value):
-            if not value:
-                return {}
-            if isinstance(value, dict):
-                return value
-            try:
-                return json.loads(value)
-            except (json.JSONDecodeError, TypeError):
-                return {}
-
         # 私有模式处理
         if self.visibility == VISIBILITY_PRIVATE and not include_private:
             # 私有模式下不暴露详细信息
             data["display_name"] = "私有用户"
             data["avatar_url"] = ""
             data["bio"] = ""
-            data["profile_data"] = {}
-            data["preferences"] = {}
+            data["preferences"] = ""
         else:
             data["display_name"] = self.display_name
             data["avatar_url"] = self.avatar_url
             data["bio"] = self.bio
-            data["profile_data"] = parse_json_field(self.profile_data)
-            data["preferences"] = parse_json_field(self.preferences)
+            data["preferences"] = self.preferences or ""
 
         return data

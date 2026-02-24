@@ -433,17 +433,10 @@ async def process_scene_stream(
     if card_id:
         user_card = UserCardService.get_card_by_id(db, card_id)
         if user_card:
-            import json
-            try:
-                profile_data = json.loads(user_card.profile_data) if user_card.profile_data else {}
-            except (json.JSONDecodeError, TypeError):
-                profile_data = {}
-            
             params["character_profile"] = {
                 "display_name": user_card.display_name,
                 "bio": user_card.bio or "",
-                "role_type": user_card.role_type,
-                "profile_data": profile_data
+                "role_type": user_card.role_type
             }
     
     if not scene_config_key:
