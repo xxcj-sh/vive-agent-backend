@@ -26,23 +26,13 @@ class UserCardService:
             raise ValueError(f"积分不足：当前积分 {consume_result['current_points']}，需要积分 {consume_result['required_points']}")
         
         card_id = f"card_{card_data.role_type}_{uuid.uuid4().hex[:8]}"
-        
-        # 处理 JSON 字段，确保正确序列化
-        profile_data = card_data.profile_data
-        if profile_data is not None and isinstance(profile_data, dict):
-            profile_data = json.dumps(profile_data, ensure_ascii=False)
-        else:
-            profile_data = json.dumps({}, ensure_ascii=False)
-            
-        preferences = card_data.preferences
-        if preferences is not None:
-            if isinstance(preferences, dict):
-                preferences = json.dumps(preferences, ensure_ascii=False)
-            else:
-                preferences = str(preferences)
-        else:
-            preferences = ""
-        
+
+        # preferences 是纯字符串字段，直接使用传入的值，None 或空字符串则设为空对象字符串
+        preferences = card_data.preferences if card_data.preferences else ''
+        # 如果是字典类型，转换为 JSON 字符串（兼容旧数据）
+        if isinstance(preferences, dict):
+            preferences = json.dumps(preferences, ensure_ascii=False)
+
         db_card = UserCard(
             id=card_id,
             user_id=user_id,
@@ -50,7 +40,6 @@ class UserCardService:
             display_name=card_data.display_name,
             avatar_url=card_data.avatar_url,
             bio=card_data.bio,
-            profile_data=profile_data,
             preferences=preferences,
             visibility=card_data.visibility or "public",
             search_code=card_data.search_code
@@ -95,13 +84,6 @@ class UserCardService:
         # 获取基础用户信息
         user = db.query(User).filter(User.id == user_id).first()
         
-        # 构建基础card信息
-        # 解析 JSON 字符串
-        try:
-            profile_data = json.loads(card.profile_data) if card.profile_data else {}
-        except (json.JSONDecodeError, TypeError):
-            profile_data = {}
-        
         result = {
             "id": card.id,
             "user_id": card.user_id,
@@ -109,7 +91,6 @@ class UserCardService:
             "display_name": card.display_name,
             "avatar_url": card.avatar_url,
             "bio": card.bio or "",
-            "profile_data": profile_data,
             "preferences": card.preferences,
             "visibility": card.visibility,
             "is_active": card.is_active,
@@ -150,25 +131,11 @@ class UserCardService:
             
         # 更新允许修改的字段
         for field, value in update_data.items():
-            if field in ["bio", "profile_data", "preferences", "visibility", "search_code", "avatar_url", "display_name"]:
-                # 对 JSON 字段进行序列化
-                if field in ["profile_data"]:
-                    if value is not None:
-                        if isinstance(value, dict):
-                            value = json.dumps(value, ensure_ascii=False)
-                            print(f"更新{field}后:", value)
-                        else:
-                            value = json.dumps({}, ensure_ascii=False)
-                    else:
-                        value = json.dumps({}, ensure_ascii=False)
-                elif field in ["preferences"]:
-                    if value is not None:
-                        if isinstance(value, dict):
-                            value = json.dumps(value, ensure_ascii=False)
-                        else:
-                            value = str(value)
-                    else:
-                        value = ""
+            if field in ["bio", "preferences", "visibility", "search_code", "avatar_url", "display_name"]:
+                # preferences 是纯字符串字段，None 或空字符串则设为空对象字符串
+                if field == "preferences":
+                    value = value if value else ''
+                    # 如果是字典类型，转换为 JSON 字符串（兼容旧数据）
                 setattr(card, field, value)
                 
         card.updated_at = datetime.now()
@@ -220,8 +187,7 @@ class UserCardService:
                     "display_name": card.display_name,
                     "avatar_url": card.avatar_url,
                     "bio": card.bio,
-                    "profile_data": {},
-                    "preferences": "",
+                    "preferences": card.preferences or "",
                     "visibility": card.visibility,
                     "is_active": card.is_active,
                     "is_deleted": card.is_deleted,
@@ -229,25 +195,6 @@ class UserCardService:
                     "created_at": card.created_at,
                     "updated_at": card.updated_at
                 }
-                
-                # 确保 JSON 字段正确解析
-                if card.profile_data:
-                    if isinstance(card.profile_data, str):
-                        try:
-                            card_dict["profile_data"] = json.loads(card.profile_data)
-                        except (json.JSONDecodeError, TypeError):
-                            card_dict["profile_data"] = {}
-                    elif isinstance(card.profile_data, dict):
-                        card_dict["profile_data"] = card.profile_data
-                
-                # 确保 preferences 是字符串类型
-                if card.preferences:
-                    if isinstance(card.preferences, dict):
-                        card_dict["preferences"] = json.dumps(card.preferences, ensure_ascii=False)
-                    elif isinstance(card.preferences, str):
-                        card_dict["preferences"] = card.preferences
-                    else:
-                        card_dict["preferences"] = str(card.preferences)
                 
                 processed_card_dicts.append(card_dict)
             
@@ -314,12 +261,6 @@ class UserCardService:
         # 处理卡片数据
         processed_cards = []
         for card in cards:
-            # 解析JSON字段
-            try:
-                profile_data = json.loads(card.profile_data) if card.profile_data else {}
-            except (json.JSONDecodeError, TypeError):
-                profile_data = {}
-            
             # 获取用户基础信息
             user = db.query(User).filter(User.id == card.user_id).first()
             user_info = {}
@@ -333,7 +274,7 @@ class UserCardService:
                     "interests": getattr(user, 'interests', []) if user else [],
                     "avatar_url": user.avatar_url if user else None
                 }
-            
+
             # 处理卡片数据
             processed_card = {
                 "id": card.id,
@@ -342,14 +283,13 @@ class UserCardService:
                 "display_name": card.display_name,
                 "avatar_url": card.avatar_url,
                 "bio": card.bio,
-                "profile_data": profile_data,
                 "preferences": card.preferences,
                 "visibility": card.visibility,
                 "created_at": card.created_at,
                 "updated_at": card.updated_at,
                 "user_info": user_info
             }
-            
+
             processed_cards.append(processed_card)
         
         # 计算总页数
@@ -361,122 +301,6 @@ class UserCardService:
             "total_pages": total_pages,
             "current_page": page,
             "page_size": page_size
-        }
-        
-    @staticmethod
-    def get_card_template(role_type: str) -> Dict[str, Any]:
-        """获取特定角色的卡片模板"""
-        templates = {
-            "housing": {
-                "housing_seeker": {
-                    "profile_data": {
-                        "budget_range": [0, 0],
-                        "preferred_areas": [],
-                        "room_type": "",
-                        "move_in_date": "",
-                        "lease_duration": "",
-                        "lifestyle": "",
-                        "work_schedule": "",
-                        "pets": False,
-                        "smoking": False,
-                        "occupation": "",
-                        "company_location": ""
-                    },
-                    "preferences": {
-                        "roommate_gender": "any",
-                        "roommate_age_range": [18, 60],
-                        "shared_facilities": [],
-                        "transportation": [],
-                        "nearby_facilities": []
-                    }
-                },
-                "housing_provider": {
-                    "profile_data": {
-                        "properties": [],
-                        "landlord_type": "individual",
-                        "response_time": "within_24_hours",
-                        "viewing_available": True,
-                        "lease_terms": []
-                    },
-                    "preferences": {
-                        "tenant_requirements": {
-                            "stable_income": True,
-                            "no_pets": False,
-                            "no_smoking": False,
-                            "quiet_lifestyle": False
-                        },
-                        "payment_methods": []
-                    }
-                }
-            },
-            "dating": {
-                "dating_seeker": {
-                    "profile_data": {
-                        "age": 0,
-                        "height": 0,
-                        "education": "",
-                        "occupation": "",
-                        "income_range": "",
-                        "relationship_status": "single",
-                        "looking_for": "",
-                        "hobbies": [],
-                        "personality": [],
-                        "lifestyle": {}
-                    },
-                    "preferences": {
-                        "age_range": [18, 60],
-                        "height_range": [150, 200],
-                        "education_level": [],
-                        "personality_preferences": [],
-                        "lifestyle_preferences": {},
-                        "relationship_goals": ""
-                    }
-                }
-            },
-            "activity": {
-                "activity_organizer": {
-                    "profile_data": {
-                        "organizing_experience": "",
-                        "specialties": [],
-                        "group_size_preference": "",
-                        "frequency": "",
-                        "locations": [],
-                        "past_activities": [],
-                        "contact_info": {}
-                    },
-                    "preferences": {
-                        "participant_requirements": {},
-                        "activity_types": [],
-                        "weather_dependency": "flexible"
-                    }
-                },
-                "activity_participant": {
-                    "profile_data": {
-                        "interests": [],
-                        "availability": {},
-                        "experience_level": {},
-                        "transportation": [],
-                        "budget_range": {}
-                    },
-                    "preferences": {
-                        "activity_types": [],
-                        "group_size": "",
-                        "duration": "",
-                        "difficulty_level": [],
-                        "location_preference": ""
-                    }
-                }
-            }
-        }
-        
-        # 查找角色模板（不再按场景分组）
-        for scene_templates in templates.values():
-            if role_type in scene_templates:
-                return scene_templates[role_type]
-        
-        return {
-            "profile_data": {},
-            "preferences": {}
         }
 
     @staticmethod

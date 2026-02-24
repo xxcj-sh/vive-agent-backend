@@ -172,7 +172,6 @@ class FeedService:
                     "avatar_url": user_card.avatar_url,
                     "bio": user_card.bio,
                     "role_type": user_card.role_type,
-                    "profile_data": user_card.profile_data or {},
                     "recommend_score": round(score, 2),
                     "updated_at": user_card.updated_at.isoformat() if user_card.updated_at else None
                 }
@@ -328,7 +327,6 @@ class FeedService:
                     "avatar_url": card.avatar_url,
                     "bio": card.bio,
                     "role_type": card.role_type,
-                    "profile_data": card.profile_data or {},
                     "is_popular": True
                 }
                 result.append(card_data)
@@ -396,7 +394,6 @@ class FeedService:
                     "avatar_url": card.avatar_url,
                     "bio": card.bio,
                     "role_type": card.role_type,
-                    "profile_data": card.profile_data or {},
                     "recommend_score": 0.0,
                     "updated_at": card.updated_at.isoformat() if card.updated_at else None,
                     "is_fallback": True

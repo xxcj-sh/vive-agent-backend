@@ -20,7 +20,6 @@ class CardCreate(BaseModel):
     avatar_url: Optional[str] = Field(None, description="头像URL")
     bio: Optional[str] = Field(None, description="个人简介")
 
-    profile_data: Optional[Dict[str, Any]] = Field(None, description="角色特定数据")
     preferences: Optional[str] = Field(None, description="偏好设置")
     visibility: Optional[str] = Field("public", description="可见性")
     tags: Optional[List[str]] = Field(None, description="标签列表")
@@ -32,7 +31,6 @@ class CardUpdate(BaseModel):
     avatar_url: Optional[str] = Field(None, description="头像URL")
     bio: Optional[str] = Field(None, description="个人简介")
 
-    profile_data: Optional[Dict[str, Any]] = Field(None, description="卡片描述数据")
     preferences: Optional[str] = Field(None, description="角色聊天偏好")
     visibility: Optional[str] = Field(None, description="可见性")
     is_active: Optional[int] = Field(None, description="是否激活")
@@ -45,22 +43,10 @@ class Card(CardBase):
     avatar_url: Optional[str] = Field(None, description="卡片封面 URL")
     bio: Optional[str] = Field(None, description="卡片简介")
 
-    profile_data: Optional[Dict[str, Any]] = Field(None, description="卡片特定数据")
     preferences: Optional[str] = Field(None, description="卡片匹配偏好")
     visibility: Optional[str] = Field("public", description="可见性")
     is_active: Optional[int] = Field(None, description="是否激活")
     search_code: Optional[str] = Field(None, description="搜索代码")
-    
-    @validator('profile_data', pre=True)
-    def validate_profile_data(cls, v):
-        """验证profile_data字段"""
-        if isinstance(v, str):
-            try:
-                parsed = json.loads(v)
-                return parsed if isinstance(parsed, dict) else {}
-            except (json.JSONDecodeError, TypeError):
-                return {}
-        return v if isinstance(v, dict) else {}
     
     class Config:
         from_attributes = True
